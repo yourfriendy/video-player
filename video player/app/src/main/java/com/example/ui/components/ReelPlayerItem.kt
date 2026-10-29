@@ -49,6 +49,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
+import android.content.Context
+import android.media.AudioManager
+import android.view.LayoutInflater
+import com.example.R
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -93,6 +97,7 @@ private tailrec fun Context.findActivity(): android.app.Activity? = when (this) 
 @Composable
 fun ReelPlayerItem(
     video: LocalVideo,
+    player: ExoPlayer,
     isCurrentPage: Boolean,
     isPlaying: Boolean,
     isMuted: Boolean,
@@ -104,6 +109,7 @@ fun ReelPlayerItem(
     shouldPreload: Boolean = false,
     startPositionMs: Long = 0L,
     onEnded: () -> Unit = {},
+    onVolumeAdjusted: () -> Unit = {},
     onProgressUpdate: (currentMs: Long, totalMs: Long) -> Unit,
     onSingleTap: () -> Unit,
     onDoubleTap: (Offset) -> Unit,
@@ -134,20 +140,27 @@ fun ReelPlayerItem(
     var dragSeekDeltaMs by remember { mutableLongStateOf(0L) }
     var dragTargetPosMs by remember { mutableLongStateOf(0L) }
 
-    // ExoPlayer reference
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            repeatMode = if (isLoopMode) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-            videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-        }
-    }
+    // Borrowed from the shared pool: swiping never builds a player
+    val exoPlayer = player
+    val mediaId = video.id.toString()
+    val latestOnVolumeAdjusted by rememberUpdatedState(onVolumeAdjusted)
+
+    // Side swipes: brightness on the left edge, volume on the right edge
+    val sideGestureState = remember { SideGestureState() }
+    val hostActivity = remember(context) { context.findActivity() }
+    val audioManager = remember(context) { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+
+    // Hide the (possibly stale) frame of the previous video until this video's first frame is ready
+    var hasRenderedFirstFrame by remember(video.id) { mutableStateOf(false) }
 
     // Prepare the current page, and preload the neighbouring page (paused) so swipes show a frame instantly
     LaunchedEffect(video.uri, isCurrentPage, shouldPreload) {
         if (!video.isSample) {
             if (isCurrentPage || shouldPreload) {
-                if (exoPlayer.currentMediaItem == null) {
-                    exoPlayer.setMediaItem(MediaItem.fromUri(video.uri))
+                if (exoPlayer.currentMediaItem?.mediaId != mediaId) {
+                    exoPlayer.setMediaItem(
+                        MediaItem.Builder().setUri(video.uri).setMediaId(mediaId).build()
+                    )
                     exoPlayer.prepare()
                 } else if (exoPlayer.playbackState == Player.STATE_IDLE) {
                     exoPlayer.prepare() // retry after an error
@@ -164,7 +177,7 @@ fun ReelPlayerItem(
         }
     }
 
-    LaunchedEffect(isLoopMode) {
+    LaunchedEffect(isLoopMode, exoPlayer) {
         exoPlayer.repeatMode = if (isLoopMode) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
 
@@ -257,16 +270,29 @@ fun ReelPlayerItem(
                 }
             }
 
+            override fun onRenderedFirstFrame() {
+                if (exoPlayer.currentMediaItem?.mediaId == mediaId) hasRenderedFirstFrame = true
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 hasPlaybackError = true
                 isBuffering = false
             }
         }
         exoPlayer.addListener(listener)
+        // Already showing this video (e.g. returning to a page that kept its player)
+        if (exoPlayer.currentMediaItem?.mediaId == mediaId && exoPlayer.playbackState == Player.STATE_READY) {
+            hasRenderedFirstFrame = true
+        }
 
         onDispose {
             exoPlayer.removeListener(listener)
-            exoPlayer.release()
+            // Free the decoder for whoever borrows this player next, but only if it is still ours
+            if (exoPlayer.currentMediaItem?.mediaId == mediaId) {
+                exoPlayer.pause()
+                exoPlayer.stop()
+                exoPlayer.clearMediaItems()
+            }
         }
     }
 
@@ -291,6 +317,16 @@ fun ReelPlayerItem(
             .fillMaxSize()
             .background(ComposeColor.Black)
             .testTag("reel_player_item_${video.id}")
+            .then(
+                if (isCurrentPage) {
+                    Modifier.sideSwipeControls(
+                        state = sideGestureState,
+                        activity = hostActivity,
+                        audioManager = audioManager,
+                        onVolumeRaised = { latestOnVolumeAdjusted() }
+                    )
+                } else Modifier
+            )
             .pointerInput(video.id) {
                 detectTapGestures(
                     onTap = {
@@ -350,22 +386,23 @@ fun ReelPlayerItem(
             // Native Media3 PlayerView
             AndroidView(
                 factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = exoPlayer
-                        useController = false
+                    (LayoutInflater.from(ctx).inflate(R.layout.reel_player_view, null, false) as PlayerView).apply {
+                        this.player = exoPlayer
                         resizeMode = resizeModeEnum
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
                     }
                 },
                 update = { playerView ->
-                    playerView.player = exoPlayer
-                    playerView.resizeMode = resizeModeEnum
+                    if (playerView.player !== exoPlayer) playerView.player = exoPlayer
+                    if (playerView.resizeMode != resizeModeEnum) playerView.resizeMode = resizeModeEnum
                 },
+                onRelease = { playerView -> playerView.player = null },
                 modifier = Modifier.fillMaxSize()
             )
+
+            // Cover until the first frame of THIS video is on screen (never flash another video's frame)
+            if (!hasRenderedFirstFrame && !hasPlaybackError) {
+                Box(modifier = Modifier.fillMaxSize().background(ComposeColor.Black))
+            }
         }
 
         // Buffering Indicator
@@ -454,6 +491,9 @@ fun ReelPlayerItem(
                 )
             }
         }
+
+        // Brightness / volume level indicator
+        SideGestureHud(state = sideGestureState)
 
         // Double tap floating heart animation
         doubleTapHeartOffset?.let { offset ->

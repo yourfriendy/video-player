@@ -28,7 +28,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 | 📴 **Fully offline** | Plays files straight from your device. The app code makes no network calls and your videos never leave your phone. |
 | 🔒 **Minimal permission** | Only asks to read your videos (`READ_MEDIA_VIDEO`). |
 | 🚫 **No accounts, no ads** | Install it and start watching. |
-| ⚡ **Smooth swiping** | Built on Media3 ExoPlayer, and the next video is preloaded so swipes feel instant. |
+| ⚡ **Buttery swiping** | A shared pool of Media3 players, the next video preloaded, and an R8-optimised release build. |
 
 ## 🎬 Features
 
@@ -41,6 +41,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 - ❤️ **Double-tap to like**
 - ⏯️ Tap to reveal controls, tap again to play/pause
 - 🎚️ **Scrub bar** and horizontal-drag seeking
+- 🔆 **Brightness** (left edge) and 🔊 **volume** (right edge) swipes with a live level indicator
 - ⏭️ Auto-advance to the next video when loop is off
 - ⏱️ **Resume** long videos where you left off
 - 🔁 Loop, mute and **playback speed**
@@ -51,13 +52,13 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 <td width="50%" valign="top">
 
 ### Find
-- 🔎 **Search** by file or folder name (punctuation-proof: `neon cyber` finds `Neon_Cyber_Loop.mp4`)
-- 🧱 Search results and library as a **tappable grid**
-- 🗂️ Filter by **folder**, recently added, recently played, favorites
-- ⏳ Filter by **duration** ranges
-- 🧠 **Brain Modes**: Focus, Calm, Low Energy and Dopamine (random)
-- ↕️ Sort by date, duration, size or name
-- 🔀 **Shuffle** that keeps your place
+- 🔎 A dedicated **search page**: instant results with thumbnails, highlighted matches and a favorite badge
+- 🧠 Smart matching: ignores case, punctuation and extensions (`neon cyber` finds `Neon_Cyber_Loop.mp4`)
+- 🎛️ Narrow by **length**, **favorites**, **folder** and **sort order**
+- 🕘 **Recent searches**, quick picks, *Recently added* and *Continue watching*
+- ▶️ Tap a result to play that exact video; the feed becomes your results, and **✕ on the search chip returns to the full feed on the same video**
+- 🗂️ Feed filters: folder, recently added / played, favorites, duration
+- ↕️ Sort by date, duration, size or name, plus **shuffle** that keeps your place
 
 </td>
 </tr>
@@ -99,8 +100,11 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 | **Swipe up / down** | Next / previous video |
 | **Tap** | Show controls (tap again to play / pause) |
 | **Double-tap** | Like ❤️ |
+| **Slide along the left edge** | Brightness 🔆 |
+| **Slide along the right edge** | Volume 🔊 |
 | **Drag along the progress bar** | Scrub through the video |
 | **Search icon** | Find a video, then tap a result to play it |
+| **Gear icon** | Settings and guide |
 
 ## 🛠️ Tech stack
 
@@ -109,8 +113,8 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 | **Language / UI** | Kotlin · Jetpack Compose · Material 3 |
 | **Playback** | AndroidX Media3 (ExoPlayer) |
 | **Storage** | Room (favorites, playlists, history, Watch Later) |
-| **Images** | Coil |
-| **Architecture** | MVVM with a single `ViewModel` and `StateFlow` UI state |
+| **Images** | Coil (with video-frame thumbnails) |
+| **Architecture** | MVVM with a single `ViewModel` and `StateFlow` UI state; search runs off the main thread |
 | **CI** | GitHub Actions builds the APK and publishes it to Releases |
 
 ## 🧱 Build from source
@@ -136,7 +140,7 @@ gradle :app:assembleDebug
 
 ### 🤖 Automatic APK builds
 
-Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds the app and replaces the **`latest`** release with a fresh `OffScroll.apk`, so the newest build is always one tap away from the repo's front page.
+Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds an **R8-optimised, release-signed** APK and replaces the **`latest`** release with a fresh `OffScroll.apk`, so the newest build is always one tap away from the repo's front page.
 
 ## 📁 Project layout
 
@@ -144,16 +148,15 @@ Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), wh
 video player/app/src/main/java/com/example/
 ├── data/            Room database, DAOs, MediaStore repository, settings
 ├── ui/
-│   ├── components/  Feed, player item, library, discover, sheets, dialogs
-│   ├── navigation/  Bottom navigation and routes
-│   ├── viewmodel/   VideoFeedViewModel (feed state, filters, search, playback)
+│   ├── components/  Feed, player pool, search page, side gestures, settings, sheets
+│   ├── navigation/  Feed ⇄ Settings
+│   ├── viewmodel/   VideoFeedViewModel (feed state, filters, search engine, playback)
 │   └── model/       Filters, sort options, display modes
 └── MainActivity.kt  Permission flow, PiP, app entry point
 ```
 
 ## 🗺️ Ideas for later
 
-- A shared player pool for even faster swipes
 - Subtitle support
 - Backup and restore of favorites and playlists
 - Home-screen shortcuts for playlists
@@ -166,6 +169,6 @@ Issues and pull requests are welcome. If you found a bug, tell us your Android v
 
 <div align="center">
 
-Made with 💜 for people who just want to watch their own videos.
+Made by **Madhu Yadav** ❤️‍🔥 for people who just want to watch their own videos.
 
 </div>

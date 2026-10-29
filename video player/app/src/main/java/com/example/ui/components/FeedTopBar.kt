@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Videocam
@@ -75,8 +76,7 @@ fun FeedTopBar(
     selectedSort: SortOption,
     isShuffleMode: Boolean,
     isGridView: Boolean,
-    searchQuery: String,
-    isSearchOpen: Boolean,
+    isSearchActive: Boolean,
     folders: List<String>,
     totalVideosCount: Int,
     currentIndex: Int,
@@ -85,8 +85,8 @@ fun FeedTopBar(
     onSelectSort: (SortOption) -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleGridView: () -> Unit,
-    onSearchQueryChange: (String) -> Unit,
-    onToggleSearch: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
     onRefresh: () -> Unit,
     onOpenPopup: () -> Unit = {},
     onOpenAllFeatures: () -> Unit = {},
@@ -94,8 +94,6 @@ fun FeedTopBar(
 ) {
     var isFilterMenuExpanded by remember { mutableStateOf(false) }
     var isSortMenuExpanded by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
-    val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
     Box(
         modifier = modifier
@@ -245,19 +243,19 @@ fun FeedTopBar(
                 ) {
                     // 1. Search Button
                     IconButton(
-                        onClick = onToggleSearch,
+                        onClick = onOpenSearch,
                         modifier = Modifier
                             .size(38.dp)
                             .shadow(4.dp, CircleShape)
                             .background(
-                                if (isSearchOpen) Color(0xCC7C3AED) else GlassBackground,
+                                if (isSearchActive) Color(0xCC7C3AED) else GlassBackground,
                                 CircleShape
                             )
                             .border(1.dp, GlassBorder, CircleShape)
                             .testTag("feed_search_button")
                     ) {
                         Icon(
-                            imageVector = if (isSearchOpen) Icons.Default.Close else Icons.Default.Search,
+                            imageVector = Icons.Default.Search,
                             contentDescription = "Search videos",
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
@@ -285,6 +283,24 @@ fun FeedTopBar(
                         )
                     }
 
+                    // Settings
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .shadow(4.dp, CircleShape)
+                            .background(GlassBackground, CircleShape)
+                            .border(1.dp, GlassBorder, CircleShape)
+                            .testTag("feed_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
                     // 3. 3-Dots Master Features Hub (Holds all features & controls in one place)
                     IconButton(
                         onClick = onOpenAllFeatures,
@@ -301,74 +317,6 @@ fun FeedTopBar(
                             tint = Color(0xFFE0E7FF),
                             modifier = Modifier.size(20.dp)
                         )
-                    }
-                }
-            }
-
-            // Expandable Search Bar
-            AnimatedVisibility(
-                visible = isSearchOpen,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(6.dp, RoundedCornerShape(12.dp))
-                        .background(Color(0xCC1E293B), RoundedCornerShape(12.dp))
-                        .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Runs when the search row enters composition, i.e. as soon as search opens
-                    androidx.compose.runtime.LaunchedEffect(Unit) {
-                        try { searchFocusRequester.requestFocus() } catch (_: Exception) { /* not attached yet */ }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = Color(0xFF94A3B8),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = onSearchQueryChange,
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(searchFocusRequester)
-                            .testTag("video_search_input"),
-                        textStyle = TextStyle(
-                            color = Color.White,
-                            fontSize = 14.sp
-                        ),
-                        cursorBrush = SolidColor(Color(0xFFA78BFA)),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                        decorationBox = { innerTextField ->
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    text = "Search by filename or folder...",
-                                    color = Color(0xFF64748B),
-                                    fontSize = 13.sp
-                                )
-                            }
-                            innerTextField()
-                        }
-                    )
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(
-                            onClick = { onSearchQueryChange("") },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear search",
-                                tint = Color(0xFF94A3B8),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
                     }
                 }
             }

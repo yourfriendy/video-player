@@ -19,3 +19,21 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ---- OffScroll release (R8) rules ----
+# Room generates its own code; keep entities' fields readable for the generated DAOs
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+
+# Optional networking libraries that are on the classpath but not used by the app
+-dontwarn org.slf4j.**
+-dontwarn javax.annotation.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+-dontwarn okhttp3.internal.platform.**
+-dontwarn kotlin.reflect.jvm.internal.**
+-keep class kotlin.Metadata { *; }
+
+# Readable crash reports
+-keepattributes SourceFile,LineNumberTable

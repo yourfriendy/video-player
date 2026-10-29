@@ -46,14 +46,33 @@ import com.example.ui.theme.GlassBackground
 import com.example.ui.theme.GlassBorder
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.layout.navigationBars
 
 @Composable
 fun SettingsScreen(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = {}
 ) {
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val versionName = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
 
     Box(
         modifier = modifier
@@ -64,23 +83,36 @@ fun SettingsScreen(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 80.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = navBarPadding + 28.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             item {
-                Column {
-                    Text(
-                        text = "Settings & Guide",
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Gesture controls and storage info",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 14.sp
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.testTag("settings_back_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Column {
+                        Text(
+                            text = "Settings & Guide",
+                            color = Color.White,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Gestures and storage info",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
 
@@ -109,7 +141,17 @@ fun SettingsScreen(
                     GestureHelpCard(
                         icon = Icons.Default.TouchApp,
                         title = "Tap & Double Tap",
-                        description = "Single tap toggles play/pause; double tap left/right skips 10s; double tap center likes video"
+                        description = "Tap once to show the controls, tap again to play or pause; double tap anywhere to like a video"
+                    )
+                    GestureHelpCard(
+                        icon = Icons.Default.Swipe,
+                        title = "Brightness (left edge)",
+                        description = "Slide up or down along the left edge of the screen to change brightness"
+                    )
+                    GestureHelpCard(
+                        icon = Icons.Default.Swipe,
+                        title = "Volume (right edge)",
+                        description = "Slide up or down along the right edge of the screen to change the volume"
                     )
                 }
             }
@@ -117,7 +159,7 @@ fun SettingsScreen(
             // Storage & Library Management
             item {
                 Text(
-                    text = "Storage & Library",
+                    text = "Storage",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -213,18 +255,63 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Video Reels Player",
+                                text = "OffScroll",
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Version 1.2.0 • Offline Reel Engine",
+                                text = "OffScroll${if (versionName.isNotBlank()) " v$versionName" else ""} • Offline Reel Engine",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 12.sp
                             )
                         }
                     }
+                }
+            }
+
+            // Dev credit (last item)
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, bottom = 6.dp)
+                        .testTag("dev_credit"),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(
+                                Brush.horizontalGradient(listOf(Color(0xFF5EEAD4), Color(0xFF8B5CF6)))
+                            )
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = buildAnnotatedString {
+                            append("Made by ")
+                            withStyle(
+                                SpanStyle(
+                                    brush = Brush.horizontalGradient(
+                                        listOf(Color(0xFF5EEAD4), Color(0xFF60A5FA), Color(0xFFA78BFA))
+                                    ),
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            ) { append("Madhu Yadav") }
+                            append(" \u2764\uFE0F\u200D\uD83D\uDD25")
+                        },
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "For people who just want to watch their own videos",
+                        color = Color(0xFF64748B),
+                        fontSize = 11.sp
+                    )
                 }
             }
         }

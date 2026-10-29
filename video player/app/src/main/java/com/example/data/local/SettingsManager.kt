@@ -20,6 +20,7 @@ class SettingsManager(context: Context) {
         private const val KEY_IS_GRID_VIEW = "is_grid_view"
         private const val KEY_IS_SHUFFLE_MODE = "is_shuffle_mode"
         private const val KEY_IS_LOOP_MODE = "is_loop_mode"
+        private const val KEY_RECENT_SEARCHES = "recent_searches"
     }
 
     fun getDisplayMode(): VideoDisplayMode {
@@ -86,5 +87,12 @@ class SettingsManager(context: Context) {
 
     fun setLoopMode(isLoop: Boolean) {
         prefs.edit().putBoolean(KEY_IS_LOOP_MODE, isLoop).apply()
+    }
+
+    fun getRecentSearches(): List<String> =
+        (prefs.getString(KEY_RECENT_SEARCHES, "") ?: "").split('\n').filter { it.isNotBlank() }
+
+    fun setRecentSearches(list: List<String>) {
+        prefs.edit().putString(KEY_RECENT_SEARCHES, list.joinToString("\n")).apply()
     }
 }

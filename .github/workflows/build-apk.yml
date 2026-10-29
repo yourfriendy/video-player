@@ -40,21 +40,35 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Create debug keystore
-        working-directory: video player
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          keytool -genkeypair -v \
-            -keystore debug.keystore \
-            -storepass android -keypass android \
-            -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          KS="$RUNNER_TEMP/release.jks"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "Using the repository's signing key (updates install over older builds)"
+            echo "$KS_B64" | base64 -d > "$KS"
+            PASS="$KS_PASS"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_* secrets found: using a throw-away key. Each build will have a different signature, so Android will refuse to update over an older install (uninstall first)."
+            PASS="offscroll-ci"
+            keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" \
+              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=OffScroll,O=OffScroll,C=US"
+          fi
+          {
+            echo "KEYSTORE_PATH=$KS"
+            echo "STORE_PASSWORD=$PASS"
+            echo "KEY_PASSWORD=$PASS"
+            echo "KEY_ALIAS=upload"
+          } >> "$GITHUB_ENV"
 
-      - name: Build debug APK
+      - name: Build release APK (R8-optimised)
         working-directory: video player
         run: |
           set -o pipefail
-          gradle :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          gradle :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Surface build errors as annotations
         if: failure()
@@ -67,7 +81,7 @@ jobs:
           fi
 
       - name: Name the APK
-        run: cp "video player/app/build/outputs/apk/debug/app-debug.apk" OffScroll.apk
+        run: cp "video player/app/build/outputs/apk/release/app-release.apk" OffScroll.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -87,7 +101,7 @@ jobs:
 
           - Commit: \`${SHORT_SHA}\`
           - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
-          - This is a debug-signed build, so Android may ask you to allow installs from your browser or file manager.
+          - Release build: optimised with R8 for smooth scrolling. Android may ask you to allow installs from your browser or file manager.
           NOTES
           sed -i 's/^          //' release-notes.md
 

@@ -53,6 +53,27 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlin.math.abs
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 
 /** Plain holder for the video currently on screen (not Compose state on purpose). */
 private class PlayedVideoTracker {
@@ -65,6 +86,7 @@ fun VideoFeedScreen(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
     onEnterPiP: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** Space to keep clear at the bottom (floating nav bar + system inset when visible). */
     bottomOverlayPadding: Dp = 80.dp
@@ -84,10 +106,7 @@ fun VideoFeedScreen(
         pageCount = { filteredVideos.size }
     )
 
-    // While a search query is active, results are shown as a grid you can tap to play
-    // (no players running behind the keyboard, no video swapping on every keystroke).
-    val isSearching = uiState.isSearchOpen && uiState.searchQuery.isNotBlank()
-    val showGrid = uiState.isGridView || isSearching
+    val showGrid = uiState.isGridView
     val showPager = !uiState.isLoading && filteredVideos.isNotEmpty() && !showGrid
 
     var currentProgressMs by remember { mutableLongStateOf(0L) }
@@ -96,6 +115,12 @@ fun VideoFeedScreen(
     var isAllFeaturesOpen by remember { mutableStateOf(false) }
     var interactionTick by remember { mutableIntStateOf(0) }
     val tracker = remember { PlayedVideoTracker() }
+
+    // Four shared players for the whole feed: swiping never has to build one
+    val playerPool = remember { PlayerPool(context) }
+    DisposableEffect(playerPool) {
+        onDispose { playerPool.release() }
+    }
 
     val hasOverlay = isAllFeaturesOpen ||
         uiState.playlistForVideo != null ||
@@ -206,7 +231,7 @@ fun VideoFeedScreen(
                 onResetFilter = { viewModel.selectFilter(FeedFilter.All) },
                 onRefresh = { viewModel.loadVideos() },
                 searchQuery = uiState.searchQuery,
-                onClearSearch = { viewModel.setSearchQuery("") }
+                onClearSearch = { viewModel.clearSearch() }
             )
         } else if (showGrid) {
             // 3-column grid: used for the grid view and for search results
@@ -214,7 +239,7 @@ fun VideoFeedScreen(
                 videos = filteredVideos,
                 onSelectVideo = { index -> viewModel.selectVideoFromGrid(index) },
                 modifier = Modifier.fillMaxSize(),
-                topPadding = statusBarPadding + if (isSearching) 160.dp else 100.dp,
+                topPadding = statusBarPadding + 100.dp,
                 bottomPadding = animatedBottomPadding + 20.dp
             )
         } else {
@@ -241,6 +266,8 @@ fun VideoFeedScreen(
                 Box(modifier = Modifier.fillMaxSize()) {
                     ReelPlayerItem(
                         video = video,
+                        player = playerPool.playerFor(pageIndex),
+                        onVolumeAdjusted = { viewModel.unmute() },
                         isCurrentPage = isCurrentPage,
                         isPlaying = uiState.isPlaying && !uiState.isSearchOpen,
                         isMuted = uiState.isMuted,
@@ -315,7 +342,7 @@ fun VideoFeedScreen(
 
         // Top Navigation & Filter Bar
         androidx.compose.animation.AnimatedVisibility(
-            visible = uiState.areControlsVisible || uiState.isSearchOpen,
+            visible = uiState.areControlsVisible,
             enter = androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.fadeOut(),
             modifier = Modifier
@@ -327,8 +354,7 @@ fun VideoFeedScreen(
                 selectedSort = uiState.selectedSort,
                 isShuffleMode = uiState.isShuffleMode,
                 isGridView = uiState.isGridView,
-                searchQuery = uiState.searchQuery,
-                isSearchOpen = uiState.isSearchOpen,
+                isSearchActive = uiState.searchQuery.isNotBlank(),
                 folders = uiState.folders,
                 totalVideosCount = filteredVideos.size,
                 currentIndex = if (showPager) pagerState.currentPage else uiState.currentIndex,
@@ -338,12 +364,44 @@ fun VideoFeedScreen(
                 onSelectSort = { sort -> viewModel.selectSort(sort) },
                 onToggleShuffle = { viewModel.toggleShuffleMode() },
                 onToggleGridView = { viewModel.toggleGridView() },
-                onSearchQueryChange = { query -> viewModel.setSearchQuery(query) },
-                onToggleSearch = { viewModel.toggleSearchOpen() },
+                onOpenSearch = { viewModel.openSearch() },
+                onOpenSettings = onOpenSettings,
                 onRefresh = { viewModel.loadVideos() },
                 onOpenPopup = onEnterPiP,
                 onOpenAllFeatures = { isAllFeaturesOpen = true }
             )
+        }
+
+        // "Search active" chip. The ✕ returns to the full feed on the SAME video that is playing now.
+        val chipTop by animateDpAsState(
+            targetValue = if (uiState.areControlsVisible) statusBarPadding + 108.dp else statusBarPadding + 10.dp,
+            label = "searchChipTop"
+        )
+        androidx.compose.animation.AnimatedVisibility(
+            visible = uiState.searchQuery.isNotBlank() && !uiState.isSearchOpen,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.9f),
+            exit = androidx.compose.animation.fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = chipTop)
+        ) {
+            SearchActiveChip(
+                query = uiState.searchQuery,
+                count = filteredVideos.size,
+                onOpen = { viewModel.openSearch() },
+                onClear = { viewModel.clearSearch() }
+            )
+        }
+
+        // Full-screen search page
+        androidx.compose.animation.AnimatedVisibility(
+            visible = uiState.isSearchOpen,
+            enter = androidx.compose.animation.fadeIn(tween(160)) +
+                androidx.compose.animation.slideInVertically(tween(220)) { it / 12 },
+            exit = androidx.compose.animation.fadeOut(tween(120)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            SearchScreen(uiState = uiState, viewModel = viewModel)
         }
 
         // Add to Playlist Bottom Sheet
@@ -445,5 +503,56 @@ private fun shareVideo(context: Context, video: LocalVideo) {
         context.startActivity(Intent.createChooser(shareIntent, "Share video"))
     } catch (e: Exception) {
         Toast.makeText(context, "Could not share video: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+private fun SearchActiveChip(
+    query: String,
+    count: Int,
+    onOpen: () -> Unit,
+    onClear: () -> Unit
+) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        modifier = Modifier
+            .height(36.dp)
+            .shadow(6.dp, shape)
+            .clip(shape)
+            .background(Brush.horizontalGradient(listOf(Color(0xE68B5CF6), Color(0xE66366F1))))
+            .clickable(onClick = onOpen)
+            .padding(start = 12.dp, end = 4.dp)
+            .testTag("search_active_chip"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(15.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "$query · $count",
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 220.dp)
+        )
+        IconButton(
+            onClick = onClear,
+            modifier = Modifier
+                .size(30.dp)
+                .testTag("search_chip_clear")
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Clear search",
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+        }
     }
 }
