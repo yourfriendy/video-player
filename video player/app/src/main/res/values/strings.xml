@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">OffScroll</string>
+    <string name="feed_filter_all">All Videos</string>
+    <string name="feed_filter_favorites">Favorites</string>
+    <string name="feed_filter_recently_added">Recently Added</string>
+    <string name="feed_filter_recently_played">Recently Played</string>
+    <string name="permission_title">Local Videos Access</string>
+    <string name="permission_rationale">OffScroll is a 100% offline video player that turns your saved videos and reels into a smooth vertical feed. Grant access to load your device videos.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="empty_videos_title">No Videos Found</string>
+    <string name="empty_videos_subtitle">No videos found matching your current filter. Record or save videos to your device to scroll!</string>
+    <string name="empty_favorites_title">No Favorites Yet</string>
+    <string name="empty_favorites_subtitle">Tap the heart icon on any video in your feed to save it to Favorites.</string>
+    <string name="delete_dialog_title">Delete Video?</string>
+    <string name="delete_dialog_msg">Are you sure you want to permanently remove this video from your device storage?</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="video_info_title">Video Details</string>
+    <string name="offline_badge">100% Offline</string>
+</resources>
+
