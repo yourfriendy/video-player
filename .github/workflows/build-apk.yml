@@ -31,8 +31,9 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses (SDK is preinstalled on the runner)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -51,7 +52,19 @@ jobs:
 
       - name: Build debug APK
         working-directory: video player
-        run: gradle :app:assembleDebug --stacktrace --no-daemon
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: Surface build errors as annotations
+        if: failure()
+        run: |
+          if [ -f build.log ]; then
+            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Build errors::${ERR}"
+          else
+            echo "::error title=Build errors::no build.log (failed before the Gradle step)"
+          fi
 
       - name: Name the APK
         run: cp "video player/app/build/outputs/apk/debug/app-debug.apk" OffScroll.apk
