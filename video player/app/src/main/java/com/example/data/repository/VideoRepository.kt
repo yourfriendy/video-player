@@ -70,16 +70,14 @@ class VideoRepository(
     /**
      * Query all videos from MediaStore
      */
-    suspend fun loadVideos(): List<LocalVideo> = withContext(Dispatchers.IO) {
-        val rawVideos = queryDeviceVideos()
+    suspend fun loadVideos(allowSamples: Boolean = false): List<LocalVideo> = withContext(Dispatchers.IO) {
         val favoriteUris = favoriteDao.getAllFavoriteUris().toSet()
-        val result = rawVideos.map { video ->
-            video.copy(isFavorite = favoriteUris.contains(video.uri.toString()))
+        if (allowSamples) {
+            // Explicit demo mode: never mixes fake clips into a real library
+            return@withContext loadOrGenerateSampleVideos(favoriteUris)
         }
-        if (result.isEmpty()) {
-            loadOrGenerateSampleVideos(favoriteUris)
-        } else {
-            result
+        queryDeviceVideos().map { video ->
+            video.copy(isFavorite = favoriteUris.contains(video.uri.toString()))
         }
     }
 
@@ -288,18 +286,30 @@ class VideoRepository(
         }
     }
 
-    suspend fun recordWatchProgress(video: LocalVideo, positionMs: Long) = withContext(Dispatchers.IO) {
+    /**
+     * Called once a video has been on screen for a moment. Only counts as a new play if the last one
+     * was more than 30s ago, and never wipes the saved resume position.
+     */
+    suspend fun recordWatchStart(video: LocalVideo) = withContext(Dispatchers.IO) {
         val uriStr = video.uri.toString()
         val existing = watchHistoryDao.getWatchHistory(uriStr)
-        val playCount = (existing?.playCount ?: 0) + 1
+        val now = System.currentTimeMillis()
+        val isNewPlay = existing == null || now - existing.lastPlayedAt > 30_000L
         watchHistoryDao.recordWatch(
             WatchHistory(
                 videoUri = uriStr,
-                lastPlayedAt = System.currentTimeMillis(),
-                playCount = playCount,
-                lastPositionMs = positionMs
+                lastPlayedAt = if (isNewPlay) now else existing!!.lastPlayedAt,
+                playCount = (existing?.playCount ?: 0) + if (isNewPlay) 1 else 0,
+                lastPositionMs = existing?.lastPositionMs ?: 0L
             )
         )
+    }
+
+    suspend fun updateWatchPosition(video: LocalVideo, positionMs: Long) = withContext(Dispatchers.IO) {
+        val existing = watchHistoryDao.getWatchHistory(video.uri.toString()) ?: return@withContext
+        if (existing.lastPositionMs != positionMs) {
+            watchHistoryDao.recordWatch(existing.copy(lastPositionMs = positionMs))
+        }
     }
 
     private val playlistDao = database.playlistDao()
@@ -327,16 +337,6 @@ class VideoRepository(
         playlistDao.deletePlaylistVideo(com.example.data.local.entity.PlaylistVideoEntity(playlistId = playlistId, videoUri = videoUri, position = 0))
     }
 
-    suspend fun toggleWatchLater(videoUri: String): Boolean = withContext(Dispatchers.IO) {
-        var isRemoved = false
-        // Check if exists
-        val current = watchLaterDao.getAllWatchLater()
-        // Simple toggle
-        watchLaterDao.removeWatchLater(videoUri)
-        // We will pass the new state from caller or check
-        true
-    }
-
     suspend fun addWatchLater(videoUri: String) = withContext(Dispatchers.IO) {
         watchLaterDao.addWatchLater(com.example.data.local.entity.WatchLaterEntity(videoUri = videoUri))
     }
@@ -354,21 +354,15 @@ class VideoRepository(
      * Returns IntentSender if system confirmation is required, or null if deleted directly.
      */
     suspend fun deleteVideo(video: LocalVideo): DeletionResult = withContext(Dispatchers.IO) {
-        // Clean up database records
-        favoriteDao.removeFavorite(video.uri.toString())
-        watchHistoryDao.removeWatchHistory(video.uri.toString())
-        playlistDao.removeVideoFromAllPlaylists(video.uri.toString())
-        watchLaterDao.removeWatchLater(video.uri.toString())
-        queueDao.removeVideoFromQueue(video.uri.toString())
-        videoBookmarkDao.removeBookmarksForVideo(video.uri.toString())
-
         if (video.isSample) {
+            cleanupVideoRecords(video.uri.toString())
             return@withContext DeletionResult.Success
         }
 
         try {
             val rowsDeleted = contentResolver.delete(video.uri, null, null)
             if (rowsDeleted > 0) {
+                cleanupVideoRecords(video.uri.toString())
                 DeletionResult.Success
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -397,6 +391,16 @@ class VideoRepository(
         } catch (e: Exception) {
             DeletionResult.Error(e.localizedMessage ?: "Failed to delete video")
         }
+    }
+
+    /** Removes favourites, history, playlists, etc. for a video. Call only once the file is really deleted. */
+    suspend fun cleanupVideoRecords(videoUri: String) = withContext(Dispatchers.IO) {
+        favoriteDao.removeFavorite(videoUri)
+        watchHistoryDao.removeWatchHistory(videoUri)
+        playlistDao.removeVideoFromAllPlaylists(videoUri)
+        watchLaterDao.removeWatchLater(videoUri)
+        queueDao.removeVideoFromQueue(videoUri)
+        videoBookmarkDao.removeBookmarksForVideo(videoUri)
     }
 
     private data class SampleVideoSpec(

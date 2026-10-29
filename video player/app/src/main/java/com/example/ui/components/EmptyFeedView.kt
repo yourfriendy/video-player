@@ -46,9 +46,12 @@ fun EmptyFeedView(
     filter: FeedFilter,
     onResetFilter: () -> Unit,
     onRefresh: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    searchQuery: String = "",
+    onClearSearch: () -> Unit = {}
 ) {
     val isFavorites = filter is FeedFilter.Favorites
+    val isSearching = searchQuery.isNotBlank()
 
     Box(
         modifier = modifier
@@ -86,7 +89,11 @@ fun EmptyFeedView(
             Spacer(modifier = Modifier.height(22.dp))
 
             Text(
-                text = if (isFavorites) "No Favorites Yet" else "No Videos in ${filter.displayName}",
+                text = when {
+                    isSearching -> "No results for \u201C${searchQuery.trim()}\u201D"
+                    isFavorites -> "No Favorites Yet"
+                    else -> "No Videos in ${filter.displayName}"
+                },
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp,
@@ -99,7 +106,9 @@ fun EmptyFeedView(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = if (isFavorites) {
+                text = if (isSearching) {
+                    "Nothing in ${filter.displayName} matches that search. Try fewer words, or clear the search."
+                } else if (isFavorites) {
                     "Tap the heart icon on any video in your feed to save it here for quick access."
                 } else {
                     "No local videos found for this folder or filter. Record or download some videos to your device gallery!"
@@ -112,7 +121,18 @@ fun EmptyFeedView(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (filter !is FeedFilter.All) {
+            if (isSearching) {
+                Button(
+                    onClick = onClearSearch,
+                    colors = ButtonDefaults.buttonColors(containerColor = FrostedViolet),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .shadow(6.dp, RoundedCornerShape(14.dp))
+                        .testTag("empty_view_clear_search_button")
+                ) {
+                    Text("Clear Search", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            } else if (filter !is FeedFilter.All) {
                 Button(
                     onClick = onResetFilter,
                     colors = ButtonDefaults.buttonColors(containerColor = FrostedViolet),

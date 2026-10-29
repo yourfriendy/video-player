@@ -43,6 +43,21 @@ import com.example.ui.viewmodel.VideoFeedViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import kotlin.math.abs
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+/** Plain holder for the video currently on screen (not Compose state on purpose). */
+private class PlayedVideoTracker {
+    var video: LocalVideo? = null
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,33 +65,50 @@ fun VideoFeedScreen(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
     onEnterPiP: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Space to keep clear at the bottom (floating nav bar + system inset when visible). */
+    bottomOverlayPadding: Dp = 80.dp
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     val filteredVideos = uiState.filteredVideos
+    // Long-lived effects must always see the CURRENT list, never the one from first composition
+    val latestVideos by rememberUpdatedState(filteredVideos)
+
     val pagerState = rememberPagerState(
-        initialPage = 0,
+        initialPage = uiState.currentIndex.coerceIn(0, (filteredVideos.size - 1).coerceAtLeast(0)),
         pageCount = { filteredVideos.size }
     )
+
+    // While a search query is active, results are shown as a grid you can tap to play
+    // (no players running behind the keyboard, no video swapping on every keystroke).
+    val isSearching = uiState.isSearchOpen && uiState.searchQuery.isNotBlank()
+    val showGrid = uiState.isGridView || isSearching
+    val showPager = !uiState.isLoading && filteredVideos.isNotEmpty() && !showGrid
 
     var currentProgressMs by remember { mutableLongStateOf(0L) }
     var currentTotalMs by remember { mutableLongStateOf(0L) }
     var seekRatio by remember { mutableStateOf<Float?>(null) }
     var isAllFeaturesOpen by remember { mutableStateOf(false) }
-    
-    // Always keep controls visible when searching or when search query is active
-    LaunchedEffect(uiState.isSearchOpen, uiState.searchQuery) {
-        if (uiState.isSearchOpen || uiState.searchQuery.isNotEmpty()) {
-            viewModel.setControlsVisible(true)
-        }
-    }
+    var interactionTick by remember { mutableIntStateOf(0) }
+    val tracker = remember { PlayedVideoTracker() }
 
-    LaunchedEffect(uiState.isPlaying, uiState.areControlsVisible, pagerState.currentPage, uiState.isSearchOpen, uiState.searchQuery) {
-        // Peaceful auto-hide only during normal uninterrupted playback
-        if (uiState.isPlaying && uiState.areControlsVisible && !uiState.isSearchOpen && uiState.searchQuery.isEmpty()) {
+    val hasOverlay = isAllFeaturesOpen ||
+        uiState.playlistForVideo != null ||
+        uiState.optionsForVideo != null ||
+        uiState.selectedMetadata != null ||
+        uiState.videoToDelete != null
+
+    // Auto-hide only during uninterrupted playback; scrubbing, sheets and search reset/suspend it
+    LaunchedEffect(
+        uiState.isPlaying, uiState.areControlsVisible, pagerState.currentPage,
+        uiState.isSearchOpen, interactionTick, hasOverlay
+    ) {
+        if (uiState.isPlaying && uiState.areControlsVisible && !uiState.isSearchOpen && !hasOverlay) {
             delay(3500L)
             viewModel.setControlsVisible(false)
         }
@@ -100,16 +132,49 @@ fun VideoFeedScreen(
         }
     }
 
-    // Observe pager scroll page changes
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
-            if (page in filteredVideos.indices) {
+    // The ViewModel decides where the feed should be (play from library, search result, sort...); obey it
+    LaunchedEffect(uiState.scrollRequest) {
+        val request = uiState.scrollRequest ?: return@LaunchedEffect
+        val size = latestVideos.size
+        if (size > 0) {
+            // Suspends until the pager is on screen, so this also works while the grid is showing
+            pagerState.scrollToPage(request.index.coerceIn(0, size - 1))
+        }
+        viewModel.consumeScrollRequest(request)
+    }
+
+    // Track which video is actually on screen (also fires when the list changes under the same page)
+    LaunchedEffect(pagerState, showPager) {
+        if (!showPager) return@LaunchedEffect
+        try {
+            snapshotFlow {
+                pagerState.currentPage to latestVideos.getOrNull(pagerState.currentPage)?.id
+            }.distinctUntilChanged().collect { (page, _) ->
+                val video = latestVideos.getOrNull(page) ?: return@collect
+                tracker.video?.let { previous ->
+                    if (previous.id != video.id) viewModel.saveWatchPosition(previous, currentProgressMs)
+                }
+                tracker.video = video
                 currentProgressMs = 0L
-                currentTotalMs = filteredVideos[page].durationMs
+                currentTotalMs = video.durationMs
                 seekRatio = null
                 viewModel.onPageChanged(page)
             }
+        } finally {
+            tracker.video?.let { viewModel.saveWatchPosition(it, currentProgressMs) }
+            tracker.video = null
         }
+    }
+
+    // Remember where the user stopped when the app goes to the background
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                tracker.video?.let { viewModel.saveWatchPosition(it, currentProgressMs) }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Handle toast messages
@@ -119,6 +184,8 @@ fun VideoFeedScreen(
             viewModel.clearToast()
         }
     }
+
+    val animatedBottomPadding by animateDpAsState(targetValue = bottomOverlayPadding, label = "bottomOverlayPadding")
 
     Box(
         modifier = modifier
@@ -137,24 +204,24 @@ fun VideoFeedScreen(
             EmptyFeedView(
                 filter = uiState.selectedFilter,
                 onResetFilter = { viewModel.selectFilter(FeedFilter.All) },
-                onRefresh = { viewModel.loadVideos() }
+                onRefresh = { viewModel.loadVideos() },
+                searchQuery = uiState.searchQuery,
+                onClearSearch = { viewModel.setSearchQuery("") }
             )
-        } else if (uiState.isGridView) {
-            // 3-Column Frosted Grid View
+        } else if (showGrid) {
+            // 3-column grid: used for the grid view and for search results
             VideoGridView(
                 videos = filteredVideos,
-                onSelectVideo = { index ->
-                    viewModel.toggleGridView()
-                    coroutineScope.launch {
-                        pagerState.scrollToPage(index)
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
+                onSelectVideo = { index -> viewModel.selectVideoFromGrid(index) },
+                modifier = Modifier.fillMaxSize(),
+                topPadding = statusBarPadding + if (isSearching) 160.dp else 100.dp,
+                bottomPadding = animatedBottomPadding + 20.dp
             )
         } else {
             // Full Screen Vertical Snap Pager
             VerticalPager(
                 state = pagerState,
+                beyondViewportPageCount = 1,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("vertical_video_pager"),
@@ -162,33 +229,44 @@ fun VideoFeedScreen(
                     if (page in filteredVideos.indices) filteredVideos[page].id else page
                 }
             ) { pageIndex ->
-                val video = filteredVideos[pageIndex]
+                val video = filteredVideos.getOrNull(pageIndex) ?: return@VerticalPager
                 val isCurrentPage = pageIndex == pagerState.currentPage
+                val isNeighbour = !isCurrentPage && abs(pageIndex - pagerState.currentPage) == 1
+
+                // Resume long videos where the user left off
+                val savedMs = uiState.watchHistoryMap[video.uri.toString()]?.lastPositionMs ?: 0L
+                val resumeMs = if (video.durationMs > 60_000L && savedMs > 5_000L &&
+                    savedMs < video.durationMs - 5_000L) savedMs else 0L
 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Player Canvas / Surface
                     ReelPlayerItem(
                         video = video,
                         isCurrentPage = isCurrentPage,
-                        isPlaying = uiState.isPlaying,
+                        isPlaying = uiState.isPlaying && !uiState.isSearchOpen,
                         isMuted = uiState.isMuted,
                         playbackSpeed = uiState.playbackSpeed,
                         displayMode = uiState.displayMode,
                         seekToRatio = if (isCurrentPage) seekRatio else null,
                         isLoopMode = uiState.isLoopMode,
                         userActionTrigger = uiState.playPauseUserActionTrigger,
+                        shouldPreload = isNeighbour,
+                        startPositionMs = resumeMs,
+                        onEnded = {
+                            // Loop is off: move on to the next video instead of stalling
+                            val next = pagerState.currentPage + 1
+                            if (next < latestVideos.size) {
+                                coroutineScope.launch { pagerState.animateScrollToPage(next) }
+                            }
+                        },
                         onProgressUpdate = { cur, tot ->
                             if (isCurrentPage) {
                                 currentProgressMs = cur
                                 currentTotalMs = tot
                             }
                         },
-                        onSingleTap = {
-                            viewModel.toggleControlsVisibility()
-                        },
-                        onDoubleTap = {
-                            viewModel.likeVideo(video)
-                        }
+                        // First tap reveals controls, next tap plays/pauses
+                        onSingleTap = { viewModel.onVideoTapped() },
+                        onDoubleTap = { viewModel.likeVideo(video) }
                     )
 
                     // Right Side Action Rail (Clean, minimal, thumb-friendly)
@@ -198,7 +276,7 @@ fun VideoFeedScreen(
                         exit = androidx.compose.animation.fadeOut(),
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(bottom = 80.dp)
+                            .padding(bottom = animatedBottomPadding)
                     ) {
                         ActionRail(
                             video = video,
@@ -218,15 +296,17 @@ fun VideoFeedScreen(
                         exit = androidx.compose.animation.fadeOut(),
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(bottom = 80.dp)
+                            .padding(bottom = animatedBottomPadding)
                     ) {
                         VideoInfoOverlay(
                             video = video,
-                            currentProgressMs = currentProgressMs,
+                            currentProgressMsProvider = { currentProgressMs },
                             totalDurationMs = currentTotalMs,
                             onSeek = { ratio ->
                                 seekRatio = ratio
-                            }
+                                interactionTick++
+                            },
+                            onInteraction = { interactionTick++ }
                         )
                     }
                 }
@@ -234,9 +314,8 @@ fun VideoFeedScreen(
         }
 
         // Top Navigation & Filter Bar
-        val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         androidx.compose.animation.AnimatedVisibility(
-            visible = uiState.areControlsVisible || uiState.isSearchOpen || uiState.searchQuery.isNotEmpty(),
+            visible = uiState.areControlsVisible || uiState.isSearchOpen,
             enter = androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.fadeOut(),
             modifier = Modifier
@@ -252,30 +331,14 @@ fun VideoFeedScreen(
                 isSearchOpen = uiState.isSearchOpen,
                 folders = uiState.folders,
                 totalVideosCount = filteredVideos.size,
-                currentIndex = pagerState.currentPage,
+                currentIndex = if (showPager) pagerState.currentPage else uiState.currentIndex,
                 totalStorageFormatted = uiState.totalStorageFormatted,
-                onSelectFilter = { filter ->
-                    viewModel.selectFilter(filter)
-                    coroutineScope.launch {
-                        pagerState.scrollToPage(0)
-                    }
-                },
-                onSelectSort = { sort ->
-                    viewModel.selectSort(sort)
-                    coroutineScope.launch {
-                        pagerState.scrollToPage(0)
-                    }
-                },
-                onToggleShuffle = {
-                    viewModel.toggleShuffleMode()
-                    coroutineScope.launch {
-                        pagerState.scrollToPage(0)
-                    }
-                },
+                // The ViewModel issues the scroll requests, so no manual scrollToPage(0) here
+                onSelectFilter = { filter -> viewModel.selectFilter(filter) },
+                onSelectSort = { sort -> viewModel.selectSort(sort) },
+                onToggleShuffle = { viewModel.toggleShuffleMode() },
                 onToggleGridView = { viewModel.toggleGridView() },
-                onSearchQueryChange = { query ->
-                    viewModel.setSearchQuery(query)
-                },
+                onSearchQueryChange = { query -> viewModel.setSearchQuery(query) },
                 onToggleSearch = { viewModel.toggleSearchOpen() },
                 onRefresh = { viewModel.loadVideos() },
                 onOpenPopup = onEnterPiP,
@@ -310,6 +373,8 @@ fun VideoFeedScreen(
                 onOpenInfo = { viewModel.openMetadata(targetVideo) },
                 onDelete = { viewModel.requestDeleteConfirmation(targetVideo) },
                 onEnterPiP = onEnterPiP,
+                isWatchLater = uiState.watchLaterUris.contains(targetVideo.uri.toString()),
+                onToggleWatchLater = { viewModel.toggleWatchLater(targetVideo) },
                 onDismiss = { viewModel.closeOptions() }
             )
         }
@@ -317,7 +382,8 @@ fun VideoFeedScreen(
         // All Features & Controls Comprehensive 3-Dots Sheet
         if (isAllFeaturesOpen) {
             AllFeaturesSheet(
-                currentVideo = filteredVideos.getOrNull(pagerState.currentPage),
+                currentVideo = filteredVideos.firstOrNull { it.id == uiState.currentVideoId }
+                    ?: filteredVideos.getOrNull(pagerState.currentPage),
                 displayMode = uiState.displayMode,
                 playbackSpeed = uiState.playbackSpeed,
                 isMuted = uiState.isMuted,
@@ -333,14 +399,8 @@ fun VideoFeedScreen(
                 onToggleLoopMode = { viewModel.toggleLoopMode() },
                 onToggleShuffle = { viewModel.toggleShuffleMode() },
                 onToggleGridView = { viewModel.toggleGridView() },
-                onSelectSort = { sort ->
-                    viewModel.selectSort(sort)
-                    coroutineScope.launch { pagerState.scrollToPage(0) }
-                },
-                onSelectFilter = { filter ->
-                    viewModel.selectFilter(filter)
-                    coroutineScope.launch { pagerState.scrollToPage(0) }
-                },
+                onSelectSort = { sort -> viewModel.selectSort(sort) },
+                onSelectFilter = { filter -> viewModel.selectFilter(filter) },
                 onEnterPiP = onEnterPiP,
                 onRefreshLibrary = { viewModel.loadVideos() },
                 onOpenInfo = { v -> viewModel.openMetadata(v) },

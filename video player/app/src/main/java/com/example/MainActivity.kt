@@ -2,7 +2,10 @@ package com.example
 
 import android.Manifest
 import android.app.PictureInPictureParams
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -19,10 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.PermissionRequestScreen
@@ -37,60 +41,88 @@ class MainActivity : ComponentActivity() {
         VideoFeedViewModelFactory(applicationContext)
     }
 
+    private val requiredPermission: String
+        get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+    private fun hasMediaPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, requiredPermission) == PackageManager.PERMISSION_GRANTED
+
+    private fun openAppSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Tell the ViewModel the real permission state before the first frame (it loads videos if granted)
+        viewModel.onPermissionResult(hasMediaPermission())
+
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                val context = LocalContext.current
-
-                val requiredPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    Manifest.permission.READ_MEDIA_VIDEO
-                } else {
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-                }
-
-                var hasPermission by remember {
-                    mutableStateOf(
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            requiredPermission
-                        ) == PackageManager.PERMISSION_GRANTED
-                    )
-                }
+                var hasAskedForPermission by rememberSaveable { mutableStateOf(false) }
 
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
                 ) { isGranted ->
-                    hasPermission = isGranted
-                    viewModel.onPermissionGranted()
+                    viewModel.onPermissionResult(isGranted)
                 }
 
-                LaunchedEffect(Unit) {
-                    viewModel.loadVideos()
-                }
+                val needsPermissionScreen = !uiState.isPermissionGranted && !uiState.isDemoMode
 
-                LaunchedEffect(hasPermission) {
-                    if (hasPermission) {
-                        viewModel.onPermissionGranted()
+                // Actually ask for the permission (this was never requested before)
+                LaunchedEffect(needsPermissionScreen) {
+                    if (needsPermissionScreen && !hasAskedForPermission) {
+                        hasAskedForPermission = true
+                        permissionLauncher.launch(requiredPermission)
                     }
                 }
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
-                ) { _ ->
-                    com.example.ui.navigation.AppNavigation(
-                        uiState = uiState,
-                        viewModel = viewModel,
-                        onEnterPiP = { enterSystemPiP() },
-                        modifier = Modifier.fillMaxSize()
+                if (needsPermissionScreen) {
+                    PermissionRequestScreen(
+                        onRequestPermission = {
+                            // After "don't ask again" the system dialog no longer appears: go to Settings
+                            if (hasAskedForPermission &&
+                                !ActivityCompat.shouldShowRequestPermissionRationale(
+                                    this@MainActivity, requiredPermission
+                                )
+                            ) {
+                                openAppSettings()
+                            } else {
+                                permissionLauncher.launch(requiredPermission)
+                            }
+                        },
+                        onLoadDemoClips = { viewModel.loadDemoClips() }
                     )
+                } else {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+                    ) { _ ->
+                        com.example.ui.navigation.AppNavigation(
+                            uiState = uiState,
+                            viewModel = viewModel,
+                            onEnterPiP = { enterSystemPiP() },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Picks up permission granted/revoked in system Settings, and resumes playback that onPause stopped
+        viewModel.onPermissionResult(hasMediaPermission())
+        viewModel.resumePlayback()
     }
 
     fun enterSystemPiP() {

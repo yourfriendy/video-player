@@ -9,6 +9,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,12 +65,18 @@ fun AppNavigation(
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val isCompact = maxWidth < 600.dp
+        val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        // M3 NavigationBar is 80dp tall PLUS the system navigation inset; don't hard-code just 80dp
+        val bottomBarHeight = 80.dp + systemNavInset
         val isFeedRoute = currentRoute == NavRoute.Feed.name
         val isNavVisible = if (isFeedRoute) {
             uiState.areControlsVisible && !uiState.isInPictureInPicture
         } else {
             !uiState.isInPictureInPicture
         }
+
+        // Space the feed overlays must keep clear: the bar when it is showing, else just the system inset
+        val feedBottomPadding = if (isCompact && isNavVisible) bottomBarHeight + 8.dp else systemNavInset + 16.dp
 
         Row(modifier = Modifier.fillMaxSize()) {
             // Wide Screen Navigation Rail (Foldables / Tablets / Landscape)
@@ -115,7 +124,8 @@ fun AppNavigation(
                             uiState = uiState,
                             viewModel = viewModel,
                             onEnterPiP = onEnterPiP,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            bottomOverlayPadding = feedBottomPadding
                         )
                     }
                     composable(NavRoute.Discover.name) {
@@ -130,7 +140,7 @@ fun AppNavigation(
                             },
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(bottom = if (isCompact) 80.dp else 0.dp)
+                                .padding(bottom = if (isCompact) bottomBarHeight else 0.dp)
                         )
                     }
                     composable(NavRoute.Library.name) {
@@ -145,7 +155,7 @@ fun AppNavigation(
                             },
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(bottom = if (isCompact) 80.dp else 0.dp)
+                                .padding(bottom = if (isCompact) bottomBarHeight else 0.dp)
                         )
                     }
                     composable(NavRoute.Settings.name) {
@@ -154,7 +164,7 @@ fun AppNavigation(
                             viewModel = viewModel,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(bottom = if (isCompact) 80.dp else 0.dp)
+                                .padding(bottom = if (isCompact) bottomBarHeight else 0.dp)
                         )
                     }
                 }

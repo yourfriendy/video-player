@@ -52,7 +52,9 @@ import com.example.ui.theme.GlassBorderSubtle
 fun VideoGridView(
     videos: List<LocalVideo>,
     onSelectVideo: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    topPadding: androidx.compose.ui.unit.Dp = 100.dp,
+    bottomPadding: androidx.compose.ui.unit.Dp = 100.dp
 ) {
     val context = LocalContext.current
 
@@ -93,7 +95,7 @@ fun VideoGridView(
             modifier = modifier
                 .fillMaxSize()
                 .testTag("video_grid_view"),
-            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 100.dp, bottom = 100.dp),
+            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = topPadding, bottom = bottomPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {

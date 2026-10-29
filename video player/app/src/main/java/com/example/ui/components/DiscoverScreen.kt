@@ -65,9 +65,9 @@ fun DiscoverScreen(
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     val totalVideos = uiState.allVideos.size
-    val focusCount = uiState.allVideos.count { it.durationMs in 10_000L..180_000L }
-    val calmCount = uiState.allVideos.count { it.durationMs in 180_000L..600_000L }
-    val lowEnergyCount = uiState.allVideos.count { it.durationMs >= 600_000L }
+    val focusCount = uiState.allVideos.count { com.example.ui.model.brainModeMatches("focus", it.durationMs) }
+    val calmCount = uiState.allVideos.count { com.example.ui.model.brainModeMatches("calm", it.durationMs) }
+    val lowEnergyCount = uiState.allVideos.count { com.example.ui.model.brainModeMatches("low energy", it.durationMs) }
 
     Box(
         modifier = modifier
@@ -392,7 +392,7 @@ fun TimeAvailableFilters(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         items(options) { (minMs, maxMs, label) ->
-            val matchCount = uiState.allVideos.count { it.durationMs in minMs..maxMs }
+            val matchCount = uiState.allVideos.count { it.durationMs >= minMs && it.durationMs < maxMs }
             Button(
                 onClick = { onSelectRange(minMs, maxMs, label) },
                 colors = ButtonDefaults.buttonColors(

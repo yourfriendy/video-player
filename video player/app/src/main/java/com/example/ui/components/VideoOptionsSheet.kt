@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PictureInPictureAlt
@@ -60,6 +61,8 @@ fun VideoOptionsSheet(
     onDelete: () -> Unit,
     onEnterPiP: () -> Unit,
     onDismiss: () -> Unit,
+    isWatchLater: Boolean = false,
+    onToggleWatchLater: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val speeds = listOf(0.5f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -240,6 +243,38 @@ fun VideoOptionsSheet(
                         fontSize = 11.sp
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Watch Later toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(GlassBackground)
+                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+                    .clickable {
+                        onToggleWatchLater()
+                        onDismiss()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .testTag("options_watch_later_button"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WatchLater,
+                    contentDescription = null,
+                    tint = Color(0xFFFBBF24),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Text(
+                    text = if (isWatchLater) "Remove from Watch Later" else "Save to Watch Later",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
             Spacer(modifier = Modifier.height(10.dp))

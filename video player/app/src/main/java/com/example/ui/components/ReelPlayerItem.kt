@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -100,6 +101,9 @@ fun ReelPlayerItem(
     seekToRatio: Float?,
     isLoopMode: Boolean = true,
     userActionTrigger: Long = 0L,
+    shouldPreload: Boolean = false,
+    startPositionMs: Long = 0L,
+    onEnded: () -> Unit = {},
     onProgressUpdate: (currentMs: Long, totalMs: Long) -> Unit,
     onSingleTap: () -> Unit,
     onDoubleTap: (Offset) -> Unit,
@@ -116,6 +120,13 @@ fun ReelPlayerItem(
     var playerDuration by remember { mutableLongStateOf(video.durationMs) }
     var isAppInForeground by remember { mutableStateOf(true) }
     var isTemporarilyFastForwarding by remember { mutableStateOf(false) }
+    var hasAppliedStartPosition by remember { mutableStateOf(false) }
+
+    // Callbacks/flags read from long-lived listeners and gesture handlers must never be stale
+    val latestIsCurrentPage by rememberUpdatedState(isCurrentPage)
+    val latestOnEnded by rememberUpdatedState(onEnded)
+    val latestOnSingleTap by rememberUpdatedState(onSingleTap)
+    val latestOnDoubleTap by rememberUpdatedState(onDoubleTap)
 
     // VLC-style horizontal drag seek states
     var isHorizontalDragging by remember { mutableStateOf(false) }
@@ -131,18 +142,22 @@ fun ReelPlayerItem(
         }
     }
 
-    // Set media item and prepare ONLY when this page is active
-    LaunchedEffect(video.uri, isCurrentPage) {
+    // Prepare the current page, and preload the neighbouring page (paused) so swipes show a frame instantly
+    LaunchedEffect(video.uri, isCurrentPage, shouldPreload) {
         if (!video.isSample) {
-            if (isCurrentPage) {
-                if (exoPlayer.playbackState == Player.STATE_IDLE || exoPlayer.currentMediaItem == null) {
-                    val mediaItem = MediaItem.fromUri(video.uri)
-                    exoPlayer.setMediaItem(mediaItem)
+            if (isCurrentPage || shouldPreload) {
+                if (exoPlayer.currentMediaItem == null) {
+                    exoPlayer.setMediaItem(MediaItem.fromUri(video.uri))
                     exoPlayer.prepare()
+                } else if (exoPlayer.playbackState == Player.STATE_IDLE) {
+                    exoPlayer.prepare() // retry after an error
                 }
-                exoPlayer.playWhenReady = isPlaying && isAppInForeground
+                if (isCurrentPage && !hasAppliedStartPosition) {
+                    hasAppliedStartPosition = true
+                    if (startPositionMs > 0L) exoPlayer.seekTo(startPositionMs)
+                }
+                exoPlayer.playWhenReady = isCurrentPage && isPlaying && isAppInForeground
             } else {
-                // Inactive page: immediately pause and release decoder load
                 exoPlayer.pause()
                 exoPlayer.playWhenReady = false
             }
@@ -178,7 +193,6 @@ fun ReelPlayerItem(
                     isAppInForeground = false
                     exoPlayer.pause()
                     exoPlayer.stop()
-                    exoPlayer.release()
                 }
                 else -> {}
             }
@@ -232,6 +246,9 @@ fun ReelPlayerItem(
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 isBuffering = playbackState == Player.STATE_BUFFERING
+                if (playbackState == Player.STATE_ENDED && latestIsCurrentPage) {
+                    latestOnEnded()
+                }
                 if (playbackState == Player.STATE_READY) {
                     hasPlaybackError = false
                     if (exoPlayer.duration > 0) {
@@ -277,11 +294,11 @@ fun ReelPlayerItem(
             .pointerInput(video.id) {
                 detectTapGestures(
                     onTap = {
-                        onSingleTap()
+                        latestOnSingleTap()
                     },
                     onDoubleTap = { offset ->
                         doubleTapHeartOffset = offset
-                        onDoubleTap(offset)
+                        latestOnDoubleTap(offset)
                     }
                 )
             }

@@ -13,6 +13,7 @@ import com.example.data.repository.DeletionResult
 import com.example.data.repository.MetadataExtractor
 import com.example.data.repository.VideoRepository
 import com.example.ui.model.FeedFilter
+import com.example.ui.model.brainModeMatches
 import com.example.ui.model.SortOption
 import com.example.ui.model.VideoDisplayMode
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Locale
+
+/** One-shot request for the pager to scroll; [nonce] makes repeated requests to the same index distinct. */
+data class ScrollRequest(val index: Int, val nonce: Long)
 
 data class VideoFeedUiState(
     val allVideos: List<LocalVideo> = emptyList(),
@@ -42,7 +46,10 @@ data class VideoFeedUiState(
     val playbackSpeed: Float = 1.0f,
     val playPauseUserActionTrigger: Long = 0L,
     val isLoading: Boolean = true,
-    val isPermissionGranted: Boolean = true,
+    val isPermissionGranted: Boolean = false,
+    val isDemoMode: Boolean = false,
+    val currentVideoId: Long? = null,
+    val scrollRequest: ScrollRequest? = null,
     val selectedMetadata: VideoMetadataDetails? = null,
     val videoToDelete: LocalVideo? = null,
     val pendingDeleteIntentSender: IntentSender? = null,
@@ -70,6 +77,11 @@ class VideoFeedViewModel(
 
     private var shuffledVideoIds: List<Long> = emptyList()
     private var recordJob: kotlinx.coroutines.Job? = null
+    private var hasLoadedOnce = false
+    private var demoMode = false
+    private var resumeAfterForeground = false
+
+    private fun scrollTo(index: Int) = ScrollRequest(index.coerceAtLeast(0), System.nanoTime())
 
     init {
         val initialDisplayMode = settingsManager.getDisplayMode()
@@ -93,7 +105,7 @@ class VideoFeedViewModel(
         )
         uiState = _uiState.asStateFlow()
         observeFavoritesAndWatchHistory()
-        loadVideos()
+        // Loading is triggered by onPermissionResult() once the Activity knows the permission state.
     }
 
     private fun observeFavoritesAndWatchHistory() {
@@ -119,7 +131,8 @@ class VideoFeedViewModel(
                     val updatedAll = state.allVideos.map { video ->
                         video.copy(isFavorite = favMap.containsKey(video.uri.toString()))
                     }
-                    val isFilterAffectedByHistory = state.selectedFilter == FeedFilter.RecentlyPlayed
+                    val isFilterAffectedByHistory = state.selectedFilter == FeedFilter.RecentlyPlayed &&
+                        histMap.keys != state.watchHistoryMap.keys
                     val isFilterAffectedByWatchLater = state.selectedFilter == FeedFilter.WatchLater
                     val isFilterAffectedByPlaylist = state.selectedFilter is FeedFilter.Playlist
 
@@ -160,15 +173,34 @@ class VideoFeedViewModel(
         }
     }
 
-    fun onPermissionGranted() {
-        _uiState.update { it.copy(isPermissionGranted = true, isLoading = true) }
-        loadVideos()
+    /** Called by the Activity with the real permission state (on create, after the dialog, and on resume). */
+    fun onPermissionResult(granted: Boolean) {
+        if (granted) {
+            val s = _uiState.value
+            if (!s.isPermissionGranted || !hasLoadedOnce || s.isDemoMode) {
+                demoMode = false
+                _uiState.update { it.copy(isPermissionGranted = true, isDemoMode = false, isLoading = true) }
+                loadVideos()
+            }
+        } else if (!demoMode) {
+            _uiState.update {
+                it.copy(
+                    isPermissionGranted = false,
+                    isLoading = false,
+                    allVideos = emptyList(),
+                    filteredVideos = emptyList()
+                )
+            }
+        }
     }
+
+    fun onPermissionGranted() = onPermissionResult(true)
 
     fun loadVideos() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val videos = repository.loadVideos()
+            val videos = repository.loadVideos(allowSamples = demoMode)
+            hasLoadedOnce = true
             val folders = videos.map { it.bucketDisplayName }.distinct().sorted()
             val totalBytes = videos.sumOf { it.sizeBytes }
             _uiState.update { state ->
@@ -185,7 +217,6 @@ class VideoFeedViewModel(
                     filteredVideos = filtered,
                     folders = folders,
                     isLoading = false,
-                    isPermissionGranted = true,
                     totalCount = videos.size,
                     totalStorageFormatted = formatStorageSize(totalBytes)
                 )
@@ -193,12 +224,15 @@ class VideoFeedViewModel(
         }
     }
 
+    /** Opt-in demo mode (only reachable from the permission screen). */
     fun loadDemoClips() {
-        onPermissionGranted()
+        demoMode = true
+        _uiState.update { it.copy(isDemoMode = true, isLoading = true) }
+        loadVideos()
     }
 
     fun refreshVideos() {
-        onPermissionGranted()
+        if (_uiState.value.isPermissionGranted || demoMode) loadVideos()
     }
 
     fun selectFilter(filter: FeedFilter) {
@@ -214,7 +248,9 @@ class VideoFeedViewModel(
             state.copy(
                 selectedFilter = filter,
                 filteredVideos = filtered,
-                currentIndex = 0
+                currentIndex = 0,
+                currentVideoId = filtered.firstOrNull()?.id,
+                scrollRequest = scrollTo(0)
             )
         }
     }
@@ -231,16 +267,14 @@ class VideoFeedViewModel(
                 searchQuery = state.searchQuery,
                 historyMap = state.watchHistoryMap
             )
-            val currentVideo = state.filteredVideos.getOrNull(state.currentIndex)
-            val newIdx = if (currentVideo != null) {
-                filtered.indexOfFirst { it.id == currentVideo.id }.coerceAtLeast(0)
-            } else 0
+            val newIdx = filtered.indexOfFirst { it.id == state.currentVideoId }.coerceAtLeast(0)
 
             state.copy(
                 selectedSort = sort,
                 isShuffleMode = false,
                 filteredVideos = filtered,
                 currentIndex = newIdx,
+                scrollRequest = scrollTo(newIdx),
                 toastMessage = "Sorted by: ${sort.displayName}"
             )
         }
@@ -249,11 +283,11 @@ class VideoFeedViewModel(
     fun toggleShuffleMode() {
         val newShuffle = !_uiState.value.isShuffleMode
         settingsManager.setShuffleMode(newShuffle)
+        if (newShuffle) {
+            // Fresh random permutation (done outside update{} because it mutates a field)
+            shuffledVideoIds = _uiState.value.allVideos.map { it.id }.shuffled()
+        }
         _uiState.update { state ->
-            if (newShuffle) {
-                // Generate new random permutation
-                shuffledVideoIds = state.allVideos.map { it.id }.shuffled()
-            }
             val filtered = processVideos(
                 videos = state.allVideos,
                 filter = state.selectedFilter,
@@ -262,15 +296,14 @@ class VideoFeedViewModel(
                 searchQuery = state.searchQuery,
                 historyMap = state.watchHistoryMap
             )
-            val currentVideo = state.filteredVideos.getOrNull(state.currentIndex)
-            val newIdx = if (currentVideo != null && newShuffle) {
-                filtered.indexOfFirst { it.id == currentVideo.id }.coerceAtLeast(0)
-            } else 0
+            // Keep the video the user is watching in both directions
+            val newIdx = filtered.indexOfFirst { it.id == state.currentVideoId }.coerceAtLeast(0)
 
             state.copy(
                 isShuffleMode = newShuffle,
                 filteredVideos = filtered,
                 currentIndex = newIdx,
+                scrollRequest = scrollTo(newIdx),
                 toastMessage = if (newShuffle) "Shuffle Mode: ON 🔀" else "Shuffle Mode: OFF"
             )
         }
@@ -288,15 +321,9 @@ class VideoFeedViewModel(
 
     fun cycleDisplayMode() {
         val modes = VideoDisplayMode.values()
-        _uiState.update { state ->
-            val nextIndex = (state.displayMode.ordinal + 1) % modes.size
-            val newMode = modes[nextIndex]
-            settingsManager.setDisplayMode(newMode)
-            state.copy(
-                displayMode = newMode,
-                toastMessage = "Display: ${newMode.label}"
-            )
-        }
+        val newMode = modes[(_uiState.value.displayMode.ordinal + 1) % modes.size]
+        settingsManager.setDisplayMode(newMode)
+        _uiState.update { it.copy(displayMode = newMode, toastMessage = "Display: ${newMode.label}") }
     }
 
     fun setSearchQuery(query: String) {
@@ -309,10 +336,15 @@ class VideoFeedViewModel(
                 searchQuery = query,
                 historyMap = state.watchHistoryMap
             )
+            // Cleared query -> go back to what was playing; otherwise results start at the top.
+            val idx = if (query.isBlank()) {
+                filtered.indexOfFirst { it.id == state.currentVideoId }.coerceAtLeast(0)
+            } else 0
             state.copy(
                 searchQuery = query,
                 filteredVideos = filtered,
-                currentIndex = 0
+                currentIndex = idx,
+                scrollRequest = scrollTo(idx)
             )
         }
     }
@@ -320,7 +352,7 @@ class VideoFeedViewModel(
     fun toggleSearchOpen() {
         _uiState.update { state ->
             val nextOpen = !state.isSearchOpen
-            val query = if (!nextOpen) "" else state.searchQuery
+            val query = if (nextOpen) state.searchQuery else ""
             val filtered = processVideos(
                 videos = state.allVideos,
                 filter = state.selectedFilter,
@@ -329,11 +361,15 @@ class VideoFeedViewModel(
                 searchQuery = query,
                 historyMap = state.watchHistoryMap
             )
+            // Closing search returns to the video that was playing before the search
+            val idx = if (nextOpen) state.currentIndex
+            else filtered.indexOfFirst { it.id == state.currentVideoId }.coerceAtLeast(0)
             state.copy(
                 isSearchOpen = nextOpen,
                 searchQuery = query,
                 filteredVideos = filtered,
-                currentIndex = 0
+                currentIndex = idx,
+                scrollRequest = if (nextOpen) state.scrollRequest else scrollTo(idx)
             )
         }
     }
@@ -344,16 +380,36 @@ class VideoFeedViewModel(
         _uiState.update { it.copy(isGridView = newGrid) }
     }
 
+    /** Opens the tapped video from the grid or from search results, at the right pager page. */
     fun selectVideoFromGrid(index: Int) {
-        settingsManager.setGridView(false)
+        val before = _uiState.value
+        val video = before.filteredVideos.getOrNull(index) ?: return
+        if (before.isGridView) settingsManager.setGridView(false)
         _uiState.update { state ->
-            val validIndex = index.coerceIn(0, (state.filteredVideos.size - 1).coerceAtLeast(0))
+            val list = processVideos(
+                videos = state.allVideos,
+                filter = state.selectedFilter,
+                sort = state.selectedSort,
+                isShuffle = state.isShuffleMode,
+                searchQuery = "",
+                historyMap = state.watchHistoryMap
+            )
+            val idx = list.indexOfFirst { it.id == video.id }.coerceAtLeast(0)
             state.copy(
-                currentIndex = validIndex,
+                filteredVideos = list,
+                searchQuery = "",
+                isSearchOpen = false,
                 isGridView = false,
+                currentIndex = idx,
+                currentVideoId = video.id,
+                scrollRequest = scrollTo(idx),
                 isPlaying = true
             )
         }
+    }
+
+    fun consumeScrollRequest(request: ScrollRequest) {
+        _uiState.update { if (it.scrollRequest == request) it.copy(scrollRequest = null) else it }
     }
 
     private fun processVideos(
@@ -384,33 +440,31 @@ class VideoFeedViewModel(
                 videos.filter { uriSet.contains(it.uri.toString()) }
             }
             is FeedFilter.DurationRange -> {
-                videos.filter { it.durationMs in filter.minMs..filter.maxMs }
+                videos.filter { filter.matches(it.durationMs) }
             }
             is FeedFilter.BrainMode -> {
-                when (filter.modeName.lowercase(Locale.getDefault())) {
-                    "focus" -> videos.filter { it.durationMs in 10_000L..180_000L }
-                    "calm" -> videos.filter { it.durationMs in 180_000L..600_000L }
-                    "dopamine" -> videos.shuffled()
-                    "low energy" -> videos.filter { it.durationMs >= 600_000L }
-                    else -> videos
-                }
+                // "dopamine" is randomised below via the stable shuffle order
+                videos.filter { brainModeMatches(filter.modeName, it.durationMs) }
             }
             is FeedFilter.ByFolder -> videos.filter { it.bucketDisplayName.equals(filter.folderName, ignoreCase = true) }
         }
 
-        // 2. Search
-        if (searchQuery.isNotBlank()) {
-            val q = searchQuery.trim().lowercase(Locale.getDefault())
-            result = result.filter {
-                it.displayName.lowercase(Locale.getDefault()).contains(q) ||
-                    it.bucketDisplayName.lowercase(Locale.getDefault()).contains(q)
+        // 2. Search: every word must appear in the file name (without extension) or folder name,
+        //    ignoring case and punctuation, so "neon cyber" finds "Neon_Cyber_Sunset_Loop.mp4".
+        val tokens = normalizeForSearch(searchQuery).split(' ').filter { it.isNotEmpty() }
+        if (tokens.isNotEmpty()) {
+            result = result.filter { video ->
+                val haystack = normalizeForSearch(video.displayName.substringBeforeLast('.', video.displayName)) +
+                    " " + normalizeForSearch(video.bucketDisplayName)
+                tokens.all { haystack.contains(it) }
             }
         }
 
         // 3. Shuffle or Sort
-        if (isShuffle) {
-            val idOrder = shuffledVideoIds.withIndex().associate { it.value to it.index }
-            result = result.sortedBy { idOrder[it.id] ?: Int.MAX_VALUE }
+        val isDopamine = filter is FeedFilter.BrainMode && filter.modeName.equals("dopamine", ignoreCase = true)
+        if (isShuffle || isDopamine) {
+            val rank = shuffleRank(result)
+            result = result.sortedBy { rank[it.id] ?: Int.MAX_VALUE }
         } else if (filter !is FeedFilter.RecentlyAdded && filter !is FeedFilter.RecentlyPlayed) {
             result = when (sort) {
                 SortOption.DATE_NEWEST -> result.sortedByDescending { it.dateAddedSec }
@@ -423,6 +477,17 @@ class VideoFeedViewModel(
         }
 
         return result
+    }
+
+    private fun normalizeForSearch(text: String): String =
+        text.lowercase(Locale.getDefault()).map { if (it.isLetterOrDigit()) it else ' ' }.joinToString("")
+
+    /** Stable random order; videos not seen before (e.g. after a refresh) are appended in random order. */
+    private fun shuffleRank(videos: List<LocalVideo>): Map<Long, Int> {
+        val known = shuffledVideoIds.toHashSet()
+        val missing = videos.filter { it.id !in known }.map { it.id }
+        if (missing.isNotEmpty()) shuffledVideoIds = shuffledVideoIds + missing.shuffled()
+        return shuffledVideoIds.withIndex().associate { it.value to it.index }
     }
 
     fun playRandomVideo(): LocalVideo? {
@@ -452,7 +517,10 @@ class VideoFeedViewModel(
                 filteredVideos = filtered,
                 searchQuery = "",
                 isSearchOpen = false,
+                isGridView = false,
                 currentIndex = idx,
+                currentVideoId = video.id,
+                scrollRequest = scrollTo(idx),
                 isPlaying = true
             )
         }
@@ -475,7 +543,10 @@ class VideoFeedViewModel(
                 filteredVideos = filtered,
                 searchQuery = "",
                 isSearchOpen = false,
+                isGridView = false,
                 currentIndex = 0,
+                currentVideoId = filtered.firstOrNull()?.id,
+                scrollRequest = scrollTo(0),
                 isPlaying = true,
                 toastMessage = "Playing: ${filter.displayName}"
             )
@@ -509,8 +580,27 @@ class VideoFeedViewModel(
         }
     }
 
+    /** App left the foreground: pause, but remember whether to resume. */
     fun pausePlayback() {
+        if (_uiState.value.isPlaying) resumeAfterForeground = true
         _uiState.update { it.copy(isPlaying = false) }
+    }
+
+    /** App is back in the foreground: resume only if it was playing when it left. */
+    fun resumePlayback() {
+        if (resumeAfterForeground) {
+            resumeAfterForeground = false
+            _uiState.update { it.copy(isPlaying = true) }
+        }
+    }
+
+    /** Tap on the video: first tap reveals the controls, tap with controls visible toggles play/pause. */
+    fun onVideoTapped() {
+        if (!_uiState.value.areControlsVisible) {
+            setControlsVisible(true)
+        } else {
+            togglePlayPause()
+        }
     }
 
     fun toggleControlsVisibility() {
@@ -588,14 +678,22 @@ class VideoFeedViewModel(
     }
 
     fun onPageChanged(index: Int) {
+        val video = _uiState.value.filteredVideos.getOrNull(index)
+        if (video != null) recordPlayback(video)
         _uiState.update { state ->
-            if (index in state.filteredVideos.indices) {
-                val currentVideo = state.filteredVideos[index]
-                recordPlayback(currentVideo)
-                state.copy(currentIndex = index, isPlaying = true)
+            if (video != null) {
+                state.copy(currentIndex = index, currentVideoId = video.id, isPlaying = true)
             } else {
                 state.copy(currentIndex = index)
             }
+        }
+    }
+
+    /** Saves where the user stopped so long videos can resume. Near-the-end counts as finished. */
+    fun saveWatchPosition(video: LocalVideo, positionMs: Long) {
+        val finished = video.durationMs > 0 && positionMs >= video.durationMs - 5_000L
+        viewModelScope.launch {
+            repository.updateWatchPosition(video, if (finished) 0L else positionMs.coerceAtLeast(0L))
         }
     }
 
@@ -673,10 +771,26 @@ class VideoFeedViewModel(
     }
 
     fun likeVideo(video: LocalVideo) {
-        if (!video.isFavorite) {
+        val alreadyFavorite = _uiState.value.allVideos.firstOrNull { it.uri == video.uri }?.isFavorite
+            ?: video.isFavorite
+        if (!alreadyFavorite) {
             toggleFavorite(video)
         } else {
             _uiState.update { it.copy(toastMessage = "Already in your Favorites ❤️") }
+        }
+    }
+
+    fun toggleWatchLater(video: LocalVideo) {
+        val uri = video.uri.toString()
+        val isSaved = _uiState.value.watchLaterUris.contains(uri)
+        viewModelScope.launch {
+            if (isSaved) {
+                repository.removeWatchLater(uri)
+                _uiState.update { it.copy(toastMessage = "Removed from Watch Later") }
+            } else {
+                repository.addWatchLater(uri)
+                _uiState.update { it.copy(toastMessage = "Saved to Watch Later ⏰") }
+            }
         }
     }
 
@@ -738,29 +852,15 @@ class VideoFeedViewModel(
     }
 
     fun onDeletePermissionGranted(videoUri: String?) {
+        // The system confirmed the delete: only now is it safe to drop the video's favourites/playlists/etc.
+        if (videoUri != null) {
+            viewModelScope.launch { repository.cleanupVideoRecords(videoUri) }
+        }
         _uiState.update { state ->
             val updatedAll = state.allVideos.filterNot { it.uri.toString() == videoUri }
-            val updatedFiltered = processVideos(
-                videos = updatedAll,
-                filter = state.selectedFilter,
-                sort = state.selectedSort,
-                isShuffle = state.isShuffleMode,
-                searchQuery = state.searchQuery,
-                historyMap = state.watchHistoryMap
-            )
-            val newIndex = if (state.currentIndex >= updatedFiltered.size) {
-                (updatedFiltered.size - 1).coerceAtLeast(0)
-            } else {
-                state.currentIndex
-            }
-            val totalBytes = updatedAll.sumOf { it.sizeBytes }
-            state.copy(
-                allVideos = updatedAll,
-                filteredVideos = updatedFiltered,
-                currentIndex = newIndex,
+            removeFromLists(state, updatedAll).copy(
                 pendingDeleteIntentSender = null,
-                totalCount = updatedAll.size,
-                totalStorageFormatted = formatStorageSize(totalBytes),
+                pendingDeleteVideoUri = null,
                 toastMessage = "Video deleted"
             )
         }
@@ -768,36 +868,40 @@ class VideoFeedViewModel(
 
     private fun removeVideoFromState(video: LocalVideo) {
         _uiState.update { state ->
-            val updatedAll = state.allVideos.filterNot { it.uri == video.uri }
-            val updatedFiltered = processVideos(
-                videos = updatedAll,
-                filter = state.selectedFilter,
-                sort = state.selectedSort,
-                isShuffle = state.isShuffleMode,
-                searchQuery = state.searchQuery,
-                historyMap = state.watchHistoryMap
-            )
-            val newIndex = if (state.currentIndex >= updatedFiltered.size) {
-                (updatedFiltered.size - 1).coerceAtLeast(0)
-            } else {
-                state.currentIndex
-            }
-            val totalBytes = updatedAll.sumOf { it.sizeBytes }
-            state.copy(
-                allVideos = updatedAll,
-                filteredVideos = updatedFiltered,
-                currentIndex = newIndex,
-                totalCount = updatedAll.size,
-                totalStorageFormatted = formatStorageSize(totalBytes)
-            )
+            removeFromLists(state, state.allVideos.filterNot { it.uri == video.uri })
         }
+    }
+
+    private fun removeFromLists(state: VideoFeedUiState, updatedAll: List<LocalVideo>): VideoFeedUiState {
+        val updatedFiltered = processVideos(
+            videos = updatedAll,
+            filter = state.selectedFilter,
+            sort = state.selectedSort,
+            isShuffle = state.isShuffleMode,
+            searchQuery = state.searchQuery,
+            historyMap = state.watchHistoryMap
+        )
+        // Stay on the same video if it still exists; otherwise the next one takes its place.
+        val keptIdx = updatedFiltered.indexOfFirst { it.id == state.currentVideoId }
+        val newIndex = if (keptIdx >= 0) keptIdx
+        else state.currentIndex.coerceIn(0, (updatedFiltered.size - 1).coerceAtLeast(0))
+        val totalBytes = updatedAll.sumOf { it.sizeBytes }
+        return state.copy(
+            allVideos = updatedAll,
+            filteredVideos = updatedFiltered,
+            currentIndex = newIndex,
+            currentVideoId = updatedFiltered.getOrNull(newIndex)?.id,
+            folders = updatedAll.map { it.bucketDisplayName }.distinct().sorted(),
+            totalCount = updatedAll.size,
+            totalStorageFormatted = formatStorageSize(totalBytes)
+        )
     }
 
     private fun recordPlayback(video: LocalVideo) {
         recordJob?.cancel()
         recordJob = viewModelScope.launch {
             kotlinx.coroutines.delay(1200L)
-            repository.recordWatchProgress(video, 0L)
+            repository.recordWatchStart(video)
         }
     }
 

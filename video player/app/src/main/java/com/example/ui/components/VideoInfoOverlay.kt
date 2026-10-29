@@ -51,11 +51,14 @@ import java.util.Locale
 @Composable
 fun VideoInfoOverlay(
     video: LocalVideo,
-    currentProgressMs: Long,
+    currentProgressMsProvider: () -> Long,
     totalDurationMs: Long,
     onSeek: (Float) -> Unit,
+    onInteraction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // Read in this scope so the 150ms progress ticks only recompose the overlay, not the whole feed
+    val currentProgressMs = currentProgressMsProvider()
     var isScrubbing by remember { mutableStateOf(false) }
     var scrubRatio by remember { mutableFloatStateOf(0f) }
     var barWidthPx by remember { mutableFloatStateOf(1f) }
@@ -172,6 +175,7 @@ fun VideoInfoOverlay(
                 .pointerInput(video.id) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
+                            onInteraction()
                             isScrubbing = true
                             scrubRatio = (offset.x / barWidthPx).coerceIn(0f, 1f)
                         },
@@ -184,12 +188,14 @@ fun VideoInfoOverlay(
                         },
                         onHorizontalDrag = { change, _ ->
                             change.consume()
+                            onInteraction()
                             scrubRatio = (change.position.x / barWidthPx).coerceIn(0f, 1f)
                         }
                     )
                 }
                 .pointerInput(video.id) {
                     detectTapGestures { offset ->
+                        onInteraction()
                         val tapRatio = (offset.x / barWidthPx).coerceIn(0f, 1f)
                         onSeek(tapRatio)
                     }

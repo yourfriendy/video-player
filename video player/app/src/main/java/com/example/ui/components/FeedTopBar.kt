@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -94,6 +95,7 @@ fun FeedTopBar(
     var isFilterMenuExpanded by remember { mutableStateOf(false) }
     var isSortMenuExpanded by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
     Box(
         modifier = modifier
@@ -318,6 +320,10 @@ fun FeedTopBar(
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Runs when the search row enters composition, i.e. as soon as search opens
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        try { searchFocusRequester.requestFocus() } catch (_: Exception) { /* not attached yet */ }
+                    }
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = null,
@@ -330,6 +336,7 @@ fun FeedTopBar(
                         onValueChange = onSearchQueryChange,
                         modifier = Modifier
                             .weight(1f)
+                            .focusRequester(searchFocusRequester)
                             .testTag("video_search_input"),
                         textStyle = TextStyle(
                             color = Color.White,
