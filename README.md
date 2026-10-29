@@ -74,7 +74,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 <td valign="top">
 
 ### Manage
-- ℹ️ **Metadata inspector** (resolution, codec, size and more)
+- ℹ️ **Metadata inspector** for any video
 - 📤 **Share** a video
 - 🗑️ **Delete** with the system's confirmation dialog (your favorites and playlists are only cleaned up once the file is really gone)
 
