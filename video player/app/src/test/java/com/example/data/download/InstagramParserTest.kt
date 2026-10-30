@@ -107,4 +107,79 @@ class InstagramParserTest {
         assertTrue(InstagramParser.looksLikeLoginWall("<html><form id=\"loginForm\"></form></html>"))
         assertFalse(InstagramParser.looksLikeLoginWall("""<meta property="og:video" content="https://x/y.mp4">"""))
     }
+
+    // ---- Stories ----
+
+    @Test
+    fun understandsUsernamesAndLinks() {
+        fun target(t: String) = InstagramParser.parseStoryTarget(t)
+        assertEquals(InstagramParser.StoryTarget.User("some.user_1"), target("some.user_1"))
+        assertEquals(InstagramParser.StoryTarget.User("some.user_1"), target("  @some.user_1 "))
+        assertEquals(InstagramParser.StoryTarget.User("someuser"), target("https://www.instagram.com/someuser/"))
+        assertEquals(InstagramParser.StoryTarget.User("someuser"), target("https://instagram.com/someuser/?hl=en"))
+        assertEquals(InstagramParser.StoryTarget.User("someuser"), target("https://www.instagram.com/stories/someuser/"))
+        assertEquals(
+            InstagramParser.StoryTarget.Story("someuser", "3210987654321"),
+            target("https://www.instagram.com/stories/someuser/3210987654321/?igsh=abc")
+        )
+        assertEquals(
+            InstagramParser.StoryTarget.Highlight("17890123456"),
+            target("https://www.instagram.com/stories/highlights/17890123456/")
+        )
+    }
+
+    @Test
+    fun rejectsThingsThatAreNotUsers() {
+        assertNull(InstagramParser.parseStoryTarget(""))
+        assertNull(InstagramParser.parseStoryTarget("not a username!"))
+        assertNull(InstagramParser.parseStoryTarget("https://www.instagram.com/reel/CxAbC12345d/"))
+        assertNull(InstagramParser.parseStoryTarget("https://www.instagram.com/explore/"))
+        assertNull(InstagramParser.parseStoryTarget("https://example.com/someuser"))
+    }
+
+    @Test
+    fun spotsStoryLinks() {
+        assertTrue(InstagramParser.isStoryLink("look https://www.instagram.com/stories/someuser/123/ wow"))
+        assertFalse(InstagramParser.isStoryLink("https://www.instagram.com/reel/CxAbC12345d/"))
+    }
+
+    @Test
+    fun readsUserId() {
+        assertEquals("12345", InstagramParser.parseUserId("""{"data":{"user":{"id":"12345","username":"x"}},"status":"ok"}"""))
+        assertNull(InstagramParser.parseUserId("""{"data":{"user":null}}"""))
+        assertNull(InstagramParser.parseUserId("not json"))
+    }
+
+    @Test
+    fun readsVideoAndPhotoStories() {
+        val json = """
+            {"reels_media":[{"id":"1","items":[
+              {"pk":"222","taken_at":2000,"media_type":2,
+               "video_versions":[{"url":"https://cdn.example.com/v.mp4?a=1"}],
+               "image_versions2":{"candidates":[{"url":"https://cdn.example.com/big.jpg"},{"url":"https://cdn.example.com/small.jpg"}]}},
+              {"pk":"111","taken_at":1000,"media_type":1,
+               "image_versions2":{"candidates":[{"url":"https://cdn.example.com/p.jpg"}]}}
+            ]}],"status":"ok"}
+        """.trimIndent()
+        val items = InstagramParser.parseStoryItems(json)
+        assertEquals(2, items.size)
+        // oldest first
+        assertEquals("111", items[0].id)
+        assertFalse(items[0].isVideo)
+        assertEquals("https://cdn.example.com/p.jpg", items[0].mediaUrl)
+        assertEquals("222", items[1].id)
+        assertTrue(items[1].isVideo)
+        assertEquals("https://cdn.example.com/v.mp4?a=1", items[1].mediaUrl)
+        assertEquals("https://cdn.example.com/small.jpg", items[1].thumbnailUrl)
+    }
+
+    @Test
+    fun readsOtherResponseShapes() {
+        val reelsMap = """{"reels":{"9":{"items":[{"pk":"5","taken_at":1,"image_versions2":{"candidates":[{"url":"https://c/x.jpg"}]}}]}}}"""
+        val single = """{"reel":{"items":[{"id":"7_99","taken_at":1,"video_versions":[{"url":"https://c/y.mp4"}]}]}}"""
+        assertEquals(listOf("5"), InstagramParser.parseStoryItems(reelsMap).map { it.id })
+        assertEquals(listOf("7"), InstagramParser.parseStoryItems(single).map { it.id })
+        assertTrue(InstagramParser.parseStoryItems("""{"reels_media":[]}""").isEmpty())
+        assertTrue(InstagramParser.parseStoryItems("garbage").isEmpty())
+    }
 }

@@ -15,7 +15,12 @@ import com.example.data.repository.VideoRepository
 import com.example.data.download.DownloadException
 import com.example.data.download.InstagramDownloader
 import com.example.data.download.InstagramParser
+import com.example.data.download.InstagramStoryService
+import com.example.data.download.LoginRequiredException
 import com.example.ui.model.DownloadStatus
+import com.example.ui.model.DownloaderTab
+import com.example.ui.model.StoryItemDownload
+import com.example.ui.model.StoryUiState
 import com.example.ui.model.FeedFilter
 import com.example.ui.model.SearchOptions
 import com.example.ui.model.SearchSort
@@ -66,6 +71,12 @@ data class VideoFeedUiState(
     val isDownloaderOpen: Boolean = false,
     val downloadUrl: String = "",
     val downloadStatus: DownloadStatus = DownloadStatus.Idle,
+    val downloaderTab: DownloaderTab = DownloaderTab.REELS,
+    val storyInput: String = "",
+    val storyState: StoryUiState = StoryUiState.Idle,
+    val storyDownloads: Map<String, StoryItemDownload> = emptyMap(),
+    val isIgSignedIn: Boolean = false,
+    val isIgLoginOpen: Boolean = false,
     val currentIndex: Int = 0,
     val isPlaying: Boolean = true,
     val isMuted: Boolean = false,
@@ -274,6 +285,9 @@ class VideoFeedViewModel(
 
     private var downloadJob: kotlinx.coroutines.Job? = null
 
+    /** Browser identity shared by the Instagram sign-in page and the API calls. */
+    val webUserAgent: String get() = downloader.webUserAgent
+
     private fun isDownloadBusy(): Boolean {
         val status = _uiState.value.downloadStatus
         return status is DownloadStatus.Fetching || status is DownloadStatus.Downloading
@@ -285,6 +299,7 @@ class VideoFeedViewModel(
         _uiState.update { state ->
             state.copy(
                 isDownloaderOpen = true,
+                isIgSignedIn = InstagramStoryService.isSignedIn(),
                 downloadUrl = if (prefill != null && !busy) prefill else state.downloadUrl,
                 downloadStatus = if (prefill != null && !busy) DownloadStatus.Idle else state.downloadStatus
             )
@@ -315,7 +330,168 @@ class VideoFeedViewModel(
             _uiState.update { it.copy(toastMessage = "No Instagram link found in what you shared") }
             return
         }
+        if (InstagramParser.isStoryLink(url)) {
+            _uiState.update {
+                it.copy(
+                    isDownloaderOpen = true,
+                    downloaderTab = DownloaderTab.STORIES,
+                    storyInput = url,
+                    storyState = StoryUiState.Idle,
+                    storyDownloads = emptyMap(),
+                    isIgSignedIn = InstagramStoryService.isSignedIn()
+                )
+            }
+            findStories()
+            return
+        }
+        _uiState.update { it.copy(downloaderTab = DownloaderTab.REELS) }
         openDownloader(prefill = url, autoStart = true)
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Instagram stories (needs the user's own Instagram sign-in)
+    // ------------------------------------------------------------------------------------------
+
+    private var storyJob: kotlinx.coroutines.Job? = null
+    private var storyDownloadJob: kotlinx.coroutines.Job? = null
+
+    fun setDownloaderTab(tab: DownloaderTab) {
+        _uiState.update { it.copy(downloaderTab = tab, isIgSignedIn = InstagramStoryService.isSignedIn()) }
+    }
+
+    fun setStoryInput(text: String) {
+        _uiState.update { state ->
+            if (text == state.storyInput) state
+            else state.copy(
+                storyInput = text,
+                storyState = if (state.storyState is StoryUiState.Loading) state.storyState else StoryUiState.Idle,
+                storyDownloads = if (state.storyState is StoryUiState.Loading) state.storyDownloads else emptyMap()
+            )
+        }
+    }
+
+    fun openIgLogin() {
+        _uiState.update { it.copy(isIgLoginOpen = true) }
+    }
+
+    /** Called when the sign-in page closes. If the user did sign in, carry on with what they were doing. */
+    fun onIgLoginClosed() {
+        val signedIn = InstagramStoryService.isSignedIn()
+        _uiState.update {
+            it.copy(
+                isIgLoginOpen = false,
+                isIgSignedIn = signedIn,
+                storyState = if (signedIn && it.storyState is StoryUiState.NeedsLogin) StoryUiState.Idle else it.storyState
+            )
+        }
+        if (signedIn && _uiState.value.storyInput.isNotBlank()) findStories()
+    }
+
+    fun igSignOut() {
+        InstagramStoryService.signOut()
+        _uiState.update {
+            it.copy(isIgSignedIn = false, storyState = StoryUiState.Idle, storyDownloads = emptyMap())
+        }
+    }
+
+    fun findStories() {
+        if (storyJob?.isActive == true) return
+        val target = InstagramParser.parseStoryTarget(_uiState.value.storyInput)
+        if (target == null) {
+            _uiState.update {
+                it.copy(storyState = StoryUiState.Error("Enter an Instagram username (like @name) or paste a story link."))
+            }
+            return
+        }
+        if (!InstagramStoryService.isSignedIn()) {
+            _uiState.update {
+                it.copy(isIgSignedIn = false, storyState = StoryUiState.NeedsLogin("Sign in to Instagram to view stories."))
+            }
+            return
+        }
+        storyJob = viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(storyState = StoryUiState.Loading, storyDownloads = emptyMap()) }
+                val result = downloader.stories.load(target)
+                _uiState.update { it.copy(storyState = StoryUiState.Loaded(result.owner, result.items)) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _uiState.update { it.copy(storyState = StoryUiState.Idle) }
+                throw e
+            } catch (e: LoginRequiredException) {
+                InstagramStoryService.signOut() // the saved session is no longer valid
+                _uiState.update {
+                    it.copy(isIgSignedIn = false, storyState = StoryUiState.NeedsLogin(e.message ?: "Please sign in again."))
+                }
+            } catch (e: DownloadException) {
+                _uiState.update { it.copy(storyState = StoryUiState.Error(e.message ?: "Couldn't load stories.")) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(storyState = StoryUiState.Error("Something went wrong. Please try again.")) }
+            }
+        }
+    }
+
+    fun downloadStoryItem(item: com.example.data.download.InstagramParser.StoryItem) {
+        val loaded = _uiState.value.storyState as? StoryUiState.Loaded ?: return
+        if (_uiState.value.storyDownloads[item.id] is StoryItemDownload.Downloading) return
+        viewModelScope.launch {
+            if (saveStoryItem(item, loaded.owner)) reloadLibrary(showLoading = false)
+        }
+    }
+
+    fun downloadAllStories() {
+        val loaded = _uiState.value.storyState as? StoryUiState.Loaded ?: return
+        if (storyDownloadJob?.isActive == true) return
+        storyDownloadJob = viewModelScope.launch {
+            var saved = 0
+            for (item in loaded.items) {
+                if (_uiState.value.storyDownloads[item.id] is StoryItemDownload.Done) continue
+                if (saveStoryItem(item, loaded.owner)) saved++
+            }
+            reloadLibrary(showLoading = false)
+            if (saved > 0) {
+                _uiState.update { state ->
+                    state.copy(
+                        toastMessage = if (!state.isDownloaderOpen) "Saved $saved ${if (saved == 1) "story" else "stories"} ✔" else state.toastMessage
+                    )
+                }
+            }
+        }
+    }
+
+    fun cancelStoryDownloads() {
+        storyDownloadJob?.cancel()
+    }
+
+    /** Saves one story; returns true on success. Failures are recorded per item instead of thrown. */
+    private suspend fun saveStoryItem(
+        item: com.example.data.download.InstagramParser.StoryItem,
+        owner: String
+    ): Boolean {
+        fun setStatus(status: StoryItemDownload?) = _uiState.update { state ->
+            state.copy(
+                storyDownloads = if (status == null) state.storyDownloads - item.id
+                else state.storyDownloads + (item.id to status)
+            )
+        }
+        setStatus(StoryItemDownload.Downloading(-1f))
+        return try {
+            val uri = downloader.downloadMedia(
+                url = item.mediaUrl,
+                baseName = "Instagram_story_${owner.replace(Regex("[^A-Za-z0-9._-]"), "_")}_${item.id}",
+                isVideo = item.isVideo
+            ) { progress -> setStatus(StoryItemDownload.Downloading(progress)) }
+            setStatus(StoryItemDownload.Done(uri))
+            true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            setStatus(null)
+            throw e
+        } catch (e: DownloadException) {
+            setStatus(StoryItemDownload.Failed(e.message ?: "Download failed."))
+            false
+        } catch (e: Exception) {
+            setStatus(StoryItemDownload.Failed("Download failed."))
+            false
+        }
     }
 
     fun startDownload() {

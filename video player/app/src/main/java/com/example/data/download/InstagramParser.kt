@@ -95,4 +95,127 @@ object InstagramParser {
     private fun decodeHtml(s: String): String =
         s.replace("&amp;", "&").replace("&quot;", "\"").replace("&#039;", "'").replace("&#x27;", "'")
             .replace("&lt;", "<").replace("&gt;", ">")
+
+    // ------------------------------------------------------------------------------------------
+    // Stories
+    // ------------------------------------------------------------------------------------------
+
+    sealed interface StoryTarget {
+        /** Every active story of this account. */
+        data class User(val username: String) : StoryTarget
+
+        /** One specific story (from a story link); falls back to "not available" if it has expired. */
+        data class Story(val username: String, val mediaId: String) : StoryTarget
+
+        /** A saved highlight. */
+        data class Highlight(val id: String) : StoryTarget
+    }
+
+    data class StoryItem(
+        val id: String,
+        val isVideo: Boolean,
+        val mediaUrl: String,
+        val thumbnailUrl: String?,
+        val takenAtSec: Long
+    )
+
+    private val USERNAME_REGEX = Regex("""^[A-Za-z0-9._]{1,30}$""")
+    private val RESERVED_FIRST_SEGMENTS = setOf(
+        "reel", "reels", "p", "tv", "explore", "accounts", "direct", "stories", "share",
+        "about", "legal", "developer", "challenge", "web", "api", "oauth", "emails", "nametag"
+    )
+
+    fun isStoryLink(text: String?): Boolean =
+        extractInstagramUrl(text)?.substringBefore('?')?.contains("/stories/") == true
+
+    /**
+     * Understands "Username or link": `name`, `@name`, a profile link, a story link
+     * (`/stories/name/123/`) or a highlight link (`/stories/highlights/123/`).
+     */
+    fun parseStoryTarget(input: String?): StoryTarget? {
+        val text = input?.trim().orEmpty()
+        if (text.isEmpty()) return null
+
+        val url = extractInstagramUrl(text)
+        if (url != null) {
+            val path = url.substringBefore('?').substringBefore('#')
+                .substringAfter("://").substringAfter('/', "")
+                .trim('/')
+            val parts = path.split('/').filter { it.isNotEmpty() }
+            if (parts.isEmpty()) return null
+            if (parts[0] == "stories") {
+                if (parts.size >= 3 && parts[1] == "highlights" && parts[2].all { it.isDigit() }) {
+                    return StoryTarget.Highlight(parts[2])
+                }
+                if (parts.size >= 3 && parts[2].all { it.isDigit() } && USERNAME_REGEX.matches(parts[1])) {
+                    return StoryTarget.Story(parts[1], parts[2])
+                }
+                if (parts.size >= 2 && USERNAME_REGEX.matches(parts[1])) return StoryTarget.User(parts[1])
+                return null
+            }
+            val first = parts[0]
+            if (first in RESERVED_FIRST_SEGMENTS) return null
+            return if (USERNAME_REGEX.matches(first)) StoryTarget.User(first) else null
+        }
+
+        val name = text.removePrefix("@").trim()
+        return if (USERNAME_REGEX.matches(name)) StoryTarget.User(name) else null
+    }
+
+    /** `web_profile_info` response -> numeric user id. */
+    fun parseUserId(json: String): String? = try {
+        org.json.JSONObject(json).optJSONObject("data")?.optJSONObject("user")?.optString("id")
+            ?.takeIf { it.isNotBlank() && it != "null" }
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Reads the story items out of the responses of `feed/reels_media` or `feed/user/<id>/story`.
+     * Videos come first-choice from `video_versions`, photos from `image_versions2`.
+     */
+    fun parseStoryItems(json: String): List<StoryItem> {
+        val root = try {
+            org.json.JSONObject(json)
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        val itemArrays = mutableListOf<org.json.JSONArray>()
+        root.optJSONArray("reels_media")?.let { reels ->
+            for (i in 0 until reels.length()) reels.optJSONObject(i)?.optJSONArray("items")?.let { itemArrays.add(it) }
+        }
+        root.optJSONObject("reels")?.let { reels ->
+            val keys = reels.keys()
+            while (keys.hasNext()) reels.optJSONObject(keys.next())?.optJSONArray("items")?.let { itemArrays.add(it) }
+        }
+        root.optJSONObject("reel")?.optJSONArray("items")?.let { itemArrays.add(it) }
+
+        val result = ArrayList<StoryItem>()
+        for (array in itemArrays) {
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val id = item.optString("pk").ifBlank { item.optString("id").substringBefore('_') }
+                if (id.isBlank()) continue
+
+                val videoUrl = item.optJSONArray("video_versions")?.optJSONObject(0)?.optString("url").orEmpty()
+                val candidates = item.optJSONObject("image_versions2")?.optJSONArray("candidates")
+                val imageUrl = candidates?.optJSONObject(0)?.optString("url").orEmpty()
+                val thumbUrl = candidates?.optJSONObject(candidates.length() - 1)?.optString("url").orEmpty()
+
+                val isVideo = videoUrl.startsWith("http")
+                val media = if (isVideo) videoUrl else imageUrl
+                if (!media.startsWith("http")) continue
+                result.add(
+                    StoryItem(
+                        id = id,
+                        isVideo = isVideo,
+                        mediaUrl = media,
+                        thumbnailUrl = (thumbUrl.ifBlank { imageUrl }).takeIf { it.startsWith("http") },
+                        takenAtSec = item.optLong("taken_at", 0L)
+                    )
+                )
+            }
+        }
+        return result.distinctBy { it.id }.sortedBy { it.takenAtSec }
+    }
 }

@@ -67,6 +67,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 
 ### Save
 - 📥 **Instagram reel downloader**: paste a public reel link, or use Instagram's **Share → OffScroll** and it saves automatically
+- 📸 **Instagram stories**: type a **username or link** and save one story, all of them, or a highlight (videos *and* photos)
 - 🎬 Saved reels land in `Movies/OffScroll` and show up in your feed instantly, with a *Play now* button
 
 ### Keep
@@ -102,8 +103,21 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 1. In Instagram, open a reel and tap **Share → Copy link**, then open OffScroll, tap the **download icon** and paste. 
 2. Or tap **Share → OffScroll** right inside Instagram and the download starts by itself.
 
+### Stories
+
+Stories are never public, so this tab needs **your own Instagram login**:
+
+1. Open the download sheet and switch to **Stories**.
+2. Tap **Sign in with Instagram**. You sign in on Instagram's own page, so OffScroll never sees your password. *Sign out* is one tap away.
+3. Type a **username** (`@name`) to see every current story, or paste a **story link** for just that one, then save them one by one or **Download all**.
+
+Videos are saved to `Movies/OffScroll` (and appear in the feed); photos go to `Pictures/OffScroll`. You can only see stories your own account could already see in the Instagram app, and stories disappear after 24 hours.
+
+> [!WARNING]
+> Instagram doesn't officially allow third-party tools and may limit accounts that use them. A spare account is the safer choice. The sign-in session is kept in the app's private storage only and is excluded from backups.
+
 > [!IMPORTANT]
-> Only **public** reels can be saved, and some creators turn downloads off. Please only keep videos you have permission to save, and respect the creator's rights. Instagram has no official download API, so this reads the public page and may need an update if Instagram changes how it works.
+> Reels: only **public** reels can be saved, and some creators turn downloads off. Please only keep videos you have permission to save, and respect the creator's rights. Instagram has no official download API, so this reads the public page and may need an update if Instagram changes how it works.
 
 ## 🕹️ Gestures at a glance
 

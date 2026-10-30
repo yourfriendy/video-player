@@ -131,6 +131,8 @@ dependencies {
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
   testImplementation(libs.junit)
+  // Real org.json for plain-JVM unit tests (Android's own version is only a stub off-device)
+  testImplementation("org.json:json:20240303")
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
   testImplementation(libs.roborazzi)

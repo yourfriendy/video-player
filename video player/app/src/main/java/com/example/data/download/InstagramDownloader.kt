@@ -38,6 +38,15 @@ class InstagramDownloader(private val context: Context) {
         .followSslRedirects(true)
         .build()
 
+    /** Same browser identity for the sign-in page and for API calls, so Instagram sees one consistent client. */
+    val webUserAgent: String = try {
+        android.webkit.WebSettings.getDefaultUserAgent(context).replace("; wv", "")
+    } catch (e: Exception) {
+        DESKTOP_UA
+    }
+
+    val stories = InstagramStoryService(client, webUserAgent)
+
     /** Turns a pasted link into a direct video URL. */
     suspend fun resolve(inputUrl: String): ResolvedReel = withContext(Dispatchers.IO) {
         try {
@@ -77,11 +86,20 @@ class InstagramDownloader(private val context: Context) {
      * Streams the video into Movies/OffScroll. [onProgress] gets 0..1, or -1 when the size is unknown.
      * Returns the Uri of the saved file.
      */
-    suspend fun download(reel: ResolvedReel, onProgress: (Float) -> Unit): Uri = withContext(Dispatchers.IO) {
+    suspend fun download(reel: ResolvedReel, onProgress: (Float) -> Unit): Uri =
+        downloadMedia(reel.videoUrl, "Instagram_${reel.shortcode}", isVideo = true, onProgress = onProgress)
+
+    /** Saves any video or photo URL into Movies/OffScroll or Pictures/OffScroll. Used by reels and stories. */
+    suspend fun downloadMedia(
+        url: String,
+        baseName: String,
+        isVideo: Boolean,
+        onProgress: (Float) -> Unit
+    ): Uri = withContext(Dispatchers.IO) {
         // Captured here because the writer lambda below is not a suspend lambda
         val ctx = coroutineContext
         val request = Request.Builder()
-            .url(reel.videoUrl)
+            .url(url)
             .header("User-Agent", DESKTOP_UA)
             .header("Referer", "https://www.instagram.com/")
             .build()
@@ -94,11 +112,11 @@ class InstagramDownloader(private val context: Context) {
                 val body = response.body ?: throw DownloadException("Instagram sent an empty response.")
                 val type = body.contentType()?.toString().orEmpty()
                 if (type.startsWith("text/") || type.contains("json")) {
-                    throw DownloadException("Instagram didn't return a video file. The link may have expired.")
+                    throw DownloadException("Instagram didn't return a file. The link may have expired.")
                 }
                 val total = body.contentLength()
-                val name = "Instagram_${reel.shortcode}_${System.currentTimeMillis() / 1000}.mp4"
-                saveStream(name) { out ->
+                val name = "${baseName}_${System.currentTimeMillis() / 1000}.${if (isVideo) "mp4" else "jpg"}"
+                saveStream(name, isVideo) { out ->
                     val buffer = ByteArray(64 * 1024)
                     var copied = 0L
                     var lastReported = -1
@@ -151,22 +169,26 @@ class InstagramDownloader(private val context: Context) {
     }
 
     /** Writes via MediaStore on Android 10+, so no storage permission is needed. */
-    private fun saveStream(fileName: String, writer: (java.io.OutputStream) -> Unit): Uri {
+    private fun saveStream(fileName: String, isVideo: Boolean, writer: (java.io.OutputStream) -> Unit): Uri {
+        val mime = if (isVideo) "video/mp4" else "image/jpeg"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
+            val collection = if (isVideo) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            val folder = (if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES) + "/OffScroll"
             val values = ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/OffScroll")
-                put(MediaStore.Video.Media.IS_PENDING, 1)
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, folder)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
-            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            val uri = resolver.insert(collection, values)
                 ?: throw DownloadException("Couldn't create the file on your phone.")
             try {
                 resolver.openOutputStream(uri)?.use { writer(it) }
                     ?: throw DownloadException("Couldn't write to your phone's storage.")
                 values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
                 return uri
             } catch (e: Throwable) {
@@ -174,7 +196,8 @@ class InstagramDownloader(private val context: Context) {
                 throw e
             }
         } else {
-            val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "OffScroll").apply { mkdirs() }
+            val type = if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES
+            val dir = File(context.getExternalFilesDir(type), "OffScroll").apply { mkdirs() }
             val file = File(dir, fileName)
             try {
                 file.outputStream().use { writer(it) }
@@ -182,7 +205,7 @@ class InstagramDownloader(private val context: Context) {
                 file.delete()
                 throw e
             }
-            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf("video/mp4"), null)
+            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf(mime), null)
             return Uri.fromFile(file)
         }
     }

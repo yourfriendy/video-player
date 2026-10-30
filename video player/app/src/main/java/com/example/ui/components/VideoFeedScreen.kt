@@ -407,15 +407,7 @@ fun VideoFeedScreen(
 
         // Instagram downloader
         if (uiState.isDownloaderOpen) {
-            DownloaderSheet(
-                url = uiState.downloadUrl,
-                status = uiState.downloadStatus,
-                onUrlChange = { viewModel.setDownloadUrl(it) },
-                onDownload = { viewModel.startDownload() },
-                onCancel = { viewModel.cancelDownload() },
-                onPlay = { viewModel.playDownloaded() },
-                onDismiss = { viewModel.closeDownloader() }
-            )
+            DownloaderSheet(uiState = uiState, viewModel = viewModel)
         }
 
         // Add to Playlist Bottom Sheet
