@@ -50,11 +50,6 @@ import com.example.ui.viewmodel.VideoFeedViewModel
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.layout.navigationBars
 
 @Composable
@@ -286,47 +281,7 @@ fun SettingsScreen(
 
             // Dev credit (last item)
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 6.dp)
-                        .testTag("dev_credit"),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(48.dp)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(
-                                Brush.horizontalGradient(listOf(Color(0xFF5EEAD4), Color(0xFF8B5CF6)))
-                            )
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = buildAnnotatedString {
-                            append("Made by ")
-                            withStyle(
-                                SpanStyle(
-                                    brush = Brush.horizontalGradient(
-                                        listOf(Color(0xFF5EEAD4), Color(0xFF60A5FA), Color(0xFFA78BFA))
-                                    ),
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            ) { append("Madhu Yadav") }
-                            append(" \u2764\uFE0F\u200D\uD83D\uDD25")
-                        },
-                        color = Color(0xFFE2E8F0),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "For people who just want to watch their own videos",
-                        color = Color(0xFF64748B),
-                        fontSize = 11.sp
-                    )
-                }
+                DevCreditCard(versionName = versionName, build = updateViewModel.installedBuild)
             }
         }
     }
