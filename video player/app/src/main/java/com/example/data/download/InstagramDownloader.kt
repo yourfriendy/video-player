@@ -47,7 +47,12 @@ class InstagramDownloader(private val context: Context) {
         DESKTOP_UA
     }
 
-    val stories = InstagramStoryService(client, webUserAgent)
+    private val webFetcher = IgWebFetcher(context, webUserAgent)
+
+    val stories = InstagramStoryService(client, webUserAgent, webFetcher)
+
+    /** Frees the hidden browser engine. */
+    fun release() = webFetcher.release()
 
     /** Turns a pasted link into a direct video URL. */
     suspend fun resolve(inputUrl: String): ResolvedReel = withContext(Dispatchers.IO) {

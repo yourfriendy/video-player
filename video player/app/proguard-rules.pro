@@ -37,3 +37,8 @@
 
 # Readable crash reports
 -keepattributes SourceFile,LineNumberTable
+
+# Methods called from JavaScript by the hidden Instagram browser must keep their names
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}

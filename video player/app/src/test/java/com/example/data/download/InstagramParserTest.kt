@@ -182,4 +182,23 @@ class InstagramParserTest {
         assertTrue(InstagramParser.parseStoryItems("""{"reels_media":[]}""").isEmpty())
         assertTrue(InstagramParser.parseStoryItems("garbage").isEmpty())
     }
+
+    @Test
+    fun findsAccountInSearchResults() {
+        val json = """{"users":[
+            {"position":0,"user":{"pk":"111","username":"someone_else"}},
+            {"position":1,"user":{"pk":"222","username":"Target.User"}}
+        ]}"""
+        assertEquals("222", InstagramParser.parseUserIdFromSearch(json, "target.user"))
+        assertNull(InstagramParser.parseUserIdFromSearch(json, "nobody"))
+        assertNull(InstagramParser.parseUserIdFromSearch("nope", "x"))
+    }
+
+    @Test
+    fun findsAccountIdInProfileHtml() {
+        assertEquals("333", InstagramParser.parseUserIdFromProfileHtml("""..."profilePage_333"...""", "x"))
+        assertEquals("444", InstagramParser.parseUserIdFromProfileHtml("""{"id":"444","username":"abc.def"}""", "abc.def"))
+        assertEquals("555", InstagramParser.parseUserIdFromProfileHtml("""{"profile_id":"555"}""", "x"))
+        assertNull(InstagramParser.parseUserIdFromProfileHtml("<html></html>", "x"))
+    }
 }

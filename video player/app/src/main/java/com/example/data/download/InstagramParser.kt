@@ -170,6 +170,40 @@ object InstagramParser {
         null
     }
 
+    /** `fbsearch/web/top_search` response -> id of the account whose username matches exactly. */
+    fun parseUserIdFromSearch(json: String, username: String): String? = try {
+        val users = org.json.JSONObject(json).optJSONArray("users")
+        var found: String? = null
+        if (users != null) {
+            for (i in 0 until users.length()) {
+                val user = users.optJSONObject(i)?.optJSONObject("user") ?: continue
+                if (user.optString("username").equals(username, ignoreCase = true)) {
+                    found = (user.optString("pk").ifBlank { user.optString("id") }).takeIf { it.isNotBlank() }
+                    break
+                }
+            }
+        }
+        found
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Last resort: dig the account id out of the profile page's embedded data. */
+    fun parseUserIdFromProfileHtml(html: String, username: String): String? {
+        val name = Regex.escape(username)
+        val patterns = listOf(
+            Regex("""profilePage_(\d+)"""),
+            Regex(""""id"\s*:\s*"(\d+)"\s*,\s*"username"\s*:\s*"$name"""", RegexOption.IGNORE_CASE),
+            Regex(""""username"\s*:\s*"$name"\s*,[^{}]{0,200}?"id"\s*:\s*"(\d+)"""", RegexOption.IGNORE_CASE),
+            Regex(""""profile_id"\s*:\s*"(\d+)""""),
+            Regex(""""target_id"\s*:\s*"(\d+)"""")
+        )
+        for (pattern in patterns) {
+            pattern.find(html)?.groupValues?.get(1)?.let { return it }
+        }
+        return null
+    }
+
     /**
      * Reads the story items out of the responses of `feed/reels_media` or `feed/user/<id>/story`.
      * Videos come first-choice from `video_versions`, photos from `image_versions2`.
