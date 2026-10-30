@@ -25,7 +25,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 
 |  |  |
 |---|---|
-| 📴 **Fully offline** | Plays files straight from your device. The app code makes no network calls and your videos never leave your phone. |
+| 📴 **Plays offline** | Plays files straight from your device. Your videos never leave your phone, and the app only goes online when you ask it to save an Instagram reel. |
 | 🔒 **Minimal permission** | Only asks to read your videos (`READ_MEDIA_VIDEO`). |
 | 🚫 **No accounts, no ads** | Install it and start watching. |
 | ⚡ **Buttery swiping** | A shared pool of Media3 players, the next video preloaded, and an R8-optimised release build. |
@@ -65,6 +65,10 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 <tr>
 <td valign="top">
 
+### Save
+- 📥 **Instagram reel downloader**: paste a public reel link, or use Instagram's **Share → OffScroll** and it saves automatically
+- 🎬 Saved reels land in `Movies/OffScroll` and show up in your feed instantly, with a *Play now* button
+
 ### Keep
 - ⭐ **Favorites**
 - ⏰ **Watch Later**
@@ -93,6 +97,14 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 > [!NOTE]
 > The APK is **debug-signed**, so Android may show an "unknown app" warning. That's expected for apps installed outside the Play Store.
 
+## 📥 Saving Instagram reels
+
+1. In Instagram, open a reel and tap **Share → Copy link**, then open OffScroll, tap the **download icon** and paste. 
+2. Or tap **Share → OffScroll** right inside Instagram and the download starts by itself.
+
+> [!IMPORTANT]
+> Only **public** reels can be saved, and some creators turn downloads off. Please only keep videos you have permission to save, and respect the creator's rights. Instagram has no official download API, so this reads the public page and may need an update if Instagram changes how it works.
+
 ## 🕹️ Gestures at a glance
 
 | Gesture | What it does |
@@ -104,6 +116,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 | **Slide along the right edge** | Volume 🔊 |
 | **Drag along the progress bar** | Scrub through the video |
 | **Search icon** | Find a video, then tap a result to play it |
+| **Download icon** | Save a public Instagram reel from its link |
 | **Gear icon** | Settings and guide |
 
 ## 🛠️ Tech stack

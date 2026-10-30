@@ -40,6 +40,12 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
+      - name: Test the Instagram link parser
+        working-directory: video player
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
       - name: Prepare signing key
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -74,7 +80,7 @@ jobs:
         if: failure()
         run: |
           if [ -f build.log ]; then
-            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED|expected:|AssertionError|ComparisonFailure" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
             echo "::error title=Build errors::${ERR}"
           else
             echo "::error title=Build errors::no build.log (failed before the Gradle step)"

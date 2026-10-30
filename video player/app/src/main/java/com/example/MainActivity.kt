@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
         // Tell the ViewModel the real permission state before the first frame (it loads videos if granted)
         viewModel.onPermissionResult(hasMediaPermission())
 
+        // Launched from Instagram's Share sheet? (Only on a fresh start; rotation must not re-trigger it.)
+        if (savedInstanceState == null) handleShareIntent(intent)
+
         setContent {
             MyApplicationTheme {
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -116,6 +119,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** The app is already running and another app shared a link to it. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleShareIntent(intent)
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND) return
+        val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
+        // Consume it so the same share is never handled twice
+        intent.action = null
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        viewModel.handleSharedText(shared)
     }
 
     override fun onResume() {

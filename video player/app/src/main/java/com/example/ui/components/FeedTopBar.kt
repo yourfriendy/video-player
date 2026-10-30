@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
@@ -87,6 +88,7 @@ fun FeedTopBar(
     onToggleGridView: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenDownloader: () -> Unit,
     onRefresh: () -> Unit,
     onOpenPopup: () -> Unit = {},
     onOpenAllFeatures: () -> Unit = {},
@@ -279,6 +281,24 @@ fun FeedTopBar(
                             imageVector = if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
                             contentDescription = if (isGridView) "Reels View" else "Grid View",
                             tint = if (isGridView) Color(0xFF0F172A) else Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Save from Instagram
+                    IconButton(
+                        onClick = onOpenDownloader,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .shadow(4.dp, CircleShape)
+                            .background(GlassBackground, CircleShape)
+                            .border(1.dp, GlassBorder, CircleShape)
+                            .testTag("feed_download_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Save from Instagram",
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }

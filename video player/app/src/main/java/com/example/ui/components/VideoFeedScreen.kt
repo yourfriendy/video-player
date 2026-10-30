@@ -366,6 +366,7 @@ fun VideoFeedScreen(
                 onToggleGridView = { viewModel.toggleGridView() },
                 onOpenSearch = { viewModel.openSearch() },
                 onOpenSettings = onOpenSettings,
+                onOpenDownloader = { viewModel.openDownloader() },
                 onRefresh = { viewModel.loadVideos() },
                 onOpenPopup = onEnterPiP,
                 onOpenAllFeatures = { isAllFeaturesOpen = true }
@@ -402,6 +403,19 @@ fun VideoFeedScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             SearchScreen(uiState = uiState, viewModel = viewModel)
+        }
+
+        // Instagram downloader
+        if (uiState.isDownloaderOpen) {
+            DownloaderSheet(
+                url = uiState.downloadUrl,
+                status = uiState.downloadStatus,
+                onUrlChange = { viewModel.setDownloadUrl(it) },
+                onDownload = { viewModel.startDownload() },
+                onCancel = { viewModel.cancelDownload() },
+                onPlay = { viewModel.playDownloaded() },
+                onDismiss = { viewModel.closeDownloader() }
+            )
         }
 
         // Add to Playlist Bottom Sheet

@@ -12,6 +12,10 @@ import com.example.data.model.VideoMetadataDetails
 import com.example.data.repository.DeletionResult
 import com.example.data.repository.MetadataExtractor
 import com.example.data.repository.VideoRepository
+import com.example.data.download.DownloadException
+import com.example.data.download.InstagramDownloader
+import com.example.data.download.InstagramParser
+import com.example.ui.model.DownloadStatus
 import com.example.ui.model.FeedFilter
 import com.example.ui.model.SearchOptions
 import com.example.ui.model.SearchSort
@@ -59,6 +63,9 @@ data class VideoFeedUiState(
     val searchResults: List<LocalVideo> = emptyList(),
     val isSearchRunning: Boolean = false,
     val recentSearches: List<String> = emptyList(),
+    val isDownloaderOpen: Boolean = false,
+    val downloadUrl: String = "",
+    val downloadStatus: DownloadStatus = DownloadStatus.Idle,
     val currentIndex: Int = 0,
     val isPlaying: Boolean = true,
     val isMuted: Boolean = false,
@@ -88,7 +95,8 @@ data class VideoFeedUiState(
 class VideoFeedViewModel(
     private val repository: VideoRepository,
     private val metadataExtractor: MetadataExtractor,
-    private val settingsManager: com.example.data.local.SettingsManager
+    private val settingsManager: com.example.data.local.SettingsManager,
+    private val downloader: InstagramDownloader
 ) : ViewModel() {
 
     private val _uiState: MutableStateFlow<VideoFeedUiState>
@@ -228,8 +236,13 @@ class VideoFeedViewModel(
     fun onPermissionGranted() = onPermissionResult(true)
 
     fun loadVideos() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch { reloadLibrary(showLoading = true) }
+    }
+
+    /** [showLoading] = false refreshes the list in place (used after a download) without blanking the feed. */
+    private suspend fun reloadLibrary(showLoading: Boolean) {
+        run {
+            if (showLoading) _uiState.update { it.copy(isLoading = true) }
             val videos = repository.loadVideos(allowSamples = demoMode)
             hasLoadedOnce = true
             val folders = videos.map { it.bucketDisplayName }.distinct().sorted()
@@ -252,6 +265,113 @@ class VideoFeedViewModel(
                     totalStorageFormatted = formatStorageSize(totalBytes)
                 )
             }
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Instagram downloader
+    // ------------------------------------------------------------------------------------------
+
+    private var downloadJob: kotlinx.coroutines.Job? = null
+
+    private fun isDownloadBusy(): Boolean {
+        val status = _uiState.value.downloadStatus
+        return status is DownloadStatus.Fetching || status is DownloadStatus.Downloading
+    }
+
+    /** Opens the downloader sheet. With [autoStart] a freshly shared link starts downloading right away. */
+    fun openDownloader(prefill: String? = null, autoStart: Boolean = false) {
+        val busy = isDownloadBusy()
+        _uiState.update { state ->
+            state.copy(
+                isDownloaderOpen = true,
+                downloadUrl = if (prefill != null && !busy) prefill else state.downloadUrl,
+                downloadStatus = if (prefill != null && !busy) DownloadStatus.Idle else state.downloadStatus
+            )
+        }
+        if (autoStart && prefill != null && !busy) startDownload()
+    }
+
+    fun closeDownloader() {
+        _uiState.update { it.copy(isDownloaderOpen = false) }
+    }
+
+    fun setDownloadUrl(text: String) {
+        _uiState.update { state ->
+            val status = state.downloadStatus
+            state.copy(
+                downloadUrl = text,
+                downloadStatus = if (status is DownloadStatus.Failed || status is DownloadStatus.Success) {
+                    DownloadStatus.Idle
+                } else status
+            )
+        }
+    }
+
+    /** Called with whatever another app shared to us (e.g. Instagram's Share → OffScroll). */
+    fun handleSharedText(text: String?) {
+        val url = InstagramParser.extractInstagramUrl(text)
+        if (url == null) {
+            _uiState.update { it.copy(toastMessage = "No Instagram link found in what you shared") }
+            return
+        }
+        openDownloader(prefill = url, autoStart = true)
+    }
+
+    fun startDownload() {
+        if (isDownloadBusy()) return
+        val url = InstagramParser.extractInstagramUrl(_uiState.value.downloadUrl)
+        if (url == null) {
+            _uiState.update {
+                it.copy(downloadStatus = DownloadStatus.Failed("Paste a link to an Instagram reel (instagram.com/reel/…)."))
+            }
+            return
+        }
+        downloadJob = viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(downloadStatus = DownloadStatus.Fetching) }
+                val reel = downloader.resolve(url)
+                _uiState.update { it.copy(downloadStatus = DownloadStatus.Downloading(-1f)) }
+                val savedUri = downloader.download(reel) { progress ->
+                    _uiState.update { state ->
+                        if (state.downloadStatus is DownloadStatus.Downloading) {
+                            state.copy(downloadStatus = DownloadStatus.Downloading(progress))
+                        } else state
+                    }
+                }
+                reloadLibrary(showLoading = false)
+                _uiState.update { state ->
+                    state.copy(
+                        downloadStatus = DownloadStatus.Success(savedUri, reel.title ?: "Instagram reel"),
+                        toastMessage = if (!state.isDownloaderOpen) "Reel saved to your library ✔" else state.toastMessage
+                    )
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _uiState.update { it.copy(downloadStatus = DownloadStatus.Idle) }
+                throw e
+            } catch (e: DownloadException) {
+                _uiState.update { it.copy(downloadStatus = DownloadStatus.Failed(e.message ?: "Download failed.")) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(downloadStatus = DownloadStatus.Failed("Something went wrong. Please try again."))
+                }
+            }
+        }
+    }
+
+    fun cancelDownload() {
+        downloadJob?.cancel()
+    }
+
+    /** "Play now" after a successful download: jump straight to the new video in the feed. */
+    fun playDownloaded() {
+        val status = _uiState.value.downloadStatus as? DownloadStatus.Success ?: return
+        val video = _uiState.value.allVideos.firstOrNull { it.uri == status.uri }
+        closeDownloader()
+        if (video != null) {
+            playVideo(video, FeedFilter.All)
+        } else {
+            _uiState.update { it.copy(toastMessage = "Saved to Movies/OffScroll") }
         }
     }
 
@@ -1092,7 +1212,7 @@ class VideoFeedViewModelFactory(private val context: Context) : ViewModelProvide
         val repository = VideoRepository(context, database)
         val metadataExtractor = MetadataExtractor(context)
         val settingsManager = com.example.data.local.SettingsManager(context)
-        return VideoFeedViewModel(repository, metadataExtractor, settingsManager) as T
+        return VideoFeedViewModel(repository, metadataExtractor, settingsManager, InstagramDownloader(context.applicationContext)) as T
     }
 }
 
