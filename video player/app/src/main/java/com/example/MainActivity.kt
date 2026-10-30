@@ -29,9 +29,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.PermissionRequestScreen
 import com.example.ui.components.VideoFeedScreen
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.VideoFeedViewModel
 import com.example.ui.viewmodel.VideoFeedViewModelFactory
 
@@ -40,6 +42,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel: VideoFeedViewModel by viewModels {
         VideoFeedViewModelFactory(applicationContext)
     }
+
+    // Shared by the update pop-up below and the "App updates" card in Settings
+    private val updateViewModel: AppUpdateViewModel by viewModels()
 
     private val requiredPermission: String
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -112,10 +117,12 @@ class MainActivity : ComponentActivity() {
                         com.example.ui.navigation.AppNavigation(
                             uiState = uiState,
                             viewModel = viewModel,
+                            updateViewModel = updateViewModel,
                             onEnterPiP = { enterSystemPiP() },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
+                    AppUpdateDialog(updateViewModel)
                 }
             }
         }
@@ -142,6 +149,8 @@ class MainActivity : ComponentActivity() {
         // Picks up permission granted/revoked in system Settings, and resumes playback that onPause stopped
         viewModel.onPermissionResult(hasMediaPermission())
         viewModel.resumePlayback()
+        // Looks for a newer build on GitHub (skips the network if it checked in the last 15 minutes)
+        updateViewModel.checkOnLaunch()
     }
 
     fun enterSystemPiP() {
