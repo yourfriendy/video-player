@@ -43,7 +43,7 @@ import com.example.data.download.InstagramStoryService
 class IgLoginActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
-    private lateinit var progress: ProgressBar
+    private lateinit var loadBar: ProgressBar
     private lateinit var status: TextView
     private val handler = Handler(Looper.getMainLooper())
     private var done = false
@@ -99,7 +99,7 @@ class IgLoginActivity : ComponentActivity() {
             addView(reload, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(56)))
         }
 
-        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+        loadBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; visibility = View.GONE
         }
         status = TextView(this).apply {
@@ -132,8 +132,8 @@ class IgLoginActivity : ComponentActivity() {
 
             webChromeClient = object : WebChromeClient() {
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                    progress.progress = newProgress
-                    progress.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+                    loadBar.progress = newProgress
+                    loadBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
                 }
             }
             webViewClient = object : WebViewClient() {
@@ -179,7 +179,7 @@ class IgLoginActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(navy)
             addView(header)
-            addView(progress, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))
+            addView(loadBar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))
             addView(status, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(webView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         }
