@@ -191,11 +191,12 @@ fun DownloaderSheet(
         }
     }
 
-    if (uiState.isIgLoginOpen) {
-        IgLoginDialog(
-            userAgent = viewModel.webUserAgent,
-            onClose = { viewModel.onIgLoginClosed() }
-        )
+    // Instagram's sign-in runs on its own screen (a plain web view renders reliably there)
+    val loginLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = com.example.IgLoginActivity.Contract()
+    ) { viewModel.onIgLoginClosed() }
+    LaunchedEffect(uiState.isIgLoginOpen) {
+        if (uiState.isIgLoginOpen) loginLauncher.launch(viewModel.webUserAgent)
     }
 }
 
@@ -668,66 +669,6 @@ private fun LoginCard(onSignIn: () -> Unit) {
 // ----------------------------------------------------------------------------------------------
 // Instagram sign-in (Instagram's own page, shown in a WebView)
 // ----------------------------------------------------------------------------------------------
-
-@SuppressLint("SetJavaScriptEnabled")
-@Composable
-private fun IgLoginDialog(userAgent: String, onClose: () -> Unit) {
-    Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(modifier = Modifier.fillMaxSize(), color = Slate950) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onClose, modifier = Modifier.testTag("ig_login_close")) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Sign in to Instagram", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "This is Instagram's own page. OffScroll never sees your password.",
-                            color = Muted,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-                AndroidView(
-                    factory = { ctx ->
-                        WebView(ctx).apply {
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.userAgentString = userAgent
-                            CookieManager.getInstance().setAcceptCookie(true)
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                            var finished = false
-                            webViewClient = object : WebViewClient() {
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    super.onPageFinished(view, url)
-                                    // The session cookie appears as soon as the login succeeds
-                                    if (!finished && InstagramStoryService.isSignedIn()) {
-                                        finished = true
-                                        CookieManager.getInstance().flush()
-                                        onClose()
-                                    }
-                                }
-                            }
-                            loadUrl("https://www.instagram.com/accounts/login/")
-                        }
-                    },
-                    onRelease = { it.destroy() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
-            }
-        }
-    }
-}
 
 // ----------------------------------------------------------------------------------------------
 // Shared pieces

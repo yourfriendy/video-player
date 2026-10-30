@@ -41,6 +41,12 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- Instagram's own sign-in page (used for the Stories tab) -->
+        <activity
+            android:name=".IgLoginActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:exported="false"
+            android:theme="@style/Theme.MyApplication" />
     </application>
 
 </manifest>

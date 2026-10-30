@@ -40,7 +40,9 @@ class InstagramDownloader(private val context: Context) {
 
     /** Same browser identity for the sign-in page and for API calls, so Instagram sees one consistent client. */
     val webUserAgent: String = try {
-        android.webkit.WebSettings.getDefaultUserAgent(context).replace("; wv", "")
+        android.webkit.WebSettings.getDefaultUserAgent(context)
+            .replace("; wv", "")      // "wv" marks an embedded WebView
+            .replace(" Version/4.0", "") // so does the old "Version/4.0" token; real Chrome has neither
     } catch (e: Exception) {
         DESKTOP_UA
     }
