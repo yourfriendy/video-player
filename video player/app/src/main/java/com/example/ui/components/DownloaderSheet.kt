@@ -1,7 +1,13 @@
 package com.example.ui.components
 
 import android.annotation.SuppressLint
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -36,6 +42,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +55,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -669,9 +681,34 @@ private fun LoginCard(onSignIn: () -> Unit) {
 // Instagram sign-in (Instagram's own page, shown in a WebView)
 // ----------------------------------------------------------------------------------------------
 
+private const val IG_LOGIN_URL = "https://www.instagram.com/accounts/login/"
+private const val IG_LOG_TAG = "IgLogin"
+
+/** Instagram's login page is a JavaScript app: until it has drawn its form there are no <input>s. */
+private const val IG_FORM_PROBE_JS = "document.querySelectorAll('input').length"
+private const val IG_FORM_PROBE_INTERVAL_MS = 4_000L
+private const val IG_FORM_PROBE_MAX_TRIES = 15
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun IgLoginDialog(userAgent: String, onClose: () -> Unit) {
+    var loadProgress by remember { mutableIntStateOf(0) }
+    // Hard failure (no network, HTTP error): replaces the page with a message + retry.
+    var error by remember { mutableStateOf<String?>(null) }
+    // Soft problem (page loaded but the sign-in form has not appeared yet): banner, page stays visible.
+    var formMissing by remember { mutableStateOf(false) }
+    val webViewRef = remember { arrayOfNulls<WebView>(1) }
+
+    val retry: () -> Unit = {
+        error = null
+        formMissing = false
+        loadProgress = 0
+        webViewRef[0]?.let {
+            it.stopLoading()
+            it.loadUrl(IG_LOGIN_URL)
+        }
+    }
+
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -696,34 +733,168 @@ private fun IgLoginDialog(userAgent: String, onClose: () -> Unit) {
                         )
                     }
                 }
-                AndroidView(
-                    factory = { ctx ->
-                        WebView(ctx).apply {
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.userAgentString = userAgent
-                            CookieManager.getInstance().setAcceptCookie(true)
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                            var finished = false
-                            webViewClient = object : WebViewClient() {
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    super.onPageFinished(view, url)
-                                    // The session cookie appears as soon as the login succeeds
-                                    if (!finished && InstagramStoryService.isSignedIn()) {
-                                        finished = true
-                                        CookieManager.getInstance().flush()
-                                        onClose()
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    AndroidView(
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                webViewRef[0] = this
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.userAgentString = userAgent
+                                CookieManager.getInstance().setAcceptCookie(true)
+                                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                                var finished = false
+                                var probing = false
+
+                                // Keeps asking the page whether the sign-in form is there yet. A page that
+                                // loads "successfully" but never draws the form raises NO WebView error, so
+                                // this is the only way to notice that silent failure.
+                                fun probeLoginForm(v: WebView, attempt: Int) {
+                                    probing = true
+                                    v.postDelayed({
+                                        if (finished || error != null || !v.isAttachedToWindow) {
+                                            probing = false
+                                            return@postDelayed
+                                        }
+                                        v.evaluateJavascript(IG_FORM_PROBE_JS) { count ->
+                                            val drawn = (count?.trim()?.toIntOrNull() ?: 0) > 0
+                                            when {
+                                                drawn -> { formMissing = false; probing = false }
+                                                attempt >= IG_FORM_PROBE_MAX_TRIES -> probing = false
+                                                else -> {
+                                                    if (attempt >= 1) formMissing = true
+                                                    probeLoginForm(v, attempt + 1)
+                                                }
+                                            }
+                                        }
+                                    }, IG_FORM_PROBE_INTERVAL_MS)
+                                }
+
+                                webChromeClient = object : WebChromeClient() {
+                                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                        loadProgress = newProgress
+                                    }
+
+                                    override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
+                                        if (message?.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                                            Log.w(IG_LOG_TAG, "JS error: ${message.message()} (${message.sourceId()}:${message.lineNumber()})")
+                                        }
+                                        return false
                                     }
                                 }
+
+                                webViewClient = object : WebViewClient() {
+                                    override fun onReceivedError(
+                                        view: WebView?,
+                                        request: WebResourceRequest?,
+                                        err: WebResourceError?
+                                    ) {
+                                        if (request?.isForMainFrame == true) {
+                                            Log.w(IG_LOG_TAG, "Load error ${err?.errorCode} (${err?.description}) for ${request.url}")
+                                            error = "Couldn't reach Instagram (${err?.description ?: "network error"}). " +
+                                                "Check your connection and try again."
+                                        }
+                                    }
+
+                                    override fun onReceivedHttpError(
+                                        view: WebView?,
+                                        request: WebResourceRequest?,
+                                        errorResponse: WebResourceResponse?
+                                    ) {
+                                        val code = errorResponse?.statusCode ?: return
+                                        if (request?.isForMainFrame == true && code >= 400) {
+                                            Log.w(IG_LOG_TAG, "HTTP $code for ${request.url}")
+                                            error = "Instagram answered with an error (HTTP $code). Try again in a moment."
+                                        }
+                                    }
+
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        val v = view ?: return
+                                        // The session cookie appears as soon as the login succeeds
+                                        if (!finished && InstagramStoryService.isSignedIn()) {
+                                            finished = true
+                                            CookieManager.getInstance().flush()
+                                            onClose()
+                                            return
+                                        }
+                                        if (!finished && !probing && url?.contains("/accounts/login") == true) {
+                                            probeLoginForm(v, attempt = 0)
+                                        }
+                                    }
+                                }
+                                loadUrl(IG_LOGIN_URL)
                             }
-                            loadUrl("https://www.instagram.com/accounts/login/")
+                        },
+                        onRelease = {
+                            webViewRef[0] = null
+                            it.destroy()
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    if (loadProgress < 100 && error == null) {
+                        LinearProgressIndicator(
+                            progress = { loadProgress / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp)
+                                .align(Alignment.TopCenter),
+                            color = Cyan,
+                            trackColor = Color(0x33FFFFFF)
+                        )
+                    }
+
+                    if (formMissing && error == null) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .padding(12.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xF2111827))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Instagram's sign-in form hasn't appeared yet. It may just be slow to load.",
+                                color = Muted,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                "Reload",
+                                color = Cyan,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clickable { retry() }
+                                    .padding(6.dp)
+                                    .testTag("ig_login_reload")
+                            )
                         }
-                    },
-                    onRelease = { it.destroy() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
+                    }
+
+                    error?.let { message ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Slate950)
+                                .padding(28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Orange, modifier = Modifier.size(40.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(message, color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+                            Spacer(modifier = Modifier.height(20.dp))
+                            GradientButton(text = "Try again", icon = Icons.Default.Refresh, onClick = { retry() })
+                        }
+                    }
+                }
             }
         }
     }
