@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.GlassBackground
 import com.example.ui.theme.GlassBorder
+import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -60,6 +61,7 @@ import androidx.compose.foundation.layout.navigationBars
 fun SettingsScreen(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
+    updateViewModel: AppUpdateViewModel,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {}
 ) {
@@ -115,6 +117,18 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // In-app updates (reads this app's GitHub releases)
+            item {
+                Text(
+                    text = "App updates",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            item { AppUpdateCard(viewModel = updateViewModel) }
 
             // Gesture Cheatsheet
             item {

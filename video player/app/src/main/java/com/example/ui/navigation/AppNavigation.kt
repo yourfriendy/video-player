@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ui.components.SettingsScreen
 import com.example.ui.components.VideoFeedScreen
+import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
 
@@ -33,6 +34,7 @@ enum class NavRoute {
 fun AppNavigation(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
+    updateViewModel: AppUpdateViewModel,
     onEnterPiP: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -65,6 +67,7 @@ fun AppNavigation(
             SettingsScreen(
                 uiState = uiState,
                 viewModel = viewModel,
+                updateViewModel = updateViewModel,
                 modifier = Modifier.fillMaxSize(),
                 onBack = { navController.popBackStack() }
             )
