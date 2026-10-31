@@ -1,18 +1,21 @@
 name: Build APK
 
 on:
+  # Every push to ANY branch builds an APK (attached to the run as the "OffScroll-apk" artifact).
+  # Only pushes to main publish the public "latest" release. Docs-only pushes don't build.
   push:
-    branches: [main]
-    paths:
-      - "video player/**"
-      - ".github/workflows/build-apk.yml"
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: build-apk
+  # One build per branch, so a feature-branch build never cancels (or replaces) a main build
+  group: build-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -95,7 +98,12 @@ jobs:
           name: OffScroll-apk
           path: OffScroll.apk
 
+      - name: Branch build (public release left untouched)
+        if: github.ref != 'refs/heads/main'
+        run: echo "::notice title=APK built::Download it from this run's Artifacts (OffScroll-apk). The public latest release is only updated from main."
+
       - name: Publish to the repo's Releases (shows on the main page)
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
