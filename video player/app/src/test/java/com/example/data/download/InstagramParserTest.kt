@@ -291,7 +291,7 @@ class InstagramParserTest {
              {"pk":"10","taken_at":5,"image_versions2":{"candidates":[{"url":"https://cdn/mine.jpg"}]}}]},
           {"id":"2","user":{"pk":"2","username":"neighbour"},"items":[
              {"pk":"20","taken_at":6,"image_versions2":{"candidates":[{"url":"https://cdn/theirs.jpg"}]}}]}],
-          "feed":{"items":[{"pk":"30","taken_at":7,"user":{"pk":"1","username":"stranger"},
+          "feed":{"items":[{"pk":"30","taken_at":7,"user":{"pk":"3","username":"stranger"},
              "video_versions":[{"url":"https://cdn/post.mp4"}]}]}}}"""
         val mine = InstagramParser.parseStoryItemsForOwner(json, "TARGET", "1")
         assertEquals(listOf("10"), mine.map { it.id })
