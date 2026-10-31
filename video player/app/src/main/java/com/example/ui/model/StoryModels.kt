@@ -5,7 +5,10 @@ import com.example.data.download.InstagramParser
 
 enum class DownloaderTab(val label: String) {
     REELS("Reels"),
-    STORIES("Stories")
+    STORIES("Stories"),
+
+    /** YouTube, Facebook, Snapchat, TikTok and other apps (see UniversalContent). */
+    ANY("Any link")
 }
 
 /** What the Stories tab is currently showing. */

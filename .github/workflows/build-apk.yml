@@ -43,11 +43,11 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Run unit tests (Instagram parsing, update checker)
+      - name: Run unit tests (Instagram parsing, update checker, any-link downloader)
         working-directory: video player
         run: |
           set -o pipefail
-          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --tests "com.example.data.universal.*" --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Prepare signing key
         env:

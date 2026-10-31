@@ -33,7 +33,11 @@ import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.PermissionRequestScreen
 import com.example.ui.components.VideoFeedScreen
 import com.example.ui.theme.MyApplicationTheme
+import com.example.data.download.InstagramParser
+import com.example.data.universal.LinkUtils
+import com.example.ui.model.DownloaderTab
 import com.example.ui.viewmodel.AppUpdateViewModel
+import com.example.ui.viewmodel.UniversalDownloadViewModel
 import com.example.ui.viewmodel.VideoFeedViewModel
 import com.example.ui.viewmodel.VideoFeedViewModelFactory
 
@@ -45,6 +49,9 @@ class MainActivity : ComponentActivity() {
 
     // Shared by the update pop-up below and the "App updates" card in Settings
     private val updateViewModel: AppUpdateViewModel by viewModels()
+
+    // The "Any link" downloader tab; also receives links shared from YouTube, Facebook, TikTok...
+    private val universalViewModel: UniversalDownloadViewModel by viewModels()
 
     private val requiredPermission: String
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -141,7 +148,15 @@ class MainActivity : ComponentActivity() {
         // Consume it so the same share is never handled twice
         intent.action = null
         intent.removeExtra(Intent.EXTRA_TEXT)
-        viewModel.handleSharedText(shared)
+        val isInstagram = InstagramParser.extractInstagramUrl(shared) != null
+        if (!isInstagram && LinkUtils.extractUrl(shared) != null) {
+            // Any other app's link: the "Any link" tab downloads it (YouTube, Facebook, Snapchat, TikTok...)
+            universalViewModel.onSharedLink(shared)
+            viewModel.setDownloaderTab(DownloaderTab.ANY)
+            viewModel.openDownloader()
+        } else {
+            viewModel.handleSharedText(shared)
+        }
     }
 
     override fun onResume() {

@@ -602,6 +602,25 @@ class VideoFeedViewModel(
         }
     }
 
+    /** The any-link downloader saved a video: reload the library in place, without blanking the feed. */
+    fun onExternalVideoSaved() {
+        viewModelScope.launch { reloadLibrary(showLoading = false) }
+    }
+
+    /** "Play now" for a video saved by the any-link downloader. */
+    fun playSavedVideo(uri: android.net.Uri) {
+        viewModelScope.launch {
+            reloadLibrary(showLoading = false)
+            val video = _uiState.value.allVideos.firstOrNull { it.uri == uri }
+            closeDownloader()
+            if (video != null) {
+                playVideo(video, FeedFilter.All)
+            } else {
+                _uiState.update { it.copy(toastMessage = "Saved to Movies/OffScroll") }
+            }
+        }
+    }
+
     /** Opt-in demo mode (only reachable from the permission screen). */
     fun loadDemoClips() {
         demoMode = true

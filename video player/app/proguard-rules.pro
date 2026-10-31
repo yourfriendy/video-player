@@ -42,3 +42,15 @@
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
+
+# ---- "Any link" downloader: youtubedl-android (yt-dlp + ffmpeg) ----
+# The library doesn't ship R8 rules. It reads yt-dlp's JSON into its own classes with Jackson
+# (reflection on field names and annotations), so those names and annotations must survive.
+-keep class com.yausername.** { *; }
+-keep class org.apache.commons.compress.archivers.zip.** { *; }
+-keepnames class com.fasterxml.jackson.** { *; }
+-keepnames class org.apache.commons.** { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+-dontwarn java.beans.**
+-dontwarn org.w3c.dom.**
+-dontwarn javax.xml.**

@@ -147,16 +147,16 @@ fun DownloaderSheet(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Save from Instagram",
+                        text = if (uiState.downloaderTab == DownloaderTab.ANY) "Save from any app" else "Save from Instagram",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                     Text(
-                        text = if (uiState.downloaderTab == DownloaderTab.REELS) {
-                            "Paste a reel link, or share a reel to OffScroll"
-                        } else {
-                            "Username or story link"
+                        text = when (uiState.downloaderTab) {
+                            DownloaderTab.REELS -> "Paste a reel link, or share a reel to OffScroll"
+                            DownloaderTab.STORIES -> "Username or story link"
+                            DownloaderTab.ANY -> "YouTube, Facebook, Snapchat, TikTok… in every quality"
                         },
                         fontSize = 12.sp,
                         color = Muted
@@ -180,6 +180,7 @@ fun DownloaderSheet(
             when (uiState.downloaderTab) {
                 DownloaderTab.REELS -> ReelsContent(uiState, viewModel)
                 DownloaderTab.STORIES -> StoriesContent(uiState, viewModel)
+                DownloaderTab.ANY -> UniversalContent(viewModel)
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -797,7 +798,7 @@ private fun LoginCard(onSignIn: () -> Unit) {
 // ----------------------------------------------------------------------------------------------
 
 @Composable
-private fun LinkField(
+internal fun LinkField(
     value: String,
     placeholder: String,
     enabled: Boolean,
@@ -864,7 +865,7 @@ private fun LinkField(
 }
 
 @Composable
-private fun GradientButton(
+internal fun GradientButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -897,7 +898,7 @@ private fun GradientButton(
 }
 
 @Composable
-private fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
@@ -913,7 +914,7 @@ private fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier 
 }
 
 @Composable
-private fun MessageCard(
+internal fun MessageCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     tint: Color,
     text: String
@@ -935,7 +936,7 @@ private fun MessageCard(
 }
 
 @Composable
-private fun BusyCard(label: String, progress: Float?, onCancel: (() -> Unit)?) {
+internal fun BusyCard(label: String, progress: Float?, onCancel: (() -> Unit)?) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier

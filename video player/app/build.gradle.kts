@@ -22,6 +22,10 @@ android {
     versionName = "1.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    // The yt-dlp engine ships Python + ffmpeg per CPU type (~50 MB each). 64-bit ARM covers
+    // practically every phone made since 2017; add "armeabi-v7a" here for very old 32-bit phones.
+    ndk { abiFilters.add("arm64-v8a") }
   }
 
   signingConfigs {
@@ -58,6 +62,10 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+  packaging {
+    // The yt-dlp engine's Python and ffmpeg are stored as native libraries and unpacked at runtime
+    jniLibs { useLegacyPackaging = true }
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
@@ -103,6 +111,8 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.coil.video)
+  implementation(libs.youtubedl.android.library)
+  implementation(libs.youtubedl.android.ffmpeg)
   implementation(libs.androidx.webkit)
   implementation(libs.okhttp)
   implementation(libs.androidx.media3.exoplayer)
