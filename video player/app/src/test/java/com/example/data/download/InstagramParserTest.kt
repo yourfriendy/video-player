@@ -282,4 +282,38 @@ class InstagramParserTest {
         assertEquals("77", me.id)
         assertNull(InstagramParser.parseEditForm("""{"message":"x"}""", "77"))
     }
+
+    @Test
+    fun ignoresOtherPeoplesStoriesAndPosts() {
+        // Instagram's story page preloads neighbours' stories; feeds carry the same media fields
+        val json = """{"data":{"reels_media":[
+          {"id":"1","user":{"pk":"1","username":"target"},"items":[
+             {"pk":"10","taken_at":5,"image_versions2":{"candidates":[{"url":"https://cdn/mine.jpg"}]}}]},
+          {"id":"2","user":{"pk":"2","username":"neighbour"},"items":[
+             {"pk":"20","taken_at":6,"image_versions2":{"candidates":[{"url":"https://cdn/theirs.jpg"}]}}]}],
+          "feed":{"items":[{"pk":"30","taken_at":7,"user":{"pk":"1","username":"stranger"},
+             "video_versions":[{"url":"https://cdn/post.mp4"}]}]}}}"""
+        val mine = InstagramParser.parseStoryItemsForOwner(json, "TARGET", "1")
+        assertEquals(listOf("10"), mine.map { it.id })
+        // the unscoped reader would have returned all three
+        assertEquals(3, InstagramParser.parseStoryItemsDeep(json).size)
+        assertTrue(InstagramParser.parseStoryItemsForOwner(json, "nobody", "999").isEmpty())
+    }
+
+    @Test
+    fun itemOwnerOverridesContainer() {
+        val json = """{"reel":{"id":"1","user":{"pk":"1","username":"target"},"items":[
+            {"pk":"10","taken_at":1,"user":{"pk":"1","username":"target"},"image_versions2":{"candidates":[{"url":"https://c/a.jpg"}]}},
+            {"pk":"11","taken_at":2,"user":{"pk":"2","username":"other"},"image_versions2":{"candidates":[{"url":"https://c/b.jpg"}]}}]}}"""
+        assertEquals(listOf("10"), InstagramParser.parseStoryItemsForOwner(json, "target", "1").map { it.id })
+    }
+
+    @Test
+    fun highlightItemsAreMatchedByHighlightId() {
+        val json = """{"reels":{"highlight:17890":{"id":"highlight:17890","items":[
+            {"pk":"40","taken_at":1,"image_versions2":{"candidates":[{"url":"https://c/h.jpg"}]}}]},
+            "highlight:555":{"id":"highlight:555","items":[
+            {"pk":"41","taken_at":2,"image_versions2":{"candidates":[{"url":"https://c/o.jpg"}]}}]}}}"""
+        assertEquals(listOf("40"), InstagramParser.parseStoryItemsForOwner(json, "", null, "17890").map { it.id })
+    }
 }

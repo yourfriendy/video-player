@@ -366,6 +366,50 @@ object InstagramParser {
         return found.distinctBy { it.id }.sortedBy { it.takenAtSec }
     }
 
+    private fun ownerMatches(owner: org.json.JSONObject, username: String, userId: String?): Boolean {
+        if (username.isNotBlank() && text(owner, "username").equals(username, ignoreCase = true)) return true
+        val id = text(owner, "pk").ifBlank { text(owner, "id") }
+        return userId != null && id.isNotBlank() && id == userId
+    }
+
+    /**
+     * Story items that belong to ONE account (or one highlight), wherever they sit in a reply.
+     *
+     * Instagram's own story page preloads other people's stories as well (the next accounts in the
+     * tray), and ordinary posts and reels carry the same `video_versions` / `image_versions2` fields.
+     * Accepting every such object returned strangers' content, so each item is kept only if its owner
+     * is the requested account. An item that names a different owner is always rejected.
+     */
+    fun parseStoryItemsForOwner(
+        json: String,
+        username: String,
+        userId: String? = null,
+        highlightId: String? = null
+    ): List<StoryItem> {
+        val root = parseAny(json) ?: return emptyList()
+        val found = ArrayList<StoryItem>()
+        walk(root) { container ->
+            val items = container.optJSONArray("items") ?: return@walk
+            val containerOwner = container.optJSONObject("user") ?: container.optJSONObject("owner")
+            val containerId = text(container, "id")
+            val containerOk = when {
+                highlightId != null ->
+                    containerId == highlightId || containerId == "highlight:$highlightId"
+                containerOwner != null -> ownerMatches(containerOwner, username, userId)
+                else -> userId != null && containerId == userId
+            }
+            for (i in 0 until items.length()) {
+                val item = items.optJSONObject(i) ?: continue
+                val itemOwner = item.optJSONObject("user") ?: item.optJSONObject("owner")
+                val accepted = if (highlightId != null) containerOk
+                else if (itemOwner != null) ownerMatches(itemOwner, username, userId)
+                else containerOk
+                if (accepted) itemToStory(item)?.let { found.add(it) }
+            }
+        }
+        return found.distinctBy { it.id }.sortedBy { it.takenAtSec }
+    }
+
     /** Finds the account with this username anywhere in a reply (photo, name, id...). */
     fun parseProfileDeep(json: String, username: String): ProfileInfo? {
         val root = parseAny(json) ?: return null

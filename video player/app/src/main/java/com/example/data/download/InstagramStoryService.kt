@@ -162,14 +162,14 @@ class InstagramStoryService(
 
                 is InstagramParser.StoryTarget.User -> {
                     val profile = lookupProfile(target.username, cookies, csrf)
-                    val items = fetchItems(profile.id, cookies, csrf)
+                    val items = fetchItems(profile.id, cookies, csrf, target.username, profile.id)
                     if (items.isEmpty()) throw NoStoriesException(noStoriesMessage(profile, target.username))
                     StoryResult(profile.username.ifBlank { target.username }, items, profile, null)
                 }
 
                 is InstagramParser.StoryTarget.Story -> {
                     val profile = lookupProfile(target.username, cookies, csrf)
-                    val items = fetchItems(profile.id, cookies, csrf)
+                    val items = fetchItems(profile.id, cookies, csrf, target.username, profile.id)
                     val match = items.filter { it.id == target.mediaId }
                     if (match.isEmpty()) {
                         throw NoStoriesException(
@@ -192,17 +192,22 @@ class InstagramStoryService(
             is InstagramParser.StoryTarget.Story -> "$WEB_BASE/stories/${target.username}/${target.mediaId}/" to target.username
             is InstagramParser.StoryTarget.Highlight -> "$WEB_BASE/stories/highlights/${target.id}/" to ""
         }
+        val highlightId = (target as? InstagramParser.StoryTarget.Highlight)?.id
         val result = pageCapture.capture(pageUrl) { replies ->
-            replies.any { it.status in 200..299 && InstagramParser.parseStoryItemsDeep(it.body).isNotEmpty() }
+            replies.any {
+                it.status in 200..299 &&
+                    InstagramParser.parseStoryItemsForOwner(it.body, username, null, highlightId).isNotEmpty()
+            }
         }
-        var items = result.replies
-            .filter { it.status in 200..299 }
-            .flatMap { InstagramParser.parseStoryItemsDeep(it.body) }
-            .distinctBy { it.id }
-            .sortedBy { it.takenAtSec }
         val profile = if (username.isNotBlank()) {
             result.replies.firstNotNullOfOrNull { InstagramParser.parseProfileDeep(it.body, username) }
         } else null
+        // Only THIS account's stories: the page also preloads other people's, which must never show up here
+        var items = result.replies
+            .filter { it.status in 200..299 }
+            .flatMap { InstagramParser.parseStoryItemsForOwner(it.body, username, profile?.id, highlightId) }
+            .distinctBy { it.id }
+            .sortedBy { it.takenAtSec }
 
         if (target is InstagramParser.StoryTarget.Story && items.isNotEmpty()) {
             val match = items.filter { it.id == target.mediaId }
@@ -275,7 +280,13 @@ class InstagramStoryService(
         )
     }
 
-    private suspend fun fetchItems(reelId: String, cookies: String, csrf: String): List<InstagramParser.StoryItem> {
+    private suspend fun fetchItems(
+        reelId: String,
+        cookies: String,
+        csrf: String,
+        owner: String? = null,
+        ownerId: String? = null
+    ): List<InstagramParser.StoryItem> {
         val encoded = java.net.URLEncoder.encode(reelId, "UTF-8")
         val (code, text) = rawGet("$WEB_BASE/api/v1/feed/reels_media/?reel_ids=$encoded", cookies, csrf)
         when {
@@ -291,7 +302,9 @@ class InstagramStoryService(
                 "Instagram refused the story list request (error $code): ${InstagramParser.describeReply(text)}."
             )
         }
-        return InstagramParser.parseStoryItems(text)
+        // Keep only this account's stories (never a stranger's), falling back to the plain reading if the reply names no owner
+        val scoped = if (owner != null) InstagramParser.parseStoryItemsForOwner(text, owner, ownerId) else emptyList()
+        return if (scoped.isNotEmpty()) scoped else InstagramParser.parseStoryItems(text)
     }
 
     /** One GET as the signed-in user: via the hidden browser, or plain HTTP only if the browser itself is unavailable. */
