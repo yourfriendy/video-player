@@ -17,6 +17,19 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 
+/**
+ * Makes an Android WebView user agent look like plain mobile Chrome.
+ *
+ * A WebView announces itself twice: with the "; wv" token AND with the "Version/4.0" token that
+ * plain Chrome never sends. Sites that detect embedded WebViews (Instagram's login page appears
+ * to) can answer them with an empty page, so BOTH tokens have to go: removing only "; wv" is
+ * not enough.
+ */
+internal fun cleanWebUserAgent(userAgent: String): String =
+    userAgent
+        .replace("; wv", "")
+        .replace(Regex("""\s+Version/\d+(\.\d+)*"""), "")
+
 /** An error with a message that is safe to show to the user as-is. */
 class DownloadException(message: String) : Exception(message)
 
@@ -40,9 +53,7 @@ class InstagramDownloader(private val context: Context) {
 
     /** Same browser identity for the sign-in page and for API calls, so Instagram sees one consistent client. */
     val webUserAgent: String = try {
-        android.webkit.WebSettings.getDefaultUserAgent(context)
-            .replace("; wv", "")      // "wv" marks an embedded WebView
-            .replace(" Version/4.0", "") // so does the old "Version/4.0" token; real Chrome has neither
+        cleanWebUserAgent(android.webkit.WebSettings.getDefaultUserAgent(context))
     } catch (e: Exception) {
         DESKTOP_UA
     }

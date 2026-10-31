@@ -43,11 +43,11 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Test the Instagram link parser
+      - name: Run unit tests (Instagram parsing, update checker)
         working-directory: video player
         run: |
           set -o pipefail
-          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Prepare signing key
         env:
@@ -108,11 +108,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
+          # The app's in-app updater reads the "Build number:" line below to decide whether this
+          # release is newer than the installed one (build number = versionCode). Keep that line.
           cat > release-notes.md <<NOTES
           ## OffScroll – latest build
 
           Install **OffScroll.apk** on your Android phone (Android 7.0+).
 
+          - Build number: ${GITHUB_RUN_NUMBER}
           - Commit: \`${SHORT_SHA}\`
           - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
           - Release build: optimised with R8 for smooth scrolling. Android may ask you to allow installs from your browser or file manager.
