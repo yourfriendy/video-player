@@ -77,6 +77,10 @@ data class VideoFeedUiState(
     val storyDownloads: Map<String, StoryItemDownload> = emptyMap(),
     val isIgSignedIn: Boolean = false,
     val isIgLoginOpen: Boolean = false,
+    /** Who the saved Instagram session belongs to (photo, name, username). Proof the connection works. */
+    val igAccount: com.example.data.download.InstagramParser.ProfileInfo? = null,
+    val isCheckingIgAccount: Boolean = false,
+    val igAccountError: String? = null,
     val currentIndex: Int = 0,
     val isPlaying: Boolean = true,
     val isMuted: Boolean = false,
@@ -310,6 +314,7 @@ class VideoFeedViewModel(
             )
         }
         if (autoStart && prefill != null && !busy) startDownload()
+        if (_uiState.value.downloaderTab == DownloaderTab.STORIES) verifyIgAccount()
     }
 
     fun closeDownloader() {
@@ -362,6 +367,37 @@ class VideoFeedViewModel(
 
     fun setDownloaderTab(tab: DownloaderTab) {
         _uiState.update { it.copy(downloaderTab = tab, isIgSignedIn = InstagramStoryService.isSignedIn()) }
+        if (tab == DownloaderTab.STORIES) verifyIgAccount()
+    }
+
+    private var accountJob: kotlinx.coroutines.Job? = null
+
+    /** Asks Instagram who we are signed in as, and shows it, so it's visible the app really is connected. */
+    fun verifyIgAccount() {
+        if (!InstagramStoryService.isSignedIn()) {
+            _uiState.update { it.copy(igAccount = null, isCheckingIgAccount = false, igAccountError = null) }
+            return
+        }
+        if (accountJob?.isActive == true) return
+        accountJob = viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingIgAccount = true, igAccountError = null) }
+            try {
+                val me = downloader.stories.whoAmI()
+                _uiState.update { it.copy(igAccount = me, isCheckingIgAccount = false, igAccountError = null) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _uiState.update { it.copy(isCheckingIgAccount = false) }
+                throw e
+            } catch (e: LoginRequiredException) {
+                InstagramStoryService.signOut()
+                _uiState.update {
+                    it.copy(isIgSignedIn = false, igAccount = null, isCheckingIgAccount = false, igAccountError = e.message)
+                }
+            } catch (e: DownloadException) {
+                _uiState.update { it.copy(isCheckingIgAccount = false, igAccountError = e.message) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isCheckingIgAccount = false, igAccountError = "Couldn't check the connection to Instagram.") }
+            }
+        }
     }
 
     fun setStoryInput(text: String) {
@@ -389,13 +425,17 @@ class VideoFeedViewModel(
                 storyState = if (signedIn && it.storyState is StoryUiState.NeedsLogin) StoryUiState.Idle else it.storyState
             )
         }
+        if (signedIn) verifyIgAccount()
         if (signedIn && _uiState.value.storyInput.isNotBlank()) findStories()
     }
 
     fun igSignOut() {
         InstagramStoryService.signOut()
         _uiState.update {
-            it.copy(isIgSignedIn = false, storyState = StoryUiState.Idle, storyDownloads = emptyMap())
+            it.copy(
+                isIgSignedIn = false, igAccount = null, igAccountError = null,
+                storyState = StoryUiState.Idle, storyDownloads = emptyMap()
+            )
         }
     }
 
@@ -418,7 +458,13 @@ class VideoFeedViewModel(
             try {
                 _uiState.update { it.copy(storyState = StoryUiState.Loading, storyDownloads = emptyMap()) }
                 val result = downloader.stories.load(target)
-                _uiState.update { it.copy(storyState = StoryUiState.Loaded(result.owner, result.items)) }
+                _uiState.update {
+                    it.copy(
+                        storyState = StoryUiState.Loaded(result.owner, result.items, result.profile),
+                        igAccount = result.signedInAs ?: it.igAccount,
+                        igAccountError = null
+                    )
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 _uiState.update { it.copy(storyState = StoryUiState.Idle) }
                 throw e

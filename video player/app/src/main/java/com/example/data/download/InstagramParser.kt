@@ -204,6 +204,86 @@ object InstagramParser {
         return null
     }
 
+    /** What we show about an account so the user can see the app really is talking to Instagram. */
+    data class ProfileInfo(
+        val id: String,
+        val username: String,
+        val fullName: String,
+        val picUrl: String?,
+        val isPrivate: Boolean,
+        val isVerified: Boolean,
+        val followers: Long?
+    )
+
+    private fun text(obj: org.json.JSONObject, key: String): String {
+        if (obj.isNull(key)) return ""
+        return obj.optString(key).trim()
+    }
+
+    private fun profileFrom(user: org.json.JSONObject): ProfileInfo? {
+        val id = text(user, "id").ifBlank { text(user, "pk") }.ifBlank { text(user, "pk_id") }
+        if (id.isBlank()) return null
+        val pic = text(user, "profile_pic_url_hd").ifBlank { text(user, "profile_pic_url") }
+        val followers = user.optJSONObject("edge_followed_by")?.optLong("count", -1L)?.takeIf { it >= 0 }
+            ?: user.optLong("follower_count", -1L).takeIf { it >= 0 }
+        return ProfileInfo(
+            id = id,
+            username = text(user, "username"),
+            fullName = text(user, "full_name"),
+            picUrl = pic.takeIf { it.startsWith("http") },
+            isPrivate = user.optBoolean("is_private", false),
+            isVerified = user.optBoolean("is_verified", false),
+            followers = followers
+        )
+    }
+
+    /** `web_profile_info` response -> the account. */
+    fun parseProfile(json: String): ProfileInfo? = try {
+        org.json.JSONObject(json).optJSONObject("data")?.optJSONObject("user")?.let { profileFrom(it) }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** `top_search` response -> the account whose username matches exactly. */
+    fun parseProfileFromSearch(json: String, username: String): ProfileInfo? {
+        return try {
+            val users = org.json.JSONObject(json).optJSONArray("users") ?: return null
+            for (i in 0 until users.length()) {
+                val user = users.optJSONObject(i)?.optJSONObject("user") ?: continue
+                if (text(user, "username").equals(username, ignoreCase = true)) return profileFrom(user)
+            }
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** `accounts/current_user` response -> the signed-in account itself. */
+    fun parseCurrentUser(json: String): ProfileInfo? = try {
+        org.json.JSONObject(json).optJSONObject("user")?.let { profileFrom(it) }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** A short, secret-free description of a reply, for error messages ("JSON with keys data,status"). */
+    fun describeReply(reply: String): String {
+        val t = reply.trim()
+        if (t.isEmpty()) return "an empty reply"
+        if (t.startsWith("{")) {
+            return try {
+                val o = org.json.JSONObject(t)
+                val keys = o.keys().asSequence().take(6).toList().joinToString(",")
+                val message = text(o, "message")
+                val user = o.optJSONObject("data")?.let { if (it.has("user") && it.isNull("user")) ", account: none" else "" }.orEmpty()
+                "JSON ($keys)" + user + (if (message.isNotBlank()) ", message: ${message.take(60)}" else "")
+            } catch (e: Exception) {
+                "unreadable data"
+            }
+        }
+        if (t.startsWith("<")) return "a web page with no account data in it"
+        return "an unexpected reply"
+    }
+
     /**
      * Reads the story items out of the responses of `feed/reels_media` or `feed/user/<id>/story`.
      * Videos come first-choice from `video_versions`, photos from `image_versions2`.

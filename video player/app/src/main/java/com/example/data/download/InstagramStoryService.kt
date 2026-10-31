@@ -10,7 +10,14 @@ import java.io.IOException
 /** The saved Instagram session is missing or no longer valid: the user has to sign in again. */
 class LoginRequiredException(message: String) : Exception(message)
 
-data class StoryResult(val owner: String, val items: List<InstagramParser.StoryItem>)
+data class StoryResult(
+    val owner: String,
+    val items: List<InstagramParser.StoryItem>,
+    /** The account that was looked up (photo, name, username), or null for highlights. */
+    val profile: InstagramParser.ProfileInfo?,
+    /** The signed-in account, proving the session works. */
+    val signedInAs: InstagramParser.ProfileInfo?
+)
 
 /**
  * Loads someone's active stories using the signed-in user's OWN Instagram session.
@@ -25,7 +32,7 @@ class InstagramStoryService(
     private val userAgent: String,
     private val fetcher: IgWebFetcher
 ) {
-    /** An HTTP answer we couldn't use. Kept internal so the lookup can fall back to another method. */
+    /** An HTTP answer we couldn't use. */
     private class HttpFailure(val code: Int, message: String) : Exception(message)
 
     companion object {
@@ -51,6 +58,43 @@ class InstagramStoryService(
         }
     }
 
+    /**
+     * Asks Instagram who the saved session belongs to. This is the proof that requests really reach
+     * Instagram AND are treated as signed in. If the first kind of request is treated as signed out,
+     * the other kind is tried before giving up.
+     */
+    suspend fun whoAmI(): InstagramParser.ProfileInfo = withContext(Dispatchers.IO) {
+        val cookies = sessionCookies()
+        if (cookies == null || !cookies.contains("sessionid=")) {
+            throw LoginRequiredException("Sign in to Instagram to view stories.")
+        }
+        val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
+        verifySession(cookies, csrf)
+    }
+
+    private suspend fun verifySession(cookies: String, csrf: String): InstagramParser.ProfileInfo {
+        val url = "$WEB_BASE/api/v1/accounts/current_user/?edit=true"
+        var (code, text) = rawGet(url, cookies, csrf)
+        fun signedOut() = code == 401 || text.contains("login_required")
+        if (signedOut()) {
+            fetcher.switchOrigin()
+            val retry = rawGet(url, cookies, csrf)
+            code = retry.first
+            text = retry.second
+        }
+        if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+        if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
+            throw DownloadException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+        }
+        if (signedOut()) {
+            throw LoginRequiredException("Instagram says this session is signed out. Please sign in again.")
+        }
+        return InstagramParser.parseCurrentUser(text)
+            ?: throw DownloadException(
+                "Instagram answered (HTTP $code) but didn't say who is signed in: ${InstagramParser.describeReply(text)}."
+            )
+    }
+
     suspend fun load(target: InstagramParser.StoryTarget): StoryResult = withContext(Dispatchers.IO) {
         val cookies = sessionCookies()
         if (cookies == null || !cookies.contains("sessionid=")) {
@@ -59,31 +103,32 @@ class InstagramStoryService(
         val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
 
         try {
+            val me = verifySession(cookies, csrf)
             when (target) {
                 is InstagramParser.StoryTarget.Highlight -> {
                     val items = fetchItems("highlight:${target.id}", cookies, csrf)
                     if (items.isEmpty()) throw DownloadException("This highlight is empty or unavailable.")
-                    StoryResult("Highlight", items)
+                    StoryResult("Highlight", items, null, me)
                 }
 
                 is InstagramParser.StoryTarget.User -> {
-                    val items = fetchItems(userId(target.username, cookies, csrf), cookies, csrf)
-                    if (items.isEmpty()) {
-                        throw DownloadException("@${target.username} has no active stories right now.")
-                    }
-                    StoryResult(target.username, items)
+                    val profile = lookupProfile(target.username, cookies, csrf)
+                    val items = fetchItems(profile.id, cookies, csrf)
+                    if (items.isEmpty()) throw DownloadException(noStoriesMessage(profile, target.username))
+                    StoryResult(profile.username.ifBlank { target.username }, items, profile, me)
                 }
 
                 is InstagramParser.StoryTarget.Story -> {
-                    val items = fetchItems(userId(target.username, cookies, csrf), cookies, csrf)
+                    val profile = lookupProfile(target.username, cookies, csrf)
+                    val items = fetchItems(profile.id, cookies, csrf)
                     val match = items.filter { it.id == target.mediaId }
                     if (match.isEmpty()) {
                         throw DownloadException(
-                            if (items.isEmpty()) "That story has expired (stories disappear after 24 hours)."
+                            if (items.isEmpty()) noStoriesMessage(profile, target.username)
                             else "That story is no longer available. Try the username to see all current stories."
                         )
                     }
-                    StoryResult(target.username, match)
+                    StoryResult(profile.username.ifBlank { target.username }, match, profile, me)
                 }
             }
         } catch (e: IOException) {
@@ -91,52 +136,80 @@ class InstagramStoryService(
         }
     }
 
-    /**
-     * Finds the numeric account id. Instagram sometimes refuses one lookup method for a given
-     * connection but not another, so several are tried before giving up.
-     */
-    private suspend fun userId(username: String, cookies: String, csrf: String): String {
-        val encoded = java.net.URLEncoder.encode(username, "UTF-8")
-        var lastFailure: HttpFailure? = null
+    private fun noStoriesMessage(profile: InstagramParser.ProfileInfo, typed: String): String {
+        val name = profile.username.ifBlank { typed }
+        return if (profile.isPrivate) {
+            "@$name is a private account. Their stories are only visible to people who follow them."
+        } else {
+            "@$name has no active stories right now."
+        }
+    }
 
-        suspend fun attempt(url: String, parse: (String) -> String?): String? = try {
-            parse(get(url, cookies, csrf, "account lookup"))
-        } catch (e: HttpFailure) {
-            if (e.code == 404) throw DownloadException("No Instagram account called @$username.")
-            lastFailure = e
-            null
+    /**
+     * Finds the account. Instagram sometimes refuses one lookup method but not another, so three are
+     * tried, and if all fail the message says exactly what Instagram answered at each step.
+     */
+    private suspend fun lookupProfile(username: String, cookies: String, csrf: String): InstagramParser.ProfileInfo {
+        val encoded = java.net.URLEncoder.encode(username, "UTF-8")
+        val notes = ArrayList<String>()
+
+        suspend fun step(
+            label: String,
+            url: String,
+            parse: (String) -> InstagramParser.ProfileInfo?
+        ): InstagramParser.ProfileInfo? {
+            val (code, text) = rawGet(url, cookies, csrf)
+            if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+            if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
+                throw DownloadException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+            }
+            if (code == 401 || text.contains("login_required")) {
+                throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
+            }
+            val parsed = if (code in 200..299) parse(text) else null
+            if (parsed == null) notes.add("$label: HTTP $code, ${InstagramParser.describeReply(text)}")
+            return parsed
         }
 
-        attempt("$WEB_BASE/api/v1/users/web_profile_info/?username=$encoded") { InstagramParser.parseUserId(it) }
-            ?.let { return it }
-        attempt("$WEB_BASE/api/v1/fbsearch/web/top_search/?context=blended&query=$encoded&include_reel=true") {
-            InstagramParser.parseUserIdFromSearch(it, username)
+        step("1) account lookup", "$WEB_BASE/api/v1/users/web_profile_info/?username=$encoded") {
+            InstagramParser.parseProfile(it)
         }?.let { return it }
-        attempt("$WEB_BASE/$encoded/") { InstagramParser.parseUserIdFromProfileHtml(it, username) }
-            ?.let { return it }
+        step("2) search", "$WEB_BASE/api/v1/fbsearch/web/top_search/?context=blended&query=$encoded&include_reel=true") {
+            InstagramParser.parseProfileFromSearch(it, username)
+        }?.let { return it }
+        step("3) profile page", "$WEB_BASE/$encoded/") { html ->
+            InstagramParser.parseUserIdFromProfileHtml(html, username)?.let {
+                InstagramParser.ProfileInfo(it, username, "", null, false, false, null)
+            }
+        }?.let { return it }
 
-        val failure = lastFailure
         throw DownloadException(
-            if (failure != null) failure.message ?: "Instagram refused the account lookup."
-            else "Couldn't find @$username. Check the spelling, or the account may be unavailable."
+            "Couldn't find @$username. Check the spelling.\n\nIf it is spelled right, this is what Instagram answered:\n" +
+                notes.joinToString("\n")
         )
     }
 
     private suspend fun fetchItems(reelId: String, cookies: String, csrf: String): List<InstagramParser.StoryItem> {
         val encoded = java.net.URLEncoder.encode(reelId, "UTF-8")
-        val body = try {
-            get("$WEB_BASE/api/v1/feed/reels_media/?reel_ids=$encoded", cookies, csrf, "story list")
-        } catch (e: HttpFailure) {
-            throw DownloadException(e.message ?: "Instagram refused the request.")
+        val (code, text) = rawGet("$WEB_BASE/api/v1/feed/reels_media/?reel_ids=$encoded", cookies, csrf)
+        when {
+            code == -1 -> throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+            text.contains("checkpoint_required") || text.contains("challenge_required") ->
+                throw DownloadException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+            code == 401 || text.contains("login_required") ->
+                throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
+            code == 429 -> throw DownloadException(
+                "Instagram refused the story list request (error 429). Switching between Wi-Fi and mobile data often fixes this."
+            )
+            code !in 200..299 -> throw DownloadException(
+                "Instagram refused the story list request (error $code): ${InstagramParser.describeReply(text)}."
+            )
         }
-        return InstagramParser.parseStoryItems(body)
+        return InstagramParser.parseStoryItems(text)
     }
 
-    /**
-     * One GET as the signed-in user. Prefers the hidden browser engine (indistinguishable from the website);
-     * falls back to a plain HTTP call only if the browser engine itself is unavailable.
-     */
-    private suspend fun get(url: String, cookies: String, csrf: String, step: String): String {
+    /** One GET as the signed-in user: via the hidden browser, or plain HTTP only if the browser itself is unavailable. */
+    private suspend fun rawGet(url: String, cookies: String, csrf: String): Pair<Int, String> {
         val answer = try {
             fetcher.get(url)
         } catch (e: DownloadException) {
@@ -144,27 +217,7 @@ class InstagramStoryService(
         } catch (e: Exception) {
             null
         }
-        val (code, text) = if (answer != null) answer.status to answer.body else plainGet(url, cookies, csrf)
-
-        when {
-            code == -1 -> throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
-            text.contains("login_required") || code == 401 ->
-                throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
-            text.contains("checkpoint_required") || text.contains("challenge_required") ->
-                throw DownloadException(
-                    "Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again."
-                )
-            code == 404 -> throw HttpFailure(404, "Instagram couldn't find that.")
-            code == 429 -> throw HttpFailure(
-                429,
-                "Instagram refused the $step request (error 429). Switching between Wi-Fi and mobile data often fixes this."
-            )
-            code !in 200..299 -> throw HttpFailure(
-                code,
-                "Instagram refused the $step request (error $code). Try again in a moment."
-            )
-        }
-        return text
+        return if (answer != null) answer.status to answer.body else plainGet(url, cookies, csrf)
     }
 
     private fun plainGet(url: String, cookies: String, csrf: String): Pair<Int, String> {

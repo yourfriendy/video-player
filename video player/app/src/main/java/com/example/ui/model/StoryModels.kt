@@ -13,7 +13,11 @@ sealed interface StoryUiState {
     data object Idle : StoryUiState
     data object Loading : StoryUiState
     data class NeedsLogin(val message: String) : StoryUiState
-    data class Loaded(val owner: String, val items: List<InstagramParser.StoryItem>) : StoryUiState
+    data class Loaded(
+        val owner: String,
+        val items: List<InstagramParser.StoryItem>,
+        val profile: InstagramParser.ProfileInfo? = null
+    ) : StoryUiState
     data class Error(val message: String) : StoryUiState
 }
 

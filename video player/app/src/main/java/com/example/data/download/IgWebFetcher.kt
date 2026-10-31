@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -37,6 +38,11 @@ class IgWebFetcher(context: Context, private val userAgent: String) {
     private var webView: WebView? = null
     private var ready: CompletableDeferred<Unit>? = null
 
+    /** Which kind of page the hidden browser sits on. Both have instagram.com as their origin. */
+    private enum class Origin { ROBOTS_TXT, BLANK_PAGE }
+
+    private var origin = Origin.ROBOTS_TXT
+
     private inner class Bridge {
         @JavascriptInterface
         fun onResult(id: String, status: Int, body: String) {
@@ -64,17 +70,30 @@ class IgWebFetcher(context: Context, private val userAgent: String) {
                     loaded.complete(Unit)
                 }
 
-                // This page only ever runs our own fetch calls: never navigate anywhere
-                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true
+                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    if (request?.isForMainFrame == true) {
+                        loaded.completeExceptionally(
+                            DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+                        )
+                    }
+                }
+
+                // Only ever stay on instagram.com (a redirect within it is fine)
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean =
+                    request?.url?.host?.endsWith("instagram.com") != true
             }
-            // A blank page whose ORIGIN is instagram.com: fetch() from it is same-origin and carries the cookies
-            loadDataWithBaseURL(
-                "https://www.instagram.com/",
-                "<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>",
-                "text/html",
-                "utf-8",
-                null
-            )
+            when (origin) {
+                // A real first-party page: requests from it are exactly what the website itself would send
+                Origin.ROBOTS_TXT -> loadUrl("https://www.instagram.com/robots.txt")
+                // Fallback: a blank page that merely claims instagram.com as its origin
+                Origin.BLANK_PAGE -> loadDataWithBaseURL(
+                    "https://www.instagram.com/",
+                    "<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>",
+                    "text/html",
+                    "utf-8",
+                    null
+                )
+            }
         }
         webView = view
         try {
@@ -85,8 +104,26 @@ class IgWebFetcher(context: Context, private val userAgent: String) {
         view
     }
 
+    /** Rebuilds the hidden browser on the other kind of page. Used when Instagram treats this one as signed out. */
+    suspend fun switchOrigin() {
+        withContext(Dispatchers.Main) {
+            webView?.destroy()
+            webView = null
+            ready = null
+            origin = if (origin == Origin.ROBOTS_TXT) Origin.BLANK_PAGE else Origin.ROBOTS_TXT
+        }
+    }
+
     /** GETs [url] as the signed-in user. [Result.status] is -1 when the request failed before getting any answer. */
     suspend fun get(url: String): Result {
+        val first = attempt(url)
+        if (first.status != -1) return first
+        // The request couldn't even be made (e.g. the page blocked it): try the other kind of page once
+        switchOrigin()
+        return attempt(url)
+    }
+
+    private suspend fun attempt(url: String): Result {
         val view = ensureReady()
         val id = counter.incrementAndGet().toString()
         val deferred = CompletableDeferred<Result>()

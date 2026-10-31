@@ -201,4 +201,49 @@ class InstagramParserTest {
         assertEquals("555", InstagramParser.parseUserIdFromProfileHtml("""{"profile_id":"555"}""", "x"))
         assertNull(InstagramParser.parseUserIdFromProfileHtml("<html></html>", "x"))
     }
+
+    @Test
+    fun readsProfileFromWebProfileInfo() {
+        val json = """{"data":{"user":{"id":"42","username":"cool.person","full_name":"Cool Person",
+            "profile_pic_url_hd":"https://cdn.example.com/hd.jpg","profile_pic_url":"https://cdn.example.com/sd.jpg",
+            "is_private":true,"is_verified":true,"edge_followed_by":{"count":12345}}},"status":"ok"}"""
+        val p = InstagramParser.parseProfile(json)!!
+        assertEquals("42", p.id)
+        assertEquals("cool.person", p.username)
+        assertEquals("Cool Person", p.fullName)
+        assertEquals("https://cdn.example.com/hd.jpg", p.picUrl)
+        assertTrue(p.isPrivate)
+        assertTrue(p.isVerified)
+        assertEquals(12345L, p.followers)
+    }
+
+    @Test
+    fun profileIsNullWhenInstagramSaysNoUser() {
+        assertNull(InstagramParser.parseProfile("""{"data":{"user":null},"status":"ok"}"""))
+        assertNull(InstagramParser.parseProfile("""{"message":"login_required"}"""))
+        assertNull(InstagramParser.parseProfile("not json"))
+    }
+
+    @Test
+    fun readsProfileFromSearchAndCurrentUser() {
+        val search = """{"users":[{"user":{"pk":"7","username":"Other","full_name":"O"}},
+            {"user":{"pk":"9","username":"Target","full_name":"The Target","profile_pic_url":"https://c/x.jpg","follower_count":50}}]}"""
+        val hit = InstagramParser.parseProfileFromSearch(search, "target")!!
+        assertEquals("9", hit.id)
+        assertEquals("The Target", hit.fullName)
+        assertEquals(50L, hit.followers)
+        assertNull(InstagramParser.parseProfileFromSearch(search, "nobody"))
+
+        val me = InstagramParser.parseCurrentUser("""{"user":{"pk":"1","username":"me","full_name":"Me Myself"},"status":"ok"}""")!!
+        assertEquals("me", me.username)
+        assertNull(InstagramParser.parseCurrentUser("""{"message":"login_required"}"""))
+    }
+
+    @Test
+    fun describesRepliesWithoutLeakingContent() {
+        assertEquals("an empty reply", InstagramParser.describeReply(""))
+        assertEquals("a web page with no account data in it", InstagramParser.describeReply("<html></html>"))
+        assertTrue(InstagramParser.describeReply("""{"data":{"user":null},"status":"ok"}""").contains("account: none"))
+        assertTrue(InstagramParser.describeReply("""{"message":"Please wait","status":"fail"}""").contains("Please wait"))
+    }
 }

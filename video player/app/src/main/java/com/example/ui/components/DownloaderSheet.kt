@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -358,8 +359,17 @@ private fun StoriesContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMo
 
     Column {
         if (signedIn) {
-            AccountStrip(onSignOut = { viewModel.igSignOut() })
+            AccountStrip(
+                account = uiState.igAccount,
+                checking = uiState.isCheckingIgAccount,
+                error = uiState.igAccountError,
+                onSignOut = { viewModel.igSignOut() }
+            )
         } else {
+            if (uiState.igAccountError != null) {
+                MessageCard(Icons.Default.ErrorOutline, Color(0xFFFB7185), uiState.igAccountError)
+                Spacer(modifier = Modifier.height(10.dp))
+            }
             LoginCard(onSignIn = { viewModel.openIgLogin() })
         }
 
@@ -440,6 +450,10 @@ private fun StoryResults(
     val anyRunning = downloads.values.any { it is StoryItemDownload.Downloading }
 
     Column {
+        state.profile?.let {
+            ProfileCard(it)
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = (if (state.owner == "Highlight") "Highlight" else "@${state.owner}") +
@@ -596,25 +610,88 @@ private fun timeAgo(takenAtSec: Long): String {
 }
 
 @Composable
-private fun AccountStrip(onSignOut: () -> Unit) {
+private fun Avatar(url: String?, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(listOf(Orange, Pink, Violet))),
+        contentAlignment = Alignment.Center
+    ) {
+        if (url != null) {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(2.dp)
+                    .clip(CircleShape)
+            )
+        } else {
+            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(size / 2))
+        }
+    }
+}
+
+private fun formatCount(n: Long): String = when {
+    n >= 1_000_000 -> String.format("%.1fM", n / 1_000_000.0).replace(".0M", "M")
+    n >= 10_000 -> String.format("%.1fK", n / 1_000.0).replace(".0K", "K")
+    else -> n.toString()
+}
+
+/** Shows exactly who Instagram says we are signed in as, so it's visible the connection is real. */
+@Composable
+private fun AccountStrip(
+    account: InstagramParser.ProfileInfo?,
+    checking: Boolean,
+    error: String?,
+    onSignOut: () -> Unit
+) {
     val shape = RoundedCornerShape(14.dp)
+    val ok = account != null
+    val tint = if (error != null) Orange else Cyan
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Cyan.copy(alpha = 0.10f))
-            .border(1.dp, Cyan.copy(alpha = 0.35f), shape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .background(tint.copy(alpha = 0.10f))
+            .border(1.dp, tint.copy(alpha = 0.35f), shape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Cyan, modifier = Modifier.size(20.dp))
+        if (ok) {
+            Avatar(account?.picUrl, 40.dp)
+        } else {
+            Icon(
+                imageVector = if (error != null) Icons.Default.ErrorOutline else Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(22.dp)
+            )
+        }
         Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = "Signed in to Instagram",
-            color = Color(0xFFE2E8F0),
-            fontSize = 13.sp,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            when {
+                account != null -> {
+                    Text("Connected to Instagram as", color = Muted, fontSize = 11.sp)
+                    Text(
+                        text = "@${account.username}",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (account.fullName.isNotBlank()) {
+                        Text(account.fullName, color = Color(0xFFE2E8F0), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                checking -> Text("Checking the connection to Instagram…", color = Color(0xFFE2E8F0), fontSize = 13.sp)
+                error != null -> Text(error, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 17.sp)
+                else -> Text("Signed in to Instagram", color = Color(0xFFE2E8F0), fontSize = 13.sp)
+            }
+        }
         Text(
             text = "Sign out",
             color = Color(0xFFFB7185),
@@ -626,6 +703,51 @@ private fun AccountStrip(onSignOut: () -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 4.dp)
                 .testTag("ig_sign_out")
         )
+    }
+}
+
+/** The person you searched for: photo, name, @username, badges and followers. */
+@Composable
+private fun ProfileCard(profile: InstagramParser.ProfileInfo) {
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color(0x14FFFFFF))
+            .border(1.dp, GlassBorder, shape)
+            .padding(12.dp)
+            .testTag("story_profile_card"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Avatar(profile.picUrl, 64.dp)
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (profile.fullName.isNotBlank()) profile.fullName else "@${profile.username}",
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "@${profile.username}",
+                color = Cyan,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val facts = buildList {
+                if (profile.isVerified) add("Verified ✓")
+                if (profile.isPrivate) add("Private 🔒")
+                profile.followers?.let { add("${formatCount(it)} followers") }
+            }
+            if (facts.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(facts.joinToString("  ·  "), color = Muted, fontSize = 12.sp)
+            }
+        }
     }
 }
 
