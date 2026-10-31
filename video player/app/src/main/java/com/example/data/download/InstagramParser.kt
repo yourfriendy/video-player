@@ -284,6 +284,25 @@ object InstagramParser {
         return "an unexpected reply"
     }
 
+    private fun itemToStory(item: org.json.JSONObject): StoryItem? {
+        val id = text(item, "pk").ifBlank { text(item, "id").substringBefore('_') }
+        if (id.isBlank()) return null
+        val videoUrl = item.optJSONArray("video_versions")?.optJSONObject(0)?.let { text(it, "url") }.orEmpty()
+        val candidates = item.optJSONObject("image_versions2")?.optJSONArray("candidates")
+        val imageUrl = candidates?.optJSONObject(0)?.let { text(it, "url") }.orEmpty()
+        val thumbUrl = candidates?.optJSONObject(candidates.length() - 1)?.let { text(it, "url") }.orEmpty()
+        val isVideo = videoUrl.startsWith("http")
+        val media = if (isVideo) videoUrl else imageUrl
+        if (!media.startsWith("http")) return null
+        return StoryItem(
+            id = id,
+            isVideo = isVideo,
+            mediaUrl = media,
+            thumbnailUrl = (thumbUrl.ifBlank { imageUrl }).takeIf { it.startsWith("http") },
+            takenAtSec = item.optLong("taken_at", 0L)
+        )
+    }
+
     /**
      * Reads the story items out of the responses of `feed/reels_media` or `feed/user/<id>/story`.
      * Videos come first-choice from `video_versions`, photos from `image_versions2`.
@@ -307,29 +326,78 @@ object InstagramParser {
         val result = ArrayList<StoryItem>()
         for (array in itemArrays) {
             for (i in 0 until array.length()) {
-                val item = array.optJSONObject(i) ?: continue
-                val id = item.optString("pk").ifBlank { item.optString("id").substringBefore('_') }
-                if (id.isBlank()) continue
-
-                val videoUrl = item.optJSONArray("video_versions")?.optJSONObject(0)?.optString("url").orEmpty()
-                val candidates = item.optJSONObject("image_versions2")?.optJSONArray("candidates")
-                val imageUrl = candidates?.optJSONObject(0)?.optString("url").orEmpty()
-                val thumbUrl = candidates?.optJSONObject(candidates.length() - 1)?.optString("url").orEmpty()
-
-                val isVideo = videoUrl.startsWith("http")
-                val media = if (isVideo) videoUrl else imageUrl
-                if (!media.startsWith("http")) continue
-                result.add(
-                    StoryItem(
-                        id = id,
-                        isVideo = isVideo,
-                        mediaUrl = media,
-                        thumbnailUrl = (thumbUrl.ifBlank { imageUrl }).takeIf { it.startsWith("http") },
-                        takenAtSec = item.optLong("taken_at", 0L)
-                    )
-                )
+                array.optJSONObject(i)?.let { itemToStory(it) }?.let { result.add(it) }
             }
         }
         return result.distinctBy { it.id }.sortedBy { it.takenAtSec }
+    }
+
+    private fun walk(node: Any?, visit: (org.json.JSONObject) -> Unit) {
+        when (node) {
+            is org.json.JSONObject -> {
+                visit(node)
+                val keys = node.keys()
+                while (keys.hasNext()) walk(node.opt(keys.next()), visit)
+            }
+            is org.json.JSONArray -> for (i in 0 until node.length()) walk(node.opt(i), visit)
+        }
+    }
+
+    private fun parseAny(json: String): Any? = try {
+        org.json.JSONTokener(json).nextValue()
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Finds story items ANYWHERE in a reply, whatever the wrapper looks like. Instagram's own web
+     * page receives the same item objects (with `video_versions` / `image_versions2`) inside
+     * differently named wrappers, so this keeps working when only the wrapper changes.
+     */
+    fun parseStoryItemsDeep(json: String): List<StoryItem> {
+        val root = parseAny(json) ?: return emptyList()
+        val found = ArrayList<StoryItem>()
+        walk(root) { obj ->
+            val looksLikeItem = obj.has("video_versions") || obj.has("image_versions2")
+            if (looksLikeItem && (obj.has("taken_at") || obj.has("media_type") || obj.has("pk"))) {
+                itemToStory(obj)?.let { found.add(it) }
+            }
+        }
+        return found.distinctBy { it.id }.sortedBy { it.takenAtSec }
+    }
+
+    /** Finds the account with this username anywhere in a reply (photo, name, id...). */
+    fun parseProfileDeep(json: String, username: String): ProfileInfo? {
+        val root = parseAny(json) ?: return null
+        var best: ProfileInfo? = null
+        walk(root) { obj ->
+            if (text(obj, "username").equals(username, ignoreCase = true)) {
+                profileFrom(obj)?.let { candidate ->
+                    val current = best
+                    if (current == null || (current.picUrl == null && candidate.picUrl != null) ||
+                        (current.fullName.isBlank() && candidate.fullName.isNotBlank())
+                    ) best = candidate
+                }
+            }
+        }
+        return best
+    }
+
+    /** `accounts/edit/web_form_data` reply -> who the signed-in user is (no photo in this one). */
+    fun parseEditForm(json: String, accountId: String): ProfileInfo? = try {
+        val form = org.json.JSONObject(json).optJSONObject("form_data")
+        val username = form?.let { text(it, "username") }.orEmpty()
+        if (form == null || username.isBlank()) null
+        else ProfileInfo(
+            id = accountId.ifBlank { "0" },
+            username = username,
+            fullName = text(form, "first_name"),
+            picUrl = null,
+            isPrivate = form.optBoolean("is_private", false),
+            isVerified = false,
+            followers = null
+        )
+    } catch (e: Exception) {
+        null
     }
 }

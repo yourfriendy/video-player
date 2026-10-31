@@ -30,7 +30,8 @@ data class StoryResult(
 class InstagramStoryService(
     private val client: OkHttpClient,
     private val userAgent: String,
-    private val fetcher: IgWebFetcher
+    private val fetcher: IgWebFetcher,
+    private val pageCapture: IgPageCapture
 ) {
     /** An HTTP answer we couldn't use. */
     private class HttpFailure(val code: Int, message: String) : Exception(message)
@@ -59,9 +60,9 @@ class InstagramStoryService(
     }
 
     /**
-     * Asks Instagram who the saved session belongs to. This is the proof that requests really reach
-     * Instagram AND are treated as signed in. If the first kind of request is treated as signed out,
-     * the other kind is tried before giving up.
+     * Asks Instagram who the saved session belongs to, trying three different endpoints (Instagram
+     * refuses some of them from some connections). This is a nicety for the UI: the real work never
+     * depends on it.
      */
     suspend fun whoAmI(): InstagramParser.ProfileInfo = withContext(Dispatchers.IO) {
         val cookies = sessionCookies()
@@ -69,30 +70,46 @@ class InstagramStoryService(
             throw LoginRequiredException("Sign in to Instagram to view stories.")
         }
         val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
-        verifySession(cookies, csrf)
+        identify(cookies, csrf)
     }
 
-    private suspend fun verifySession(cookies: String, csrf: String): InstagramParser.ProfileInfo {
-        val url = "$WEB_BASE/api/v1/accounts/current_user/?edit=true"
-        var (code, text) = rawGet(url, cookies, csrf)
-        fun signedOut() = code == 401 || text.contains("login_required")
-        if (signedOut()) {
-            fetcher.switchOrigin()
-            val retry = rawGet(url, cookies, csrf)
-            code = retry.first
-            text = retry.second
+    private suspend fun identify(cookies: String, csrf: String): InstagramParser.ProfileInfo {
+        val accountId = Regex("""ds_user_id=(\d+)""").find(cookies)?.groupValues?.get(1).orEmpty()
+        val notes = ArrayList<String>()
+        var signedOutAnswers = 0
+
+        suspend fun tryEndpoint(label: String, url: String, parse: (String) -> InstagramParser.ProfileInfo?): InstagramParser.ProfileInfo? {
+            val (code, text) = rawGet(url, cookies, csrf)
+            if (code == 401 || text.contains("login_required")) signedOutAnswers++
+            if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+            if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
+                throw VerificationRequiredException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+            }
+            val parsed = if (code in 200..299) parse(text) else null
+            if (parsed == null) notes.add("$label: HTTP $code, ${InstagramParser.describeReply(text)}")
+            return parsed
         }
-        if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
-        if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
-            throw DownloadException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+
+        val endpoints = ArrayList<Triple<String, String, (String) -> InstagramParser.ProfileInfo?>>()
+        if (accountId.isNotBlank()) {
+            endpoints.add(
+                Triple("profile", "$WEB_BASE/api/v1/users/$accountId/info/", { body: String -> InstagramParser.parseCurrentUser(body) })
+            )
         }
-        if (signedOut()) {
+        endpoints.add(
+            Triple("edit form", "$WEB_BASE/api/v1/accounts/edit/web_form_data/", { body: String -> InstagramParser.parseEditForm(body, accountId) })
+        )
+        endpoints.add(
+            Triple("session", "$WEB_BASE/api/v1/accounts/current_user/?edit=true", { body: String -> InstagramParser.parseCurrentUser(body) })
+        )
+
+        for ((label, url, parse) in endpoints) {
+            tryEndpoint(label, url, parse)?.let { return it }
+        }
+        if (signedOutAnswers == endpoints.size) {
             throw LoginRequiredException("Instagram says this session is signed out. Please sign in again.")
         }
-        return InstagramParser.parseCurrentUser(text)
-            ?: throw DownloadException(
-                "Instagram answered (HTTP $code) but didn't say who is signed in: ${InstagramParser.describeReply(text)}."
-            )
+        throw DownloadException("Connected, but Instagram wouldn't show your profile (" + notes.joinToString("; ") + "). Stories may still work.")
     }
 
     suspend fun load(target: InstagramParser.StoryTarget): StoryResult = withContext(Dispatchers.IO) {
@@ -102,20 +119,52 @@ class InstagramStoryService(
         }
         val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
 
+        // Method 1: ask Instagram's API directly.
+        val directFailure: DownloadException = try {
+            return@withContext loadDirect(target, cookies, csrf)
+        } catch (e: LoginRequiredException) {
+            throw e
+        } catch (e: VerificationRequiredException) {
+            throw e
+        } catch (e: DownloadException) {
+            e
+        } catch (e: IOException) {
+            DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+        }
+
+        // Method 2: let Instagram's own page ask, and read what it receives.
         try {
-            val me = verifySession(cookies, csrf)
-            when (target) {
+            loadViaPage(target)
+        } catch (e: NoStoriesException) {
+            throw e
+        } catch (e: DownloadException) {
+            if (directFailure is NoStoriesException) throw directFailure
+            throw DownloadException(
+                "Couldn't load stories.\n\n" +
+                    "Asking Instagram directly: ${directFailure.message}\n\n" +
+                    "Reading Instagram's own page: ${e.message}"
+            )
+        }
+    }
+
+    private suspend fun loadDirect(
+        target: InstagramParser.StoryTarget,
+        cookies: String,
+        csrf: String
+    ): StoryResult {
+        try {
+            return when (target) {
                 is InstagramParser.StoryTarget.Highlight -> {
                     val items = fetchItems("highlight:${target.id}", cookies, csrf)
-                    if (items.isEmpty()) throw DownloadException("This highlight is empty or unavailable.")
-                    StoryResult("Highlight", items, null, me)
+                    if (items.isEmpty()) throw NoStoriesException("This highlight is empty or unavailable.")
+                    StoryResult("Highlight", items, null, null)
                 }
 
                 is InstagramParser.StoryTarget.User -> {
                     val profile = lookupProfile(target.username, cookies, csrf)
                     val items = fetchItems(profile.id, cookies, csrf)
-                    if (items.isEmpty()) throw DownloadException(noStoriesMessage(profile, target.username))
-                    StoryResult(profile.username.ifBlank { target.username }, items, profile, me)
+                    if (items.isEmpty()) throw NoStoriesException(noStoriesMessage(profile, target.username))
+                    StoryResult(profile.username.ifBlank { target.username }, items, profile, null)
                 }
 
                 is InstagramParser.StoryTarget.Story -> {
@@ -123,17 +172,54 @@ class InstagramStoryService(
                     val items = fetchItems(profile.id, cookies, csrf)
                     val match = items.filter { it.id == target.mediaId }
                     if (match.isEmpty()) {
-                        throw DownloadException(
+                        throw NoStoriesException(
                             if (items.isEmpty()) noStoriesMessage(profile, target.username)
                             else "That story is no longer available. Try the username to see all current stories."
                         )
                     }
-                    StoryResult(profile.username.ifBlank { target.username }, match, profile, me)
+                    StoryResult(profile.username.ifBlank { target.username }, match, profile, null)
                 }
             }
         } catch (e: IOException) {
             throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
         }
+    }
+
+    /** Opens the story page like a visitor would and picks the stories out of the replies the page receives. */
+    private suspend fun loadViaPage(target: InstagramParser.StoryTarget): StoryResult {
+        val (pageUrl, username) = when (target) {
+            is InstagramParser.StoryTarget.User -> "$WEB_BASE/stories/${target.username}/" to target.username
+            is InstagramParser.StoryTarget.Story -> "$WEB_BASE/stories/${target.username}/${target.mediaId}/" to target.username
+            is InstagramParser.StoryTarget.Highlight -> "$WEB_BASE/stories/highlights/${target.id}/" to ""
+        }
+        val result = pageCapture.capture(pageUrl) { replies ->
+            replies.any { it.status in 200..299 && InstagramParser.parseStoryItemsDeep(it.body).isNotEmpty() }
+        }
+        var items = result.replies
+            .filter { it.status in 200..299 }
+            .flatMap { InstagramParser.parseStoryItemsDeep(it.body) }
+            .distinctBy { it.id }
+            .sortedBy { it.takenAtSec }
+        val profile = if (username.isNotBlank()) {
+            result.replies.firstNotNullOfOrNull { InstagramParser.parseProfileDeep(it.body, username) }
+        } else null
+
+        if (target is InstagramParser.StoryTarget.Story && items.isNotEmpty()) {
+            val match = items.filter { it.id == target.mediaId }
+            items = match
+            if (items.isEmpty()) throw NoStoriesException("That story is no longer available. Try the username to see all current stories.")
+        }
+        if (items.isEmpty()) {
+            val seen = result.replies.take(4).joinToString("; ") {
+                it.url.substringBefore('?').substringAfter("instagram.com").take(40) +
+                    " → HTTP ${it.status}, ${InstagramParser.describeReply(it.body)}"
+            }
+            throw DownloadException(
+                (result.pageNote ?: "the page loaded") + ", but no stories came with it" +
+                    (if (seen.isNotBlank()) " (it received: $seen)." else " (it received no data at all).")
+            )
+        }
+        return StoryResult(profile?.username?.ifBlank { username } ?: username.ifBlank { "Highlight" }, items, profile, null)
     }
 
     private fun noStoriesMessage(profile: InstagramParser.ProfileInfo, typed: String): String {
@@ -161,7 +247,7 @@ class InstagramStoryService(
             val (code, text) = rawGet(url, cookies, csrf)
             if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
             if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
-                throw DownloadException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+                throw VerificationRequiredException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
             }
             if (code == 401 || text.contains("login_required")) {
                 throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
@@ -195,7 +281,7 @@ class InstagramStoryService(
         when {
             code == -1 -> throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
             text.contains("checkpoint_required") || text.contains("challenge_required") ->
-                throw DownloadException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+                throw VerificationRequiredException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
             code == 401 || text.contains("login_required") ->
                 throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
             code == 429 -> throw DownloadException(

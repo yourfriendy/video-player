@@ -246,4 +246,40 @@ class InstagramParserTest {
         assertTrue(InstagramParser.describeReply("""{"data":{"user":null},"status":"ok"}""").contains("account: none"))
         assertTrue(InstagramParser.describeReply("""{"message":"Please wait","status":"fail"}""").contains("Please wait"))
     }
+
+    @Test
+    fun findsStoriesInsideAnyWrapper() {
+        // Newer web pages wrap the very same item objects in differently named containers
+        val json = """{"data":{"xdt_api__v1__feed__reels_media":{"reels_media":[{"user":{"pk":"5","username":"zed"},
+            "items":[{"pk":"900","taken_at":50,"media_type":2,"video_versions":[{"url":"https://cdn/x.mp4"}],
+                      "image_versions2":{"candidates":[{"url":"https://cdn/x.jpg"}]}},
+                     {"pk":"901","taken_at":60,"image_versions2":{"candidates":[{"url":"https://cdn/y.jpg"}]}}]}]}}}"""
+        val items = InstagramParser.parseStoryItemsDeep(json)
+        assertEquals(listOf("900", "901"), items.map { it.id })
+        assertTrue(items[0].isVideo)
+        assertFalse(items[1].isVideo)
+        assertTrue(InstagramParser.parseStoryItemsDeep("""{"data":{"user":null}}""").isEmpty())
+        assertTrue(InstagramParser.parseStoryItemsDeep("garbage").isEmpty())
+    }
+
+    @Test
+    fun findsProfileInsideAnyReply() {
+        val json = """{"data":{"x":[{"user":{"pk":"5","username":"zed"}},
+            {"user":{"pk":"5","username":"Zed","full_name":"Zed Zed","profile_pic_url":"https://cdn/p.jpg","is_verified":true}}]}}"""
+        val p = InstagramParser.parseProfileDeep(json, "zed")!!
+        assertEquals("5", p.id)
+        assertEquals("Zed Zed", p.fullName)
+        assertEquals("https://cdn/p.jpg", p.picUrl)
+        assertTrue(p.isVerified)
+        assertNull(InstagramParser.parseProfileDeep(json, "nobody"))
+    }
+
+    @Test
+    fun readsEditFormIdentity() {
+        val me = InstagramParser.parseEditForm("""{"form_data":{"username":"me.me","first_name":"Mee"},"status":"ok"}""", "77")!!
+        assertEquals("me.me", me.username)
+        assertEquals("Mee", me.fullName)
+        assertEquals("77", me.id)
+        assertNull(InstagramParser.parseEditForm("""{"message":"x"}""", "77"))
+    }
 }

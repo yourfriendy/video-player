@@ -18,7 +18,13 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 
 /** An error with a message that is safe to show to the user as-is. */
-class DownloadException(message: String) : Exception(message)
+open class DownloadException(message: String) : Exception(message)
+
+/** Instagram wants the user to confirm their identity first; falling back to another method won't help. */
+class VerificationRequiredException(message: String) : DownloadException(message)
+
+/** The account was found but really has nothing to show. */
+class NoStoriesException(message: String) : DownloadException(message)
 
 data class ResolvedReel(val shortcode: String, val videoUrl: String, val title: String?)
 
@@ -48,8 +54,9 @@ class InstagramDownloader(private val context: Context) {
     }
 
     private val webFetcher = IgWebFetcher(context, webUserAgent)
+    private val pageCapture = IgPageCapture(context, webUserAgent)
 
-    val stories = InstagramStoryService(client, webUserAgent, webFetcher)
+    val stories = InstagramStoryService(client, webUserAgent, webFetcher, pageCapture)
 
     /** Frees the hidden browser engine. */
     fun release() = webFetcher.release()
