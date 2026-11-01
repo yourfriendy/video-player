@@ -410,6 +410,58 @@ object InstagramParser {
         return found.distinctBy { it.id }.sortedBy { it.takenAtSec }
     }
 
+    /**
+     * The older `graphql/query` story reply (`data.reels_media[].items[]` with `display_url` / `video_url`
+     * and `*_resources` lists). Used as one more fallback. Items are kept only if they belong to [username]/[userId].
+     */
+    fun parseLegacyStoryItems(json: String, username: String, userId: String?): List<StoryItem> {
+        val root = try {
+            org.json.JSONObject(json)
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        val reels = root.optJSONObject("data")?.optJSONArray("reels_media") ?: return emptyList()
+        val found = ArrayList<StoryItem>()
+        for (r in 0 until reels.length()) {
+            val items = reels.optJSONObject(r)?.optJSONArray("items") ?: continue
+            for (i in 0 until items.length()) {
+                val item = items.optJSONObject(i) ?: continue
+                val owner = item.optJSONObject("owner") ?: item.optJSONObject("user")
+                if (owner != null && !ownerMatches(owner, username, userId)) continue
+                val id = text(item, "id").ifBlank { text(item, "pk") }
+                if (id.isBlank()) continue
+                val isVideo = item.optBoolean("is_video", false)
+                val videoResources = item.optJSONArray("video_resources")
+                val displayResources = item.optJSONArray("display_resources")
+                fun lastSrc(a: org.json.JSONArray?): String =
+                    if (a == null || a.length() == 0) "" else text(a.optJSONObject(a.length() - 1) ?: org.json.JSONObject(), "src")
+                fun firstSrc(a: org.json.JSONArray?): String =
+                    if (a == null || a.length() == 0) "" else text(a.optJSONObject(0) ?: org.json.JSONObject(), "src")
+                val video = text(item, "video_url").ifBlank { lastSrc(videoResources) }
+                val image = text(item, "display_url").ifBlank { lastSrc(displayResources) }
+                val media = if (isVideo) video else image
+                if (!media.startsWith("http")) continue
+                found.add(
+                    StoryItem(
+                        id = id,
+                        isVideo = isVideo,
+                        mediaUrl = media,
+                        thumbnailUrl = firstSrc(displayResources).ifBlank { image }.takeIf { it.startsWith("http") },
+                        takenAtSec = item.optLong("taken_at_timestamp", 0L)
+                    )
+                )
+            }
+        }
+        return found.distinctBy { it.id }.sortedBy { it.takenAtSec }
+    }
+
+    /** Pulls Instagram's two page tokens (needed to send its own GraphQL queries) out of any instagram.com page. */
+    fun parsePageTokens(html: String): Pair<String, String>? {
+        val lsd = Regex(""""LSD",\[\],\{"token":"([^"]+)"""").find(html)?.groupValues?.get(1)
+        val dtsg = Regex(""""DTSGInitialData",\[\],\{"token":"([^"]+)"""").find(html)?.groupValues?.get(1)
+        return if (lsd != null && dtsg != null) lsd to dtsg else null
+    }
+
     /** Finds the account with this username anywhere in a reply (photo, name, id...). */
     fun parseProfileDeep(json: String, username: String): ProfileInfo? {
         val root = parseAny(json) ?: return null

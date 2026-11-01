@@ -316,4 +316,25 @@ class InstagramParserTest {
             {"pk":"41","taken_at":2,"image_versions2":{"candidates":[{"url":"https://c/o.jpg"}]}}]}}}"""
         assertEquals(listOf("40"), InstagramParser.parseStoryItemsForOwner(json, "", null, "17890").map { it.id })
     }
+
+    @Test
+    fun readsLegacyStoryReply() {
+        val json = """{"data":{"reels_media":[{"items":[
+            {"id":"70","is_video":true,"video_url":"https://c/v.mp4","display_url":"https://c/d.jpg","taken_at_timestamp":9,
+             "owner":{"id":"1","username":"target"},"display_resources":[{"src":"https://c/s.jpg"},{"src":"https://c/l.jpg"}]},
+            {"id":"71","is_video":false,"display_url":"https://c/p.jpg","taken_at_timestamp":8,"owner":{"id":"2","username":"other"}}
+        ]}]}}"""
+        val items = InstagramParser.parseLegacyStoryItems(json, "target", "1")
+        assertEquals(listOf("70"), items.map { it.id })
+        assertTrue(items[0].isVideo)
+        assertEquals("https://c/v.mp4", items[0].mediaUrl)
+        assertEquals("https://c/s.jpg", items[0].thumbnailUrl)
+    }
+
+    @Test
+    fun readsPageTokens() {
+        val html = """x ["LSD",[],{"token":"AbC123"},323] y ["DTSGInitialData",[],{"token":"NA:xyz"},258] z"""
+        assertEquals("AbC123" to "NA:xyz", InstagramParser.parsePageTokens(html))
+        assertNull(InstagramParser.parsePageTokens("""["LSD",[],{"token":"only"}]"""))
+    }
 }

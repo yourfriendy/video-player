@@ -39,6 +39,16 @@ class InstagramStoryService(
     companion object {
         private const val WEB_BASE = "https://www.instagram.com"
 
+        /** The mobile-app API host. Since Oct 2026 the www host answers story-list requests with HTTP 500. */
+        private const val MOBILE_BASE = "https://i.instagram.com"
+
+        /** The persisted query Instagram's own story page uses (PolarisStoriesV3ReelPageStandaloneQuery). It can rotate. */
+        private const val STORY_DOC_ID = "28449850404637481"
+        private const val STORY_QUERY_NAME = "PolarisStoriesV3ReelPageStandaloneQuery"
+
+        /** The older story query (also used by Instaloader). */
+        private const val LEGACY_STORY_HASH = "303a4ae99711322310f25250d988f3b7"
+
         /** Instagram's public web-app id (sent by the website itself on every request). */
         private const val IG_APP_ID = "936619743392459"
 
@@ -155,21 +165,25 @@ class InstagramStoryService(
         try {
             return when (target) {
                 is InstagramParser.StoryTarget.Highlight -> {
-                    val items = fetchItems("highlight:${target.id}", cookies, csrf)
+                    val items = fetchStoryReel("highlight:${target.id}", null, null, null, target.id)
                     if (items.isEmpty()) throw NoStoriesException("This highlight is empty or unavailable.")
                     StoryResult("Highlight", items, null, null)
                 }
 
                 is InstagramParser.StoryTarget.User -> {
                     val profile = lookupProfile(target.username, cookies, csrf)
-                    val items = fetchItems(profile.id, cookies, csrf, target.username, profile.id)
+                    val items = fetchStoryReel(profile.id, null, target.username, profile.id, null)
                     if (items.isEmpty()) throw NoStoriesException(noStoriesMessage(profile, target.username))
                     StoryResult(profile.username.ifBlank { target.username }, items, profile, null)
                 }
 
                 is InstagramParser.StoryTarget.Story -> {
                     val profile = lookupProfile(target.username, cookies, csrf)
-                    val items = fetchItems(profile.id, cookies, csrf, target.username, profile.id)
+                    var items = fetchStoryReel(profile.id, target.mediaId, target.username, profile.id, null)
+                    if (items.none { it.id == target.mediaId }) {
+                        // Not in the list: ask for that one story directly
+                        items = items + fetchSingleStory(target.mediaId, target.username, profile.id)
+                    }
                     val match = items.filter { it.id == target.mediaId }
                     if (match.isEmpty()) {
                         throw NoStoriesException(
@@ -280,31 +294,161 @@ class InstagramStoryService(
         )
     }
 
-    private suspend fun fetchItems(
-        reelId: String,
-        cookies: String,
-        csrf: String,
-        owner: String? = null,
-        ownerId: String? = null
-    ): List<InstagramParser.StoryItem> {
-        val encoded = java.net.URLEncoder.encode(reelId, "UTF-8")
-        val (code, text) = rawGet("$WEB_BASE/api/v1/feed/reels_media/?reel_ids=$encoded", cookies, csrf)
-        when {
-            code == -1 -> throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
-            text.contains("checkpoint_required") || text.contains("challenge_required") ->
-                throw VerificationRequiredException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
-            code == 401 || text.contains("login_required") ->
-                throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
-            code == 429 -> throw DownloadException(
-                "Instagram refused the story list request (error 429). Switching between Wi-Fi and mobile data often fixes this."
-            )
-            code !in 200..299 -> throw DownloadException(
-                "Instagram refused the story list request (error $code): ${InstagramParser.describeReply(text)}."
-            )
+    // --- story list: four doors, in the order the maintained open-source tools use them -----------------
+
+    @Volatile
+    private var pageTokens: Triple<String, String, Long>? = null
+
+    /** Instagram's two page tokens (needed to send its own GraphQL queries), read from its home page. */
+    private suspend fun tokens(forceRefresh: Boolean = false): Pair<String, String>? {
+        val cached = pageTokens
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.third < 20 * 60_000L) {
+            return cached.first to cached.second
         }
-        // Keep only this account's stories (never a stranger's), falling back to the plain reading if the reply names no owner
-        val scoped = if (owner != null) InstagramParser.parseStoryItemsForOwner(text, owner, ownerId) else emptyList()
-        return if (scoped.isNotEmpty()) scoped else InstagramParser.parseStoryItems(text)
+        val answer = try {
+            fetcher.request("$WEB_BASE/", headers = mapOf("Accept" to "text/html"))
+        } catch (e: Exception) {
+            return null
+        }
+        if (answer.status !in 200..299) return null
+        val found = InstagramParser.parsePageTokens(answer.body) ?: return null
+        pageTokens = Triple(found.first, found.second, System.currentTimeMillis())
+        return found
+    }
+
+    private fun enc(value: String): String = java.net.URLEncoder.encode(value, "UTF-8")
+
+    private fun hasDataReply(text: String): Boolean = try {
+        val o = org.json.JSONObject(text)
+        !o.isNull("data") && !o.has("errors")
+    } catch (e: Exception) {
+        false
+    }
+
+    /**
+     * Loads one account's (or highlight's) story list.
+     *  1. the mobile API   2. Instagram's own story-page query   3. the older Instaloader query
+     * Instagram answers each of them differently for different sessions, so the next is tried whenever a
+     * door is shut or gives an empty list. The list is only declared empty if the second door answered properly.
+     */
+    private suspend fun fetchStoryReel(
+        reelId: String,
+        mediaId: String?,
+        owner: String?,
+        ownerId: String?,
+        highlightId: String?
+    ): List<InstagramParser.StoryItem> {
+        val notes = ArrayList<String>()
+        val minimal = mapOf("Accept" to "*/*", "X-IG-App-ID" to IG_APP_ID)
+        var properlyEmpty = false
+        var loginAnswers = 0
+        var attempts = 0
+
+        fun parse(text: String, fallbackToPlain: Boolean): List<InstagramParser.StoryItem> {
+            val scoped = InstagramParser.parseStoryItemsForOwner(text, owner.orEmpty(), ownerId, highlightId)
+            return if (scoped.isNotEmpty() || !fallbackToPlain) scoped else InstagramParser.parseStoryItems(text)
+        }
+
+        suspend fun send(label: String, url: String, method: String, headers: Map<String, String>, body: String?): Pair<Int, String> {
+            attempts++
+            val (code, text) = rawRequest(url, method, headers, body)
+            if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+            if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
+                throw VerificationRequiredException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+            }
+            if (code == 401 || text.contains("login_required")) loginAnswers++
+            return code to text
+        }
+
+        // 1) the mobile API
+        run {
+            val (code, text) = send("mobile", "$MOBILE_BASE/api/v1/feed/reels_media/?reel_ids=${enc(reelId)}", "GET", minimal, null)
+            val items = if (code in 200..299) parse(text, true) else emptyList()
+            if (items.isNotEmpty()) return items
+            notes.add("1) mobile list: HTTP $code, ${InstagramParser.describeReply(text)}")
+        }
+
+        // 2) Instagram's own story-page query
+        run {
+            val t = tokens()
+            if (t == null) {
+                notes.add("2) story query: couldn't read Instagram's page tokens")
+                return@run
+            }
+            val variables = org.json.JSONObject()
+                .put("media_id", mediaId ?: org.json.JSONObject.NULL)
+                .put("reel_ids_arr", org.json.JSONArray().put(reelId))
+                .put("__relay_internal__pv__PolarisCommunityNoteStoriesLabelEnabledrelayprovider", true)
+                .toString()
+            val body = listOf(
+                "doc_id" to STORY_DOC_ID,
+                "variables" to variables,
+                "lsd" to t.first,
+                "fb_dtsg" to t.second,
+                "server_timestamps" to "true",
+                "fb_api_caller_class" to "RelayModern",
+                "fb_api_req_friendly_name" to STORY_QUERY_NAME
+            ).joinToString("&") { enc(it.first) + "=" + enc(it.second) }
+            val headers = mapOf(
+                "Accept" to "*/*",
+                "X-IG-App-ID" to IG_APP_ID,
+                "Content-Type" to "application/x-www-form-urlencoded",
+                "X-CSRFToken" to "{csrf}",
+                "X-FB-Friendly-Name" to STORY_QUERY_NAME,
+                "X-FB-LSD" to t.first
+            )
+            val (code, text) = send("story query", "$WEB_BASE/api/graphql", "POST", headers, body)
+            val items = if (code in 200..299) parse(text, false) else emptyList()
+            if (items.isNotEmpty()) return items
+            if (code in 200..299 && hasDataReply(text)) properlyEmpty = true
+            if (code !in 200..299) pageTokens = null // tokens may have gone stale: read them again next time
+            notes.add("2) story query: HTTP $code, ${InstagramParser.describeReply(text)}")
+        }
+
+        // 3) the older query
+        if (highlightId == null) {
+            val variables = org.json.JSONObject()
+                .put("reel_ids", org.json.JSONArray().put(reelId))
+                .put("precomposed_overlay", false)
+                .toString()
+            val (code, text) = send(
+                "legacy", "$WEB_BASE/graphql/query/?query_hash=$LEGACY_STORY_HASH&variables=${enc(variables)}",
+                "GET", minimal, null
+            )
+            val items = if (code in 200..299) InstagramParser.parseLegacyStoryItems(text, owner.orEmpty(), ownerId) else emptyList()
+            if (items.isNotEmpty()) return items
+            notes.add("3) older query: HTTP $code, ${InstagramParser.describeReply(text)}")
+        }
+
+        if (properlyEmpty) return emptyList()
+        if (attempts > 0 && loginAnswers == attempts) {
+            throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
+        }
+        throw DownloadException("Instagram wouldn't list the stories:\n" + notes.joinToString("\n"))
+    }
+
+    /** Last door, for a story link: ask for that one story by its id. */
+    private suspend fun fetchSingleStory(mediaId: String, owner: String, ownerId: String): List<InstagramParser.StoryItem> {
+        val minimal = mapOf("Accept" to "*/*", "X-IG-App-ID" to IG_APP_ID)
+        val (code, text) = try {
+            rawRequest("$MOBILE_BASE/api/v1/media/${enc(mediaId)}/info/", "GET", minimal, null)
+        } catch (e: DownloadException) {
+            return emptyList()
+        }
+        if (code !in 200..299) return emptyList()
+        return InstagramParser.parseStoryItemsForOwner(text, owner, ownerId)
+    }
+
+    /** One request as the signed-in user via the hidden browser; plain HTTP only if the browser itself is unavailable. */
+    private suspend fun rawRequest(url: String, method: String, headers: Map<String, String>, body: String?): Pair<Int, String> {
+        val answer = try {
+            fetcher.request(url, method, headers, body)
+        } catch (e: DownloadException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        return if (answer != null) answer.status to answer.body else -1 to ""
     }
 
     /** One GET as the signed-in user: via the hidden browser, or plain HTTP only if the browser itself is unavailable. */

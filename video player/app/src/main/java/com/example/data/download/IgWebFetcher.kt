@@ -115,32 +115,51 @@ class IgWebFetcher(context: Context, private val userAgent: String) {
     }
 
     /** GETs [url] as the signed-in user. [Result.status] is -1 when the request failed before getting any answer. */
-    suspend fun get(url: String): Result {
-        val first = attempt(url)
+    suspend fun get(url: String): Result = request(url)
+
+    /**
+     * Any request as the signed-in user. With [headers] = null the usual website headers are sent; with
+     * an explicit map ONLY those headers are sent (a "{csrf}" value is replaced by the CSRF token).
+     * Sending just what Instagram's own scripts send matters: extra headers on a request to another
+     * Instagram host (like i.instagram.com) can make the browser's CORS check reject it.
+     */
+    suspend fun request(
+        url: String,
+        method: String = "GET",
+        headers: Map<String, String>? = null,
+        body: String? = null
+    ): Result {
+        val first = attempt(url, method, headers, body)
         if (first.status != -1) return first
         // The request couldn't even be made (e.g. the page blocked it): try the other kind of page once
         switchOrigin()
-        return attempt(url)
+        return attempt(url, method, headers, body)
     }
 
-    private suspend fun attempt(url: String): Result {
+    private suspend fun attempt(
+        url: String,
+        method: String,
+        headers: Map<String, String>?,
+        body: String?
+    ): Result {
         val view = ensureReady()
         val id = counter.incrementAndGet().toString()
         val deferred = CompletableDeferred<Result>()
         pending[id] = deferred
 
+        val headersJson = if (headers == null) {
+            """{"X-IG-App-ID":"936619743392459","X-ASBD-ID":"129477","X-IG-WWW-Claim":"0","X-Requested-With":"XMLHttpRequest","X-CSRFToken":"{csrf}","Accept":"*/*"}"""
+        } else {
+            JSONObject(headers).toString()
+        }
+        val bodyJs = if (body != null) JSONObject.quote(body) else "undefined"
+
         val js = """
             (function () {
               var csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
-              var headers = {
-                'X-IG-App-ID': '936619743392459',
-                'X-ASBD-ID': '129477',
-                'X-IG-WWW-Claim': '0',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrf,
-                'Accept': '*/*'
-              };
-              fetch(${JSONObject.quote(url)}, { credentials: 'include', headers: headers })
+              var headers = $headersJson;
+              for (var k in headers) { if (headers[k] === '{csrf}') headers[k] = csrf; }
+              fetch(${JSONObject.quote(url)}, { method: ${JSONObject.quote(method)}, credentials: 'include', mode: 'cors', headers: headers, body: $bodyJs })
                 .then(function (r) {
                   return r.text().then(function (t) { OffScrollBridge.onResult(${JSONObject.quote(id)}, r.status, t); });
                 })

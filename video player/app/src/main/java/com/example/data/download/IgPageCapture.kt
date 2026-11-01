@@ -3,6 +3,8 @@ package com.example.data.download
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -77,6 +79,12 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                     v?.evaluateJavascript(HOOK_SCRIPT, null) // harmless if already installed
                 }
 
+                override fun onPageFinished(v: WebView?, url: String?) {
+                    // The story page ships its reel inside the page as JSON: read it now and again once scripts settle
+                    v?.evaluateJavascript(HARVEST_SCRIPT, null)
+                    Handler(Looper.getMainLooper()).postDelayed({ v?.evaluateJavascript(HARVEST_SCRIPT, null) }, 2500L)
+                }
+
                 override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean =
                     request?.url?.host?.endsWith("instagram.com") != true
 
@@ -89,7 +97,10 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                     val uri = request?.url ?: return null
                     val host = uri.host.orEmpty()
                     val url = uri.toString().lowercase()
-                    val isMedia = host.endsWith("cdninstagram.com") || host.endsWith("fbcdn.net")
+                    val onMediaHost = host.endsWith("cdninstagram.com") || host.endsWith("fbcdn.net")
+                    // "static.*" serves Instagram's own scripts and styles: blocking it stops the page from starting at all
+                    val isMedia = onMediaHost && !host.startsWith("static.") &&
+                        (host.contains("scontent") || MEDIA_FILE.containsMatchIn(url))
                     val isSeenReport = SEEN_URL.containsMatchIn(url)
                     if (!isMedia && !isSeenReport) return null
                     return WebResourceResponse(
@@ -119,7 +130,25 @@ class IgPageCapture(context: Context, private val userAgent: String) {
 
     private companion object {
         /** URLs that report a story as seen (or mark anything as seen). Never let these leave the phone. */
+        val MEDIA_FILE = Regex("""\.(mp4|m4s|webm|m4a|jpg|jpeg|webp|heic)(\?|$)""")
+
         val SEEN_URL = Regex("""(/seen\b|/seen/|seen_|_seen|mark_as_seen|markasseen|stories/reel/seen|media/seen)""")
+
+        /** Hands over the JSON blocks embedded in the page that look like they carry stories, profiles or reels. */
+        const val HARVEST_SCRIPT = """
+            (function () {
+              try {
+                var blocks = document.querySelectorAll('script[type="application/json"]');
+                for (var i = 0; i < blocks.length; i++) {
+                  var t = blocks[i].textContent || '';
+                  if (t.length > 20 && t.length < 3000000 &&
+                      (t.indexOf('image_versions2') >= 0 || t.indexOf('video_versions') >= 0 || t.indexOf('reels_media') >= 0)) {
+                    OffScrollCapture.onCapture('embedded-page-data', 200, t);
+                  }
+                }
+              } catch (e) {}
+            })();
+        """
 
         /**
          * Wraps fetch() and XMLHttpRequest so a copy of each API reply is handed to the app, and so that
