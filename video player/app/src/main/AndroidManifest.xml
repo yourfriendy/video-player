@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Lets the user exempt OffScroll from battery optimisation so story alerts keep running when the app is closed -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- In-app updates: lets OffScroll hand a downloaded OffScroll.apk to Android's installer -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- "Any link" downloads: keep a long download alive (and show its progress) while the app is in the background -->

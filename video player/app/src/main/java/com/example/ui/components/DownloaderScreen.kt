@@ -1,6 +1,11 @@
 package com.example.ui.components
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.os.Build
 import android.view.LayoutInflater
@@ -225,6 +230,12 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
             Toast.makeText(context, "Notifications are off for OffScroll, so alerts can't be shown.", Toast.LENGTH_LONG).show()
         }
     }
+    // Phones often pause background work to save battery; this lets the user exempt OffScroll
+    val power = remember { context.getSystemService(Context.POWER_SERVICE) as PowerManager }
+    var batteryExempt by remember { mutableStateOf(power.isIgnoringBatteryOptimizations(context.packageName)) }
+    val batteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        batteryExempt = power.isIgnoringBatteryOptimizations(context.packageName)
+    }
     fun enableAlerts(name: String) {
         val needsAsk = Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -311,9 +322,31 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
                 if (saved?.alerts == true) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "You'll get a notification about every 30 minutes at most when @$owner posts a new story. Nobody is told you looked.",
+                        "You'll get a notification about every 30 minutes at most when @$owner posts a new story. " +
+                            "It works even when OffScroll is closed (but not after \"Force stop\"). Nobody is told you looked.",
                         color = Muted, fontSize = 11.sp, lineHeight = 15.sp
                     )
+                    if (!batteryExempt) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Pill(
+                            text = "Keep alerts reliable",
+                            icon = Icons.Default.Notifications,
+                            onClick = {
+                                try {
+                                    batteryLauncher.launch(
+                                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+                                    )
+                                } catch (e: Exception) {
+                                    batteryLauncher.launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                }
+                            }
+                        )
+                        Text(
+                            "Your phone may pause background checks to save battery. Tap to let OffScroll check while closed.",
+                            color = Muted, fontSize = 11.sp, lineHeight = 15.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
         }
