@@ -168,6 +168,10 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                 if (/graphql/i.test(u) && body && /(Seen|Mutation)/.test(String(body))) return true;
                 return false;
               }
+              function nameOf(b) {
+                var m = /fb_api_req_friendly_name=([^&]+)/.exec(String(b || ''));
+                return m ? '#' + m[1] : '';
+              }
               function bodyOf(b) {
                 try { if (typeof b === 'string') return b; if (b && typeof b.toString === 'function') return b.toString(); } catch (e) {}
                 return '';
@@ -186,9 +190,10 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                   if (blocked(url, bodyOf(init && init.body))) {
                     return Promise.resolve(new Response('{"status":"ok"}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
                   }
+                  var tag = nameOf(bodyOf(init && init.body));
                   var p = origFetch.apply(this, arguments);
                   if (want(url)) {
-                    p.then(function (r) { r.clone().text().then(function (t) { send(url, r.status, t); }); }).catch(function () {});
+                    p.then(function (r) { r.clone().text().then(function (t) { send(url + tag, r.status, t); }); }).catch(function () {});
                   }
                   return p;
                 };
@@ -198,12 +203,13 @@ class IgPageCapture(context: Context, private val userAgent: String) {
               XMLHttpRequest.prototype.send = function (body) {
                 var x = this;
                 if (blocked(x.__osUrl, bodyOf(body))) { try { x.abort(); } catch (e) {} return; }
+                x.__osTag = nameOf(bodyOf(body));
                 x.addEventListener('load', function () {
                   var u = x.__osUrl || '';
                   if (!want(u)) return;
                   var t = '';
                   try { t = (x.responseType === '' || x.responseType === 'text') ? x.responseText : JSON.stringify(x.response); } catch (e) {}
-                  send(u, x.status, t);
+                  send(u + (x.__osTag || ''), x.status, t);
                 });
                 return sendX.apply(this, arguments);
               };

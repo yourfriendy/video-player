@@ -143,6 +143,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleShareIntent(intent: Intent?) {
+        // Tapped a "new story" notification
+        intent?.getStringExtra(com.example.data.download.StoryAlertWorker.EXTRA_OPEN_PERSON)?.let { person ->
+            intent.removeExtra(com.example.data.download.StoryAlertWorker.EXTRA_OPEN_PERSON)
+            viewModel.openPerson(person)
+            return
+        }
         if (intent?.action != Intent.ACTION_SEND) return
         val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
         // Consume it so the same share is never handled twice

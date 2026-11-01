@@ -244,7 +244,7 @@ private fun TabSwitcher(selected: DownloaderTab, onSelect: (DownloaderTab) -> Un
 // ----------------------------------------------------------------------------------------------
 
 @Composable
-private fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel) {
+internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel) {
     val url = uiState.downloadUrl
     val status = uiState.downloadStatus
     val clipboard = LocalClipboardManager.current
@@ -600,7 +600,7 @@ private fun StoryRow(
     }
 }
 
-private fun timeAgo(takenAtSec: Long): String {
+internal fun timeAgo(takenAtSec: Long): String {
     if (takenAtSec <= 0L) return "Posted recently"
     val minutes = ((System.currentTimeMillis() / 1000 - takenAtSec) / 60).coerceAtLeast(0)
     return when {
@@ -611,7 +611,7 @@ private fun timeAgo(takenAtSec: Long): String {
 }
 
 @Composable
-private fun Avatar(url: String?, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+internal fun Avatar(url: String?, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .size(size)
@@ -635,7 +635,7 @@ private fun Avatar(url: String?, size: androidx.compose.ui.unit.Dp, modifier: Mo
     }
 }
 
-private fun formatCount(n: Long): String = when {
+internal fun formatCount(n: Long): String = when {
     n >= 1_000_000 -> String.format("%.1fM", n / 1_000_000.0).replace(".0M", "M")
     n >= 10_000 -> String.format("%.1fK", n / 1_000.0).replace(".0K", "K")
     else -> n.toString()
@@ -643,7 +643,7 @@ private fun formatCount(n: Long): String = when {
 
 /** Shows exactly who Instagram says we are signed in as, so it's visible the connection is real. */
 @Composable
-private fun AccountStrip(
+internal fun AccountStrip(
     account: InstagramParser.ProfileInfo?,
     checking: Boolean,
     error: String?,
@@ -709,7 +709,7 @@ private fun AccountStrip(
 
 /** The person you searched for: photo, name, @username, badges and followers. */
 @Composable
-private fun ProfileCard(profile: InstagramParser.ProfileInfo) {
+internal fun ProfileCard(profile: InstagramParser.ProfileInfo) {
     val shape = RoundedCornerShape(18.dp)
     Row(
         modifier = Modifier
@@ -753,7 +753,7 @@ private fun ProfileCard(profile: InstagramParser.ProfileInfo) {
 }
 
 @Composable
-private fun LoginCard(onSignIn: () -> Unit) {
+internal fun LoginCard(onSignIn: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = Modifier

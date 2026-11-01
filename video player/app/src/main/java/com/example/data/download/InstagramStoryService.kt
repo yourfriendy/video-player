@@ -241,6 +241,40 @@ class InstagramStoryService(
         return StoryResult(profile?.username?.ifBlank { username } ?: username.ifBlank { "Highlight" }, items, profile, null)
     }
 
+    /**
+     * (Beta) A person's Reposts tab. There is no documented address for it, so, like the stories fallback,
+     * their real Reposts page is opened in the hidden browser and what that page receives is read.
+     * Only other people's media is kept (the owner's own posts are not reposts).
+     */
+    suspend fun loadReposts(username: String): StoryResult = withContext(Dispatchers.IO) {
+        val result = pageCapture.capture("$WEB_BASE/${java.net.URLEncoder.encode(username, "UTF-8")}/reposts/") { replies ->
+            replies.any {
+                it.status in 200..299 && it.url.contains("repost", ignoreCase = true) &&
+                    InstagramParser.parseRepostItems(it.body, username).isNotEmpty()
+            }
+        }
+        val ok = result.replies.filter { it.status in 200..299 }
+        var items = ok.filter { it.url.contains("repost", ignoreCase = true) }
+            .flatMap { InstagramParser.parseRepostItems(it.body, username) }
+        if (items.isEmpty()) {
+            // Some pages ship the first batch inside the page itself
+            items = ok.filter { it.url.startsWith("embedded-page-data") }
+                .flatMap { InstagramParser.parseRepostItems(it.body, username) }
+        }
+        items = items.distinctBy { it.id }
+        val profile = result.replies.firstNotNullOfOrNull { InstagramParser.parseProfileDeep(it.body, username) }
+        if (items.isEmpty()) {
+            val seen = result.replies.take(5).joinToString("; ") {
+                it.url.substringBefore('?').substringAfter("instagram.com").take(34) + " → HTTP ${it.status}"
+            }
+            throw NoStoriesException(
+                "No reposts found for @$username. They may have none, or the account may be private." +
+                    (if (seen.isNotBlank()) "\n\n(The page received: $seen)" else "")
+            )
+        }
+        StoryResult(username, items, profile, null)
+    }
+
     private fun noStoriesMessage(profile: InstagramParser.ProfileInfo, typed: String): String {
         val name = profile.username.ifBlank { typed }
         return if (profile.isPrivate) {

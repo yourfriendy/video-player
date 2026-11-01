@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
@@ -23,7 +24,8 @@ import com.example.ui.viewmodel.VideoFeedViewModel
 
 enum class NavRoute {
     Feed,
-    Settings
+    Settings,
+    Downloader
 }
 
 /**
@@ -40,6 +42,13 @@ fun AppNavigation(
 ) {
     val navController = rememberNavController()
     val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    // The download icon, a shared link, or a story notification all just set this flag: show the full page
+    LaunchedEffect(uiState.isDownloaderOpen) {
+        if (uiState.isDownloaderOpen) {
+            navController.navigate(NavRoute.Downloader.name) { launchSingleTop = true }
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -61,6 +70,14 @@ fun AppNavigation(
                 },
                 modifier = Modifier.fillMaxSize(),
                 bottomOverlayPadding = systemNavInset + 16.dp
+            )
+        }
+        composable(NavRoute.Downloader.name) {
+            com.example.ui.components.DownloaderScreen(
+                uiState = uiState,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                modifier = Modifier.fillMaxSize()
             )
         }
         composable(NavRoute.Settings.name) {

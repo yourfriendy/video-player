@@ -80,6 +80,10 @@ data class VideoFeedUiState(
     /** Who the saved Instagram session belongs to (photo, name, username). Proof the connection works. */
     val igAccount: com.example.data.download.InstagramParser.ProfileInfo? = null,
     val isCheckingIgAccount: Boolean = false,
+    /** People saved for one-tap access (and optional new-story alerts). */
+    val people: List<com.example.data.download.SavedPerson> = emptyList(),
+    val storyKind: com.example.ui.model.StoryKind = com.example.ui.model.StoryKind.STORIES,
+    val repostsState: StoryUiState = StoryUiState.Idle,
     val igAccountError: String? = null,
     val currentIndex: Int = 0,
     val isPlaying: Boolean = true,
@@ -111,7 +115,9 @@ class VideoFeedViewModel(
     private val repository: VideoRepository,
     private val metadataExtractor: MetadataExtractor,
     private val settingsManager: com.example.data.local.SettingsManager,
-    private val downloader: InstagramDownloader
+    private val downloader: InstagramDownloader,
+    private val peopleStore: com.example.data.download.PeopleStore,
+    private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState: MutableStateFlow<VideoFeedUiState>
@@ -153,6 +159,7 @@ class VideoFeedViewModel(
                 isGridView = initialGridView,
                 isShuffleMode = initialShuffle,
                 recentSearches = settingsManager.getRecentSearches(),
+                people = peopleStore.all(),
                 isLoopMode = initialLoop
             )
         )
@@ -405,6 +412,7 @@ class VideoFeedViewModel(
             if (text == state.storyInput) state
             else state.copy(
                 storyInput = text,
+                repostsState = StoryUiState.Idle,
                 storyState = if (state.storyState is StoryUiState.Loading) state.storyState else StoryUiState.Idle,
                 storyDownloads = if (state.storyState is StoryUiState.Loading) state.storyDownloads else emptyMap()
             )
@@ -439,6 +447,123 @@ class VideoFeedViewModel(
         }
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Saved people, alerts and reposts
+    // ------------------------------------------------------------------------------------------
+
+    private fun refreshPeople() {
+        _uiState.update { it.copy(people = peopleStore.all()) }
+    }
+
+    private fun cleanName(raw: String): String = raw.trim().removePrefix("@").trim()
+
+    fun savePerson(username: String) {
+        val name = cleanName(username)
+        if (InstagramParser.parseStoryTarget(name) !is InstagramParser.StoryTarget.User) return
+        val all = peopleStore.all()
+        if (all.none { it.username.equals(name, ignoreCase = true) }) {
+            peopleStore.saveAll(all + com.example.data.download.SavedPerson(name))
+        }
+        refreshPeople()
+    }
+
+    fun removePerson(username: String) {
+        peopleStore.saveAll(peopleStore.all().filterNot { it.username.equals(username, ignoreCase = true) })
+        com.example.data.download.StoryAlertScheduler.sync(appContext)
+        refreshPeople()
+    }
+
+    /** Turning alerts on saves the person too. The first background check only records what is already there. */
+    fun setPersonAlerts(username: String, enabled: Boolean) {
+        savePerson(username)
+        peopleStore.update(cleanName(username)) {
+            it.copy(alerts = enabled, baselined = if (enabled) false else it.baselined, seenIds = if (enabled) emptySet() else it.seenIds)
+        }
+        com.example.data.download.StoryAlertScheduler.sync(appContext)
+        refreshPeople()
+        _uiState.update {
+            it.copy(
+                toastMessage = if (enabled) "Alerts on for @${cleanName(username)} (checked about every 30 min)"
+                else "Alerts off for @${cleanName(username)}"
+            )
+        }
+    }
+
+    /** One tap on a saved person (or on a story notification): open the page and load their stories. */
+    fun openPerson(username: String) {
+        val name = cleanName(username)
+        _uiState.update {
+            it.copy(
+                isDownloaderOpen = true,
+                downloaderTab = DownloaderTab.STORIES,
+                storyKind = com.example.ui.model.StoryKind.STORIES,
+                storyInput = "@$name",
+                storyState = StoryUiState.Idle,
+                repostsState = StoryUiState.Idle,
+                storyDownloads = emptyMap(),
+                isIgSignedIn = InstagramStoryService.isSignedIn()
+            )
+        }
+        findStories()
+        verifyIgAccount()
+    }
+
+    fun setStoryKind(kind: com.example.ui.model.StoryKind) {
+        _uiState.update { it.copy(storyKind = kind) }
+        if (kind == com.example.ui.model.StoryKind.REPOSTS && _uiState.value.repostsState is StoryUiState.Idle) findReposts()
+    }
+
+    private var repostJob: kotlinx.coroutines.Job? = null
+
+    fun findReposts() {
+        if (repostJob?.isActive == true) return
+        val target = InstagramParser.parseStoryTarget(_uiState.value.storyInput)
+        val username = when (target) {
+            is InstagramParser.StoryTarget.User -> target.username
+            is InstagramParser.StoryTarget.Story -> target.username
+            else -> null
+        }
+        if (username == null) {
+            _uiState.update { it.copy(repostsState = StoryUiState.Error("Enter a username first.")) }
+            return
+        }
+        repostJob = viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(repostsState = StoryUiState.Loading) }
+                val result = downloader.stories.loadReposts(username)
+                _uiState.update { it.copy(repostsState = StoryUiState.Loaded(result.owner, result.items, result.profile)) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _uiState.update { it.copy(repostsState = StoryUiState.Idle) }
+                throw e
+            } catch (e: DownloadException) {
+                _uiState.update { it.copy(repostsState = StoryUiState.Error(e.message ?: "Couldn't load reposts.")) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(repostsState = StoryUiState.Error("Something went wrong. Please try again.")) }
+            }
+        }
+    }
+
+    /** Saves one story or repost (whichever list it came from). */
+    fun saveMediaItem(item: com.example.data.download.InstagramParser.StoryItem) {
+        val state = _uiState.value
+        val owner = (state.storyState as? StoryUiState.Loaded)?.owner
+            ?: (state.repostsState as? StoryUiState.Loaded)?.owner ?: return
+        if (state.storyDownloads[item.id] is StoryItemDownload.Downloading) return
+        viewModelScope.launch { if (saveStoryItem(item, owner)) reloadLibrary(showLoading = false) }
+    }
+
+    fun saveAllReposts() {
+        val loaded = _uiState.value.repostsState as? StoryUiState.Loaded ?: return
+        if (storyDownloadJob?.isActive == true) return
+        storyDownloadJob = viewModelScope.launch {
+            for (item in loaded.items) {
+                if (_uiState.value.storyDownloads[item.id] is StoryItemDownload.Done) continue
+                saveStoryItem(item, loaded.owner)
+            }
+            reloadLibrary(showLoading = false)
+        }
+    }
+
     fun findStories() {
         if (storyJob?.isActive == true) return
         val target = InstagramParser.parseStoryTarget(_uiState.value.storyInput)
@@ -461,6 +586,7 @@ class VideoFeedViewModel(
                 _uiState.update {
                     it.copy(
                         storyState = StoryUiState.Loaded(result.owner, result.items, result.profile),
+                        repostsState = StoryUiState.Idle,
                         igAccount = result.signedInAs ?: it.igAccount,
                         igAccountError = null
                     )
@@ -528,7 +654,7 @@ class VideoFeedViewModel(
         return try {
             val uri = downloader.downloadMedia(
                 url = item.mediaUrl,
-                baseName = "Instagram_story_${owner.replace(Regex("[^A-Za-z0-9._-]"), "_")}_${item.id}",
+                baseName = (if (item.author != null) "Instagram_repost_${item.author}_${item.id}" else "Instagram_story_${owner.replace(Regex("[^A-Za-z0-9._-]"), "_")}_${item.id}").replace(Regex("[^A-Za-z0-9._-]"), "_"),
                 isVideo = item.isVideo
             ) { progress -> setStatus(StoryItemDownload.Downloading(progress)) }
             setStatus(StoryItemDownload.Done(uri))
@@ -1458,7 +1584,7 @@ class VideoFeedViewModelFactory(private val context: Context) : ViewModelProvide
         val repository = VideoRepository(context, database)
         val metadataExtractor = MetadataExtractor(context)
         val settingsManager = com.example.data.local.SettingsManager(context)
-        return VideoFeedViewModel(repository, metadataExtractor, settingsManager, InstagramDownloader(context.applicationContext)) as T
+        return VideoFeedViewModel(repository, metadataExtractor, settingsManager, InstagramDownloader(context.applicationContext), com.example.data.download.PeopleStore(context.applicationContext), context.applicationContext) as T
     }
 }
 

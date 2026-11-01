@@ -114,6 +114,7 @@ dependencies {
   implementation(libs.youtubedl.android.library)
   implementation(libs.youtubedl.android.ffmpeg)
   implementation(libs.androidx.webkit)
+  implementation(libs.androidx.work)
   implementation(libs.okhttp)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.ui)

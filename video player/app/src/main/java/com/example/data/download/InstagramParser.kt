@@ -116,7 +116,9 @@ object InstagramParser {
         val isVideo: Boolean,
         val mediaUrl: String,
         val thumbnailUrl: String?,
-        val takenAtSec: Long
+        val takenAtSec: Long,
+        /** Original poster, for reposts. */
+        val author: String? = null
     )
 
     private val USERNAME_REGEX = Regex("""^[A-Za-z0-9._]{1,30}$""")
@@ -460,6 +462,31 @@ object InstagramParser {
         val lsd = Regex(""""LSD",\[\],\{"token":"([^"]+)"""").find(html)?.groupValues?.get(1)
         val dtsg = Regex(""""DTSGInitialData",\[\],\{"token":"([^"]+)"""").find(html)?.groupValues?.get(1)
         return if (lsd != null && dtsg != null) lsd to dtsg else null
+    }
+
+    /**
+     * Reposts: media made by OTHER accounts, found anywhere in a reply. The profile owner's own posts are
+     * skipped (they are not reposts), and carousels contribute their first picture or video.
+     */
+    fun parseRepostItems(json: String, profileUsername: String): List<StoryItem> {
+        val root = parseAny(json) ?: return emptyList()
+        val found = ArrayList<StoryItem>()
+        walk(root) { obj ->
+            val hasMedia = obj.has("video_versions") || obj.has("image_versions2") || obj.has("carousel_media")
+            if (!hasMedia || !(obj.has("code") || obj.has("pk"))) return@walk
+            val author = (obj.optJSONObject("user") ?: obj.optJSONObject("owner"))?.let { text(it, "username") }.orEmpty()
+            if (author.isBlank() || author.equals(profileUsername, ignoreCase = true)) return@walk
+            var source = obj
+            if (!obj.has("video_versions") && !obj.has("image_versions2")) {
+                val child = obj.optJSONArray("carousel_media")?.optJSONObject(0) ?: return@walk
+                source = org.json.JSONObject(obj.toString()).apply {
+                    child.opt("video_versions")?.let { put("video_versions", it) }
+                    child.opt("image_versions2")?.let { put("image_versions2", it) }
+                }
+            }
+            itemToStory(source)?.let { found.add(it.copy(author = author)) }
+        }
+        return found.distinctBy { it.id }
     }
 
     /** Finds the account with this username anywhere in a reply (photo, name, id...). */

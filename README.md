@@ -67,6 +67,8 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 
 ### Save
 - 📥 **Instagram reel downloader**: paste a public reel link, or use Instagram's **Share → OffScroll** and it saves automatically
+- 👥 **Downloader page**: a full page with saved **people** (type `@x_user` once, tap them forever), **Stories** and **Reposts (beta)** you can **watch first** in a full-screen viewer. Saving is optional
+- 🔔 **Story alerts**: switch alerts on for a person and get a notification (about every 30 minutes at most) when they post a new story. Looking never tells them
 - 📸 **Instagram stories**: type a **username or link** and save one story, all of them, or a highlight (videos *and* photos)
 - 🎬 Saved reels land in `Movies/OffScroll` and show up in your feed instantly, with a *Play now* button
 

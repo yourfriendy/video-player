@@ -12,6 +12,11 @@ import coil.memory.MemoryCache
  * generous memory and disk caches so thumbnails appear instantly after the first load.
  */
 class OffScrollApp : Application(), ImageLoaderFactory {
+    override fun onCreate() {
+        super.onCreate()
+        com.example.data.download.StoryAlertScheduler.sync(this)
+    }
+
     override fun newImageLoader(): ImageLoader =
         ImageLoader.Builder(this)
             .components { add(VideoFrameDecoder.Factory()) }

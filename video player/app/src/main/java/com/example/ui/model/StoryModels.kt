@@ -3,6 +3,12 @@ package com.example.ui.model
 import android.net.Uri
 import com.example.data.download.InstagramParser
 
+/** Inside the Stories tab: a person's stories, or their reposts. */
+enum class StoryKind(val label: String) {
+    STORIES("Stories"),
+    REPOSTS("Reposts")
+}
+
 enum class DownloaderTab(val label: String) {
     REELS("Reels"),
     STORIES("Stories"),

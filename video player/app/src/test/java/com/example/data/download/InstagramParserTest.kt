@@ -337,4 +337,19 @@ class InstagramParserTest {
         assertEquals("AbC123" to "NA:xyz", InstagramParser.parsePageTokens(html))
         assertNull(InstagramParser.parsePageTokens("""["LSD",[],{"token":"only"}]"""))
     }
+
+    @Test
+    fun readsRepostsFromOtherAuthorsOnly() {
+        val json = """{"data":{"items":[
+          {"pk":"1","code":"AAA","user":{"username":"original"},"video_versions":[{"url":"https://c/a.mp4"}],"taken_at":5},
+          {"pk":"2","code":"BBB","user":{"username":"me.self"},"image_versions2":{"candidates":[{"url":"https://c/own.jpg"}]}},
+          {"pk":"3","code":"CCC","user":{"username":"another"},"carousel_media":[
+              {"image_versions2":{"candidates":[{"url":"https://c/first.jpg"}]}},{"image_versions2":{"candidates":[{"url":"https://c/second.jpg"}]}}]}]}}"""
+        val items = InstagramParser.parseRepostItems(json, "Me.Self")
+        assertEquals(listOf("1", "3"), items.map { it.id })
+        assertEquals("original", items[0].author)
+        assertTrue(items[0].isVideo)
+        assertEquals("https://c/first.jpg", items[1].mediaUrl)
+        assertTrue(InstagramParser.parseRepostItems("garbage", "x").isEmpty())
+    }
 }

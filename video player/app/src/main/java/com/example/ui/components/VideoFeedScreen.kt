@@ -405,11 +405,6 @@ fun VideoFeedScreen(
             SearchScreen(uiState = uiState, viewModel = viewModel)
         }
 
-        // Instagram downloader
-        if (uiState.isDownloaderOpen) {
-            DownloaderSheet(uiState = uiState, viewModel = viewModel)
-        }
-
         // Add to Playlist Bottom Sheet
         uiState.playlistForVideo?.let { targetVideo ->
             AddToPlaylistSheet(

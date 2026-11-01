@@ -54,3 +54,8 @@
 -dontwarn java.beans.**
 -dontwarn org.w3c.dom.**
 -dontwarn javax.xml.**
+
+# WorkManager creates workers by class name
+-keep class * extends androidx.work.ListenableWorker {
+    <init>(android.content.Context, androidx.work.WorkerParameters);
+}
