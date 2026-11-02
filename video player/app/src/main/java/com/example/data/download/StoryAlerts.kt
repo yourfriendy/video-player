@@ -28,8 +28,11 @@ import java.util.concurrent.TimeUnit
  *
  * Android never repeats a periodic job faster than every 15 minutes, so each run books the next one 5 minutes
  * ahead. If the phone is idle or in battery saver, Android may still run a check a little later than that.
+ * Every run writes a one-line result to [StoryAlertStatus] so the Stories screen can show what happened.
  */
 class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+
+    private var sent = 0
 
     override suspend fun doWork(): Result {
         try {
@@ -40,12 +43,25 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
         return Result.success()
     }
 
+    private fun status(line: String) = StoryAlertStatus.record(applicationContext, line)
+
     private suspend fun runChecks() {
         val store = PeopleStore(applicationContext)
         val people = store.all().filter { it.alerts }
-        if (people.isEmpty()) return
-        if (!withContext(Dispatchers.Main) { InstagramStoryService.isSignedIn() }) return
+        if (people.isEmpty()) {
+            status("nothing to check, no person has alerts on")
+            return
+        }
+        if (!withContext(Dispatchers.Main) { InstagramStoryService.isSignedIn() }) {
+            status("not signed in to Instagram, so nothing was checked")
+            return
+        }
+        val blocked = notificationsBlocked(applicationContext)
+        status("checking " + people.size + " person(s)...")
 
+        var storiesOk = 0
+        var repostsRead = 0
+        var note = ""
         val downloader = withContext(Dispatchers.Main) { InstagramDownloader(applicationContext) }
         try {
             for ((index, person) in people.withIndex()) {
@@ -53,9 +69,12 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 try {
                     val items = downloader.stories.load(InstagramParser.StoryTarget.User(person.username)).items
                     record(store, person, items.map { it.id }.toSet())
+                    storiesOk++
                 } catch (e: NoStoriesException) {
                     record(store, person, emptySet())
+                    storiesOk++
                 } catch (e: LoginRequiredException) {
+                    note = ". Instagram sign-in expired"
                     notify("Instagram sign-in expired", "Open OffScroll and sign in again to keep getting story alerts.", "relogin".hashCode(), null)
                     break
                 } catch (e: Exception) {
@@ -63,7 +82,7 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 }
                 try {
                     delay(2_000L)
-                    checkReposts(downloader, store, person.username)
+                    repostsRead += checkReposts(downloader, store, person.username)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -73,6 +92,11 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
         } finally {
             downloader.release()
         }
+        status(
+            "checked " + people.size + " person(s): stories read for " + storiesOk + ", reposts found " + repostsRead +
+                ", alerts sent " + sent + note +
+                (if (blocked) ". NOTIFICATIONS ARE OFF for OffScroll in phone settings, so nothing can be shown" else "")
+        )
     }
 
     private fun record(store: PeopleStore, person: SavedPerson, nowIds: Set<String>) {
@@ -92,15 +116,16 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
     /**
      * Newest reposts of one person. Repost ids are stored in the same "seen" list as story ids, with an "r:" prefix,
      * and a marker entry says "the first look already happened" (so the very first check never floods you with alerts).
+     * Returns how many reposts were read.
      */
-    private suspend fun checkReposts(downloader: InstagramDownloader, store: PeopleStore, username: String) {
+    private suspend fun checkReposts(downloader: InstagramDownloader, store: PeopleStore, username: String): Int {
         val items = try {
             downloader.stories.loadReposts(username, null, limit = 12).items
         } catch (e: NoStoriesException) {
             emptyList()
         }
-        if (items.isEmpty()) return // nothing readable: don't mark anything as seen
-        val person = store.all().firstOrNull { it.username.equals(username, ignoreCase = true) } ?: return
+        if (items.isEmpty()) return 0 // nothing readable: don't mark anything as seen
+        val person = store.all().firstOrNull { it.username.equals(username, ignoreCase = true) } ?: return items.size
         val nowIds = items.map { REPOST_PREFIX + it.id }.toSet()
         val fresh = nowIds - person.seenIds
         if (REPOST_MARK in person.seenIds && fresh.isNotEmpty()) {
@@ -114,32 +139,11 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
             )
         }
         store.update(person.username) { it.copy(seenIds = (it.seenIds - REPOST_MARK) + nowIds + REPOST_MARK) }
+        return items.size
     }
 
     private fun notify(title: String, text: String, id: Int, openPerson: String?) {
-        val manager = NotificationManagerCompat.from(applicationContext)
-        if (!manager.areNotificationsEnabled()) return
-        ensureChannel(applicationContext)
-        val open = Intent(applicationContext, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if (openPerson != null) open.putExtra(EXTRA_OPEN_PERSON, openPerson)
-        val pending = PendingIntent.getActivity(
-            applicationContext, id, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(applicationContext.applicationInfo.icon)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setAutoCancel(true)
-            .setContentIntent(pending)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
-        try {
-            manager.notify(id, notification)
-        } catch (_: SecurityException) {
-            // notification permission was revoked in the meantime
-        }
+        if (post(applicationContext, title, text, id, openPerson)) sent++
     }
 
     companion object {
@@ -156,12 +160,78 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
             }
         }
+
+        /** True if the phone would swallow our notifications (switched off for the app, or the channel is muted). */
+        fun notificationsBlocked(context: Context): Boolean {
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(CHANNEL_ID)
+                if (channel != null && channel.importance == NotificationManager.IMPORTANCE_NONE) return true
+            }
+            return false
+        }
+
+        /** Shows a notification right now, so you can see that this phone lets OffScroll show alerts. */
+        fun sendTest(context: Context): Boolean = post(
+            context.applicationContext,
+            "OffScroll test alert",
+            "If you can read this, alerts can be shown on this phone.",
+            "test-alert".hashCode(),
+            null
+        )
+
+        private fun post(context: Context, title: String, text: String, id: Int, openPerson: String?): Boolean {
+            val manager = NotificationManagerCompat.from(context)
+            if (!manager.areNotificationsEnabled()) return false
+            ensureChannel(context)
+            val open = Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (openPerson != null) open.putExtra(EXTRA_OPEN_PERSON, openPerson)
+            val pending = PendingIntent.getActivity(
+                context, id, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(context.applicationInfo.icon)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setAutoCancel(true)
+                .setContentIntent(pending)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .build()
+            return try {
+                manager.notify(id, notification)
+                true
+            } catch (_: SecurityException) {
+                false // notification permission was revoked in the meantime
+            }
+        }
+    }
+}
+
+/** The result line of the latest alert check, shown on the Stories screen. */
+object StoryAlertStatus {
+    private const val PREFS = "story_alert_status"
+
+    fun record(context: Context, line: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong("at", System.currentTimeMillis())
+            .putString("line", line)
+            .apply()
+    }
+
+    /** (time in milliseconds, result line), or null if no check has run yet. */
+    fun read(context: Context): Pair<Long, String>? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong("at", 0L)
+        return if (at == 0L) null else at to (prefs.getString("line", "") ?: "")
     }
 }
 
 object StoryAlertScheduler {
     private const val OLD_WORK_NAME = "story-alerts" // the old 30-minute repeating job: always cancelled
     private const val WORK_NAME = "story-alerts-5min"
+    private const val NOW_WORK_NAME = "story-alerts-now"
     private const val INTERVAL_MINUTES = 5L
 
     /** Starts the 5-minute check chain if any saved person has alerts on, and stops it when none do. */
@@ -188,6 +258,16 @@ object StoryAlertScheduler {
                 .enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request(INTERVAL_MINUTES))
         } catch (_: Exception) {
             // WorkManager unavailable: alerts simply stay off
+        }
+    }
+
+    /** The "Check now" button: one extra check straight away (the 5-minute chain carries on as usual). */
+    fun checkNow(context: Context) {
+        try {
+            WorkManager.getInstance(context.applicationContext)
+                .enqueueUniqueWork(NOW_WORK_NAME, ExistingWorkPolicy.REPLACE, request(0L))
+        } catch (_: Exception) {
+            // WorkManager unavailable
         }
     }
 
