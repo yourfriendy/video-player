@@ -357,10 +357,39 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
                 if (saved?.alerts == true) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "You'll get a notification about every 30 minutes at most when @$owner posts a new story. " +
+                        "You'll get a notification about every 5 minutes at most when @$owner posts a new story or reposts a reel. " +
                             "It works even when OffScroll is closed (but not after \"Force stop\"). Nobody is told you looked.",
                         color = Muted, fontSize = 11.sp, lineHeight = 15.sp
                     )
+                    var alertStatus by remember { mutableStateOf(com.example.data.download.StoryAlertStatus.read(context)) }
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            alertStatus = com.example.data.download.StoryAlertStatus.read(context)
+                            kotlinx.coroutines.delay(3_000L)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        alertStatus?.let { (at, line) ->
+                            "Last check " + SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at)) + ": " + line
+                        } ?: "No check has run yet.",
+                        color = Muted, fontSize = 11.sp, lineHeight = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Pill(text = "Test alert", icon = Icons.Default.Notifications, onClick = {
+                            val ok = com.example.data.download.StoryAlertWorker.sendTest(context)
+                            Toast.makeText(
+                                context,
+                                if (ok) "Test alert sent" else "Notifications are off for OffScroll in phone settings",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        })
+                        Pill(text = "Check now", icon = Icons.Default.Search, onClick = {
+                            com.example.data.download.StoryAlertScheduler.checkNow(context)
+                            Toast.makeText(context, "Checking now. The result shows above in a minute.", Toast.LENGTH_SHORT).show()
+                        })
+                    }
                     if (!batteryExempt) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Pill(
