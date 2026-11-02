@@ -508,6 +508,38 @@ private fun exactTime(sec: Long): String =
 private fun exactClock(sec: Long): String =
     if (sec <= 0) "" else SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(sec * 1000))
 
+/** "01 Nov 2026 : 14:07:32" */
+private fun dateColonTime(sec: Long): String = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(sec * 1000)) +
+    " : " + SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(sec * 1000))
+
+/** "3 days, 5 hours, 12 min ago" */
+private fun agoExact(sec: Long): String {
+    val diff = (System.currentTimeMillis() / 1000 - sec).coerceAtLeast(0)
+    return "${diff / 86400} days, ${(diff % 86400) / 3600} hours, ${(diff % 3600) / 60} min ago"
+}
+
+@Composable
+private fun RepostNoteText(item: InstagramParser.StoryItem, maxLines: Int) {
+    val note = item.repostNote
+    if (note != null) {
+        Text("\u201C$note\u201D", color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+        Text("Repost note", color = Muted, fontSize = 10.sp)
+    } else {
+        Text("No note added with this repost", color = Muted, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun RepostTimeText(item: InstagramParser.StoryItem) {
+    val t = item.repostedAtSec
+    if (t != null) {
+        Text("Reposted  ${dateColonTime(t)}", color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Text(agoExact(t), color = Cyan, fontSize = 11.sp)
+    } else {
+        Text("Repost time not found yet (use Copy details)", color = Muted, fontSize = 11.sp)
+    }
+}
+
 private fun dayLabel(sec: Long): String = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(sec * 1000))
 
 /** The date picker answers in UTC midnight; turn the picked day into this phone's start (or end) of that day. */
@@ -594,18 +626,9 @@ private fun RepostCard(
                 color = Cyan, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = item.caption ?: if (item.needsResolve) "Loading caption…" else "No caption",
-                color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 4, overflow = TextOverflow.Ellipsis
-            )
+            RepostNoteText(item, maxLines = 4)
             Spacer(modifier = Modifier.height(6.dp))
-            if (item.repostedAtSec != null) {
-                Text("Reposted ${exactTime(item.repostedAtSec)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                Text("Originally posted ${exactTime(item.takenAtSec)}", color = Muted, fontSize = 11.sp)
-            } else {
-                Text("Posted ${exactTime(item.takenAtSec)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                Text("Repost time: not shown by Instagram", color = Muted, fontSize = 11.sp)
-            }
+            RepostTimeText(item)
             val counts = countsLine(item)
             if (counts.isNotBlank()) Text(counts, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
             Spacer(modifier = Modifier.height(6.dp))
@@ -772,6 +795,7 @@ private fun MediaViewerDialog(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val source = if (kind == StoryKind.STORIES) uiState.storyState else uiState.repostsState
     val items = (source as? StoryUiState.Loaded)?.items.orEmpty()
     if (items.isEmpty()) {
@@ -843,15 +867,11 @@ private fun MediaViewerDialog(
                     .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                current.caption?.let {
-                    Text(it, color = Color.White, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 5, overflow = TextOverflow.Ellipsis)
-                }
                 if (kind == StoryKind.REPOSTS) {
-                    if (current.repostedAtSec != null) {
-                        Text("Reposted ${exactTime(current.repostedAtSec)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Originally posted ${exactTime(current.takenAtSec)}", color = Muted, fontSize = 12.sp)
-                    } else {
-                        Text("Posted ${exactTime(current.takenAtSec)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    RepostNoteText(current, maxLines = 5)
+                    RepostTimeText(current)
+                    current.caption?.let {
+                        Text("Original caption: $it", color = Muted, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     }
                 } else {
                     Text("Posted ${exactTime(current.takenAtSec)}  (${timeAgo(current.takenAtSec)})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -876,6 +896,15 @@ private fun MediaViewerDialog(
                             }
                         }
                     }
+                }
+                if (kind == StoryKind.REPOSTS) {
+                    Text(
+                        "Copy details", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 4.dp).clickable {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(current.debug ?: "no extra data"))
+                            Toast.makeText(context, "Copied. Paste it to the developer.", Toast.LENGTH_SHORT).show()
+                        }
+                    )
                 }
                 current.code?.let { code ->
                     Text(

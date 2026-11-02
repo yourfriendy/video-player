@@ -419,4 +419,26 @@ class InstagramParserTest {
         assertEquals("Trip", h.single().title)
         assertEquals("https://c/c.jpg", h.single().coverUrl)
     }
+
+    @Test
+    fun readsRepostNoteAndClickTimeFromTheWrapper() {
+        val json = """{"data":{"edges":[{"repost_info":{"created_at":1700005000,"note":"so true!"},
+            "media":{"pk":"7","code":"Cxyz789","taken_at":1600000000,"user":{"username":"orig"},
+              "video_versions":[{"url":"https://c/v.mp4"}],"caption":{"text":"ORIGINAL caption"}}}]}}"""
+        val item = InstagramParser.parseRepostItems(json, "me").single()
+        assertEquals("so true!", item.repostNote)
+        assertEquals(1700005000L, item.repostedAtSec)
+        assertEquals("ORIGINAL caption", item.caption)
+        assertEquals(1600000000L, item.takenAtSec)
+        assertTrue(item.debug!!.contains("repost_info.created_at"))
+    }
+
+    @Test
+    fun reelCaptionIsNeverTakenAsTheRepostNote() {
+        val json = """{"items":[{"pk":"8","code":"Cabc","taken_at":5,"user":{"username":"orig"},
+            "video_versions":[{"url":"https://c/v.mp4"}],"caption":{"text":"just the reel caption"}}]}"""
+        val item = InstagramParser.parseRepostItems(json, "me").single()
+        assertNull(item.repostNote)
+        assertNull(item.repostedAtSec)
+    }
 }

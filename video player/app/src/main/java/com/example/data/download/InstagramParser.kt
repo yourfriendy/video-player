@@ -134,7 +134,11 @@ object InstagramParser {
         /** People tagged in a story (@mentions). */
         val mentions: List<ProfileInfo> = emptyList(),
         /** A reel whose video address isn't in the list reply yet: it must be looked up before it can play or save. */
-        val needsResolve: Boolean = false
+        val needsResolve: Boolean = false,
+        /** The short note the reposter typed when they tapped Repost (NOT the reel's own caption). */
+        val repostNote: String? = null,
+        /** What Instagram sent about the repost itself, for troubleshooting ("Copy details"). */
+        val debug: String? = null
     )
 
     data class HighlightInfo(val id: String, val title: String, val coverUrl: String?)
@@ -403,7 +407,7 @@ object InstagramParser {
         comments = full.comments ?: old.comments,
         plays = full.plays ?: old.plays,
         durationSec = full.durationSec ?: old.durationSec,
-        repostedAtSec = full.repostedAtSec ?: old.repostedAtSec,
+        repostedAtSec = old.repostedAtSec ?: full.repostedAtSec,
         authorName = full.authorName ?: old.authorName,
         authorPic = full.authorPic ?: old.authorPic
     )
@@ -462,6 +466,81 @@ object InstagramParser {
             }
             is org.json.JSONArray -> for (i in 0 until node.length()) walk(node.opt(i), visit)
         }
+    }
+
+    private fun walkWithParents(
+        node: Any?,
+        parents: List<org.json.JSONObject>,
+        visit: (org.json.JSONObject, List<org.json.JSONObject>) -> Unit
+    ) {
+        when (node) {
+            is org.json.JSONObject -> {
+                visit(node, parents)
+                val next = parents + node
+                val keys = node.keys()
+                while (keys.hasNext()) walkWithParents(node.opt(keys.next()), next, visit)
+            }
+            is org.json.JSONArray -> for (i in 0 until node.length()) walkWithParents(node.opt(i), parents, visit)
+        }
+    }
+
+    private class RepostMeta(var time: Long? = null, var note: String? = null, val lines: MutableList<String> = ArrayList())
+
+    private val REPOST_KEY = Regex("(repost|reshare)", RegexOption.IGNORE_CASE)
+    private val TIME_KEY = Regex("(time|date|created|_at$|^at$)", RegexOption.IGNORE_CASE)
+    private val NOTE_KEYS = setOf("note", "text", "message", "comment", "repost_note", "repost_caption", "reshare_comment")
+
+    private fun epochSeconds(v: Any?): Long? {
+        val n = (v as? Number)?.toLong() ?: (v as? String)?.toLongOrNull() ?: return null
+        return when {
+            n in 1_000_000_000L..4_000_000_000L -> n
+            n in 1_000_000_000_000L..4_000_000_000_000L -> n / 1000
+            n in 1_000_000_000_000_000L..4_000_000_000_000_000L -> n / 1_000_000
+            else -> null
+        }
+    }
+
+    private fun looksLikeMedia(o: org.json.JSONObject) =
+        o.has("video_versions") || o.has("image_versions2") || o.has("carousel_media") || o.has("display_url")
+
+    /**
+     * Looks inside an object (never into arrays or into the reel itself) for fields that describe the REPOST:
+     * a time (when the reposter tapped Repost) and a note (what they typed). A field only counts if it sits under
+     * a key that mentions repost/reshare, so the reel's own caption and post time are never mistaken for them.
+     */
+    private fun scanRepost(o: org.json.JSONObject, inRepost: Boolean, depth: Int, media: org.json.JSONObject, meta: RepostMeta, path: String) {
+        val keys = o.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val value = o.opt(key)
+            val ctx = inRepost || REPOST_KEY.containsMatchIn(key)
+            when (value) {
+                is org.json.JSONObject -> {
+                    if (value === media || looksLikeMedia(value) || depth >= 4) continue
+                    if (key == "caption" && !ctx) continue
+                    scanRepost(value, ctx, depth + 1, media, meta, "$path$key.")
+                }
+                is org.json.JSONArray -> {}
+                else -> if (ctx && meta.lines.size < 40) {
+                    val shown = value?.toString()?.take(120)
+                    meta.lines.add("$path$key = $shown")
+                    if (meta.time == null && TIME_KEY.containsMatchIn(key)) meta.time = epochSeconds(value)
+                    if (meta.note == null && value is String && value.isNotBlank() && epochSeconds(value) == null &&
+                        (key.lowercase() in NOTE_KEYS || (key == "caption" && REPOST_KEY.containsMatchIn(path + key)))
+                    ) meta.note = value.trim()
+                }
+            }
+        }
+    }
+
+    private fun repostMeta(media: org.json.JSONObject, parents: List<org.json.JSONObject>): RepostMeta {
+        val meta = RepostMeta()
+        // nearest wrapper first, then the reel's own top level
+        for (candidate in parents.takeLast(3).reversed() + media) {
+            if (candidate !== media && looksLikeMedia(candidate)) continue
+            scanRepost(candidate, false, 0, media, meta, "")
+        }
+        return meta
     }
 
     private fun parseAny(json: String): Any? = try {
@@ -590,7 +669,7 @@ object InstagramParser {
     fun parseRepostItems(json: String, profileUsername: String): List<StoryItem> {
         val root = parseAny(json) ?: return emptyList()
         val found = ArrayList<StoryItem>()
-        walk(root) { obj ->
+        walkWithParents(root, emptyList()) { obj, parents ->
             val mobileShape = obj.has("video_versions") || obj.has("image_versions2") || obj.has("carousel_media")
             val webShape = obj.has("shortcode") && obj.has("display_url")
             if (!(mobileShape || webShape) || !(obj.has("code") || obj.has("pk") || obj.has("shortcode"))) return@walk
@@ -618,7 +697,18 @@ object InstagramParser {
                 }
             }
             itemToStory(source)?.let {
-                found.add(it.copy(author = author, authorName = it.authorName ?: ownerObj?.let { o -> text(o, "full_name") }?.ifBlank { null }))
+                val meta = repostMeta(obj, parents)
+                found.add(
+                    it.copy(
+                        author = author,
+                        authorName = it.authorName ?: ownerObj?.let { o -> text(o, "full_name") }?.ifBlank { null },
+                        repostedAtSec = meta.time ?: it.repostedAtSec,
+                        repostNote = meta.note,
+                        debug = "parents: " + parents.takeLast(3).joinToString(" > ") { p -> p.keys().asSequence().take(8).joinToString(",") } +
+                            "\nreel keys: " + obj.keys().asSequence().take(25).joinToString(",") +
+                            "\nrepost fields:\n" + meta.lines.joinToString("\n")
+                    )
+                )
             }
         }
         return found.distinctBy { it.id }
