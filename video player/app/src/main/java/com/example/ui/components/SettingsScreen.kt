@@ -54,7 +54,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.navigationBars
 
-@Composable
 // offscroll_settings_motion
 @Composable
 fun SettingsScreen(
