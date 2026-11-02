@@ -384,6 +384,12 @@ object InstagramParser {
                 if (n != null && n in 1_000_000_000_000L..4_000_000_000_000L) return n / 1000
             }
             if (depth < 3 && value is org.json.JSONObject) scanRepostTime(value, depth + 1)?.let { return it }
+            if (depth < 3 && value is org.json.JSONArray) {
+                // arrays can hold wrapper objects too; look at the first few entries only
+                for (i in 0 until minOf(value.length(), 10)) {
+                    value.optJSONObject(i)?.let { child -> scanRepostTime(child, depth + 1)?.let { return it } }
+                }
+            }
         }
         return null
     }
@@ -520,7 +526,16 @@ object InstagramParser {
                     if (key == "caption" && !ctx) continue
                     scanRepost(value, ctx, depth + 1, media, meta, "$path$key.")
                 }
-                is org.json.JSONArray -> {}
+                is org.json.JSONArray -> {
+                    // Look into arrays of wrapper objects (never into the reel itself); first few entries only
+                    if (depth < 4) {
+                        for (i in 0 until minOf(value.length(), 10)) {
+                            val child = value.optJSONObject(i) ?: continue
+                            if (child === media || looksLikeMedia(child)) continue
+                            scanRepost(child, ctx, depth + 1, media, meta, "$path$key[$i].")
+                        }
+                    }
+                }
                 else -> if (ctx && meta.lines.size < 40) {
                     val shown = value?.toString()?.take(120)
                     meta.lines.add("$path$key = $shown")
