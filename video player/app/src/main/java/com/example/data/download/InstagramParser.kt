@@ -672,10 +672,10 @@ object InstagramParser {
         walkWithParents(root, emptyList()) { obj, parents ->
             val mobileShape = obj.has("video_versions") || obj.has("image_versions2") || obj.has("carousel_media")
             val webShape = obj.has("shortcode") && obj.has("display_url")
-            if (!(mobileShape || webShape) || !(obj.has("code") || obj.has("pk") || obj.has("shortcode"))) return@walk
+            if (!(mobileShape || webShape) || !(obj.has("code") || obj.has("pk") || obj.has("shortcode"))) return@walkWithParents
             val ownerObj = obj.optJSONObject("user") ?: obj.optJSONObject("owner")
             val author = ownerObj?.let { text(it, "username") }.orEmpty()
-            if (author.isBlank() || author.equals(profileUsername, ignoreCase = true)) return@walk
+            if (author.isBlank() || author.equals(profileUsername, ignoreCase = true)) return@walkWithParents
             var source = obj
             if (webShape && !obj.has("image_versions2")) {
                 // The website's shape: translate to the common one
@@ -690,7 +690,7 @@ object InstagramParser {
                     put("comment_count", obj.optJSONObject("edge_media_to_comment")?.optLong("count", -1L) ?: -1L)
                 }
             } else if (!obj.has("video_versions") && !obj.has("image_versions2")) {
-                val child = obj.optJSONArray("carousel_media")?.optJSONObject(0) ?: return@walk
+                val child = obj.optJSONArray("carousel_media")?.optJSONObject(0) ?: return@walkWithParents
                 source = org.json.JSONObject(obj.toString()).apply {
                     child.opt("video_versions")?.let { put("video_versions", it) }
                     child.opt("image_versions2")?.let { put("image_versions2", it) }
