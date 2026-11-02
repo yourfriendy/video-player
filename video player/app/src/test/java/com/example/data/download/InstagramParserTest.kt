@@ -434,6 +434,31 @@ class InstagramParserTest {
     }
 
     @Test
+    fun readsRepostMetadataNestedInAnArrayInsideTheGridItem() {
+        val json = """{"user_reposts_timeline":{"repost_more_available":true,"repost_next_max_id":"abc",
+            "repost_grid_items":[{"repost_events":[{"created_at":1700007000,"note":"love this"}],
+              "media":{"pk":"11","code":"Cgrid1","taken_at":1600000000,"user":{"username":"orig"},
+                "video_versions":[{"url":"https://c/v.mp4"}],"caption":{"text":"ORIGINAL"}}}]}}"""
+        val item = InstagramParser.parseRepostItems(json, "me").single()
+        assertEquals("ORIGINAL", item.caption)
+        assertEquals(1700007000L, item.repostedAtSec)
+        assertEquals("love this", item.repostNote)
+        assertEquals(1600000000L, item.takenAtSec)
+    }
+
+    @Test
+    fun gridItemWithoutRepostDetailsKeepsCaptionButInventsNoNoteOrTime() {
+        val json = """{"user_reposts_timeline":{"repost_more_available":true,"repost_next_max_id":"1700000001",
+            "repost_grid_items":[{"media":{"pk":"12","code":"Cgrid2","taken_at":1600000000,"user":{"username":"orig"},
+              "video_versions":[{"url":"https://c/v.mp4"}],"caption":{"text":"short caption"}}}]}}"""
+        val item = InstagramParser.parseRepostItems(json, "me").single()
+        assertEquals("short caption", item.caption)
+        assertNull(item.repostNote)
+        assertNull(item.repostedAtSec)
+        assertEquals(1600000000L, item.takenAtSec)
+    }
+
+    @Test
     fun reelCaptionIsNeverTakenAsTheRepostNote() {
         val json = """{"items":[{"pk":"8","code":"Cabc","taken_at":5,"user":{"username":"orig"},
             "video_versions":[{"url":"https://c/v.mp4"}],"caption":{"text":"just the reel caption"}}]}"""
