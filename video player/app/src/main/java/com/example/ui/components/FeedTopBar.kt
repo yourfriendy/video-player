@@ -1,6 +1,17 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -53,7 +64,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -96,6 +109,35 @@ fun FeedTopBar(
 ) {
     var isFilterMenuExpanded by remember { mutableStateOf(false) }
     var isSortMenuExpanded by remember { mutableStateOf(false) }
+
+    // Smooth colour changes for the toggle buttons instead of abrupt swaps
+    val searchBg by animateColorAsState(
+        targetValue = if (isSearchActive) Color(0xCC7C3AED) else GlassBackground,
+        animationSpec = tween(280),
+        label = "search_bg"
+    )
+    val gridBg by animateColorAsState(
+        targetValue = if (isGridView) Color(0xCC38BDF8) else GlassBackground,
+        animationSpec = tween(280),
+        label = "grid_bg"
+    )
+    val gridTint by animateColorAsState(
+        targetValue = if (isGridView) Color(0xFF0F172A) else Color.White,
+        animationSpec = tween(280),
+        label = "grid_tint"
+    )
+
+    // Gentle heartbeat on the "Offline Vault" status dot
+    val vaultPulse = rememberInfiniteTransition(label = "vault_pulse")
+    val vaultDotAlpha by vaultPulse.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "vault_dot_alpha"
+    )
 
     Box(
         modifier = modifier
@@ -249,10 +291,7 @@ fun FeedTopBar(
                         modifier = Modifier
                             .size(38.dp)
                             .shadow(4.dp, CircleShape)
-                            .background(
-                                if (isSearchActive) Color(0xCC7C3AED) else GlassBackground,
-                                CircleShape
-                            )
+                            .background(searchBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
                             .testTag("feed_search_button")
                     ) {
@@ -270,17 +309,14 @@ fun FeedTopBar(
                         modifier = Modifier
                             .size(38.dp)
                             .shadow(4.dp, CircleShape)
-                            .background(
-                                if (isGridView) Color(0xCC38BDF8) else GlassBackground,
-                                CircleShape
-                            )
+                            .background(gridBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
                             .testTag("feed_grid_toggle_button")
                     ) {
                         Icon(
                             imageVector = if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
                             contentDescription = if (isGridView) "Reels View" else "Grid View",
-                            tint = if (isGridView) Color(0xFF0F172A) else Color.White,
+                            tint = gridTint,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -358,6 +394,7 @@ fun FeedTopBar(
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
+                                .graphicsLayer { alpha = vaultDotAlpha }
                                 .background(Color(0xFF34D399), CircleShape)
                         )
                         Spacer(modifier = Modifier.width(5.dp))
@@ -385,16 +422,34 @@ fun FeedTopBar(
                         )
 
                         if (!isGridView) {
-                            Text(
-                                text = "${(currentIndex + 1).coerceAtMost(totalVideosCount)} / $totalVideosCount",
-                                color = Color(0xFFE2E8F0),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
+                            Box(
                                 modifier = Modifier
                                     .background(Color(0x337C3AED), CircleShape)
                                     .border(1.dp, Color(0x44C4B5FD), CircleShape)
+                                    .clip(CircleShape)
                                     .padding(horizontal = 9.dp, vertical = 3.dp)
-                            )
+                            ) {
+                                // The position number rolls up or down as you swipe
+                                AnimatedContent(
+                                    targetState = (currentIndex + 1).coerceAtMost(totalVideosCount),
+                                    transitionSpec = {
+                                        val goingForward = targetState >= initialState
+                                        val enter = slideInVertically(tween(220)) { h -> if (goingForward) h else -h } +
+                                            fadeIn(tween(180))
+                                        val exit = slideOutVertically(tween(220)) { h -> if (goingForward) -h else h } +
+                                            fadeOut(tween(120))
+                                        enter togetherWith exit
+                                    },
+                                    label = "feed_position_counter"
+                                ) { position ->
+                                    Text(
+                                        text = "$position / $totalVideosCount",
+                                        color = Color(0xFFE2E8F0),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }

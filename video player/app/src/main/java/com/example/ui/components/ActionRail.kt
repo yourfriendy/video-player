@@ -1,6 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -28,11 +32,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,6 +56,8 @@ import com.example.ui.theme.FrostedRose
 import com.example.ui.theme.FrostedRoseLight
 import com.example.ui.theme.GlassBackgroundElevated
 import com.example.ui.theme.GlassBorder
+import com.example.ui.theme.bouncyClickable
+import kotlinx.coroutines.launch
 
 @Composable
 fun ActionRail(
@@ -110,17 +123,30 @@ private fun FavoriteActionButton(
     isFavorite: Boolean,
     onClick: () -> Unit
 ) {
-    val heartScale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.25f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "heart_scale"
-    )
+    val pop = remember { Animatable(1f) }
+    val burst = remember { Animatable(0f) }
+    var wasFavorite by remember { mutableStateOf(isFavorite) }
+
+    // Heart pops and a ring bursts outward the moment a video becomes liked
+    LaunchedEffect(isFavorite) {
+        if (isFavorite && !wasFavorite) {
+            burst.snapTo(0f)
+            launch { burst.animateTo(1f, tween(520, easing = FastOutSlowInEasing)) }
+            pop.snapTo(0.55f)
+            pop.animateTo(
+                1f,
+                spring(
+                    dampingRatio = Spring.DampingRatioHighBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            )
+        }
+        wasFavorite = isFavorite
+    }
 
     val iconColor by animateColorAsState(
         targetValue = if (isFavorite) FrostedRose else Color.White,
+        animationSpec = tween(260),
         label = "heart_color"
     )
 
@@ -131,20 +157,30 @@ private fun FavoriteActionButton(
         Box(
             modifier = Modifier
                 .size(48.dp)
+                .bouncyClickable(pressedScale = 0.86f, onClick = onClick)
+                .drawBehind {
+                    val t = burst.value
+                    if (t > 0f && t < 1f) {
+                        drawCircle(
+                            color = FrostedRose.copy(alpha = (1f - t) * 0.65f),
+                            radius = (size.minDimension / 2f) * (1f + t * 0.9f),
+                            style = Stroke(width = 3.dp.toPx() * (1f - t) + 0.5f)
+                        )
+                    }
+                }
                 .shadow(10.dp, CircleShape)
                 .background(
-                    if (isFavorite) Color(0x33FB7185) else GlassBackgroundElevated,
-                    CircleShape
+                    brush = if (isFavorite) {
+                        Brush.linearGradient(listOf(Color(0x66FB7185), Color(0x66F43F5E)))
+                    } else {
+                        SolidColor(GlassBackgroundElevated)
+                    },
+                    shape = CircleShape
                 )
                 .border(
                     1.dp,
                     if (isFavorite) FrostedRose.copy(alpha = 0.6f) else GlassBorder,
                     CircleShape
-                )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = true, radius = 24.dp),
-                    onClick = onClick
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -154,7 +190,11 @@ private fun FavoriteActionButton(
                 tint = iconColor,
                 modifier = Modifier
                     .size(24.dp)
-                    .scale(heartScale)
+                    .graphicsLayer {
+                        val s = if (isFavorite) pop.value * 1.15f else 1f
+                        scaleX = s
+                        scaleY = s
+                    }
             )
         }
         Spacer(modifier = Modifier.height(4.dp))
@@ -181,6 +221,12 @@ private fun ActionRailItem(
     tint: Color = Color.White,
     onClick: () -> Unit
 ) {
+    val animatedTint by animateColorAsState(
+        targetValue = tint,
+        animationSpec = tween(260),
+        label = "rail_tint"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.testTag(testTag)
@@ -188,22 +234,24 @@ private fun ActionRailItem(
         Box(
             modifier = Modifier
                 .size(48.dp)
+                .bouncyClickable(pressedScale = 0.86f, onClick = onClick)
                 .shadow(8.dp, CircleShape)
                 .background(GlassBackgroundElevated, CircleShape)
-                .border(1.dp, GlassBorder, CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = ripple(bounded = true, radius = 24.dp),
-                    onClick = onClick
+                .border(
+                    1.dp,
+                    Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x14FFFFFF))),
+                    CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = tint,
-                modifier = Modifier.size(22.dp)
-            )
+            Crossfade(targetState = icon, label = "rail_icon") { current ->
+                Icon(
+                    imageVector = current,
+                    contentDescription = label,
+                    tint = animatedTint,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(

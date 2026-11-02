@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.GlassBackground
 import com.example.ui.theme.GlassBorder
+import com.example.ui.theme.auroraGlow
+import com.example.ui.theme.staggeredEntrance
 import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
@@ -78,6 +80,7 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF090A10))
+            .auroraGlow()
             .padding(top = statusBarPadding)
             .testTag("settings_screen")
     ) {
@@ -89,7 +92,10 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.staggeredEntrance(0),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(
                         onClick = onBack,
                         modifier = Modifier.testTag("settings_back_button")
@@ -124,11 +130,12 @@ fun SettingsScreen(
                     text = "App updates",
                     color = Color.White,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.staggeredEntrance(1)
                 )
             }
 
-            item { AppUpdateCard(viewModel = updateViewModel) }
+            item { Box(Modifier.staggeredEntrance(2)) { AppUpdateCard(viewModel = updateViewModel) } }
 
             // Gesture Cheatsheet
             item {
@@ -136,12 +143,16 @@ fun SettingsScreen(
                     text = "Player Gestures",
                     color = Color.White,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.staggeredEntrance(3)
                 )
             }
 
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.staggeredEntrance(4),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     GestureHelpCard(
                         icon = Icons.Default.Gesture,
                         title = "Horizontal Drag (VLC Style)",
@@ -176,13 +187,14 @@ fun SettingsScreen(
                     text = "Storage",
                     color = Color.White,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.staggeredEntrance(5)
                 )
             }
 
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().staggeredEntrance(6),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = GlassBackground)
                 ) {
@@ -249,7 +261,7 @@ fun SettingsScreen(
             // About
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().staggeredEntrance(7),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = GlassBackground)
                 ) {
@@ -286,7 +298,9 @@ fun SettingsScreen(
 
             // Dev credit (last item)
             item {
-                DevCreditCard(versionName = versionName, build = updateViewModel.installedBuild)
+                Box(Modifier.staggeredEntrance(8)) {
+                    DevCreditCard(versionName = versionName, build = updateViewModel.installedBuild)
+                }
             }
         }
     }

@@ -464,7 +464,10 @@ fun ReelPlayerItem(
         // Center Animated Play / Pause transient badge with Frosted Glass look
         AnimatedVisibility(
             visible = showPlayPauseBadge,
-            enter = fadeIn(tween(120)) + scaleIn(tween(160), initialScale = 0.65f),
+            enter = fadeIn(tween(120)) + scaleIn(
+                androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 420f),
+                initialScale = 0.45f
+            ),
             exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 1.25f),
             modifier = Modifier.align(Alignment.Center)
         ) {
@@ -477,7 +480,9 @@ fun ReelPlayerItem(
                     )
                     .border(
                         1.5.dp,
-                        ComposeColor(0x66FFFFFF),
+                        Brush.linearGradient(
+                            listOf(ComposeColor(0x99C4B5FD), ComposeColor(0x33F43F5E))
+                        ),
                         shape = androidx.compose.foundation.shape.CircleShape
                     ),
                 contentAlignment = Alignment.Center

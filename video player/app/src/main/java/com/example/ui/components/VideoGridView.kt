@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.LocalIndication
+import com.example.ui.theme.staggeredEntrance
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.getValue
@@ -110,10 +111,13 @@ fun VideoGridView(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             itemsIndexed(videos, key = { _, video -> video.id }) { index, video ->
-                VideoGridCard(
-                    video = video,
-                    onClick = { onSelectVideo(index) }
-                )
+                // Cards fade and rise in, offset by their column so each row ripples in left to right
+                Box(Modifier.staggeredEntrance(index % 3, stepMs = 45, riseDp = 22f)) {
+                    VideoGridCard(
+                        video = video,
+                        onClick = { onSelectVideo(index) }
+                    )
+                }
             }
         }
     }
