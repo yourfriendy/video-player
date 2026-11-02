@@ -491,7 +491,7 @@ class VideoFeedViewModel(
         refreshPeople()
         _uiState.update {
             it.copy(
-                toastMessage = if (enabled) "Alerts on for @${cleanName(username)} (checked about every 30 min)"
+                toastMessage = if (enabled) "Alerts on for @${cleanName(username)} (checked about every 5 min)"
                 else "Alerts off for @${cleanName(username)}"
             )
         }
