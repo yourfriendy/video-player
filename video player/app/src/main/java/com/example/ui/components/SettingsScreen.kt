@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.animation.animateContentSize
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +55,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.navigationBars
 
 @Composable
+// offscroll_settings_motion
+@Composable
 fun SettingsScreen(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
@@ -79,7 +83,9 @@ fun SettingsScreen(
             .testTag("settings_screen")
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .animateContentSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = navBarPadding + 28.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
@@ -296,6 +302,7 @@ fun GestureHelpCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .animateContentSize()
             .background(GlassBackground, RoundedCornerShape(16.dp))
             .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
             .padding(14.dp)

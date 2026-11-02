@@ -1,5 +1,12 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -209,10 +216,21 @@ fun DownloaderScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            when (uiState.downloaderTab) {
-                DownloaderTab.STORIES -> PeoplePage(uiState, viewModel)
-                DownloaderTab.REELS -> ReelsContent(uiState, viewModel)
-                DownloaderTab.ANY -> UniversalContent(viewModel)
+            AnimatedContent(
+                targetState = uiState.downloaderTab,
+                transitionSpec = {
+                    (fadeIn(tween(200)) +
+                        slideInVertically(tween(240)) { it / 12 }) togetherWith
+                    (fadeOut(tween(140)) +
+                        slideOutVertically(tween(180)) { -it / 16 })
+                },
+                label = "offscroll_downloader_motion"
+            ) { tab ->
+                when (tab) {
+                    DownloaderTab.STORIES -> PeoplePage(uiState, viewModel)
+                    DownloaderTab.REELS -> ReelsContent(uiState, viewModel)
+                    DownloaderTab.ANY -> UniversalContent(viewModel)
+                }
             }
             Spacer(modifier = Modifier.height(24.dp))
             Text(

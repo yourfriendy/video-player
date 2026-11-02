@@ -1,5 +1,9 @@
 package com.example.ui.navigation
 
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
@@ -55,10 +59,27 @@ fun AppNavigation(
         startDestination = NavRoute.Feed.name,
         modifier = modifier.fillMaxSize(),
         // Short, cheap transitions (the default 700ms cross-fade makes every screen change feel laggy)
-        enterTransition = { slideInHorizontally(tween(220)) { it / 3 } + fadeIn(tween(160)) },
-        exitTransition = { fadeOut(tween(120)) },
-        popEnterTransition = { fadeIn(tween(140)) },
-        popExitTransition = { slideOutHorizontally(tween(200)) { it / 3 } + fadeOut(tween(160)) }
+        // offscroll_motion_navigation
+        enterTransition = {
+            slideInHorizontally(
+                animationSpec = tween(280, easing = FastOutSlowInEasing)
+            ) { it / 4 } +
+            fadeIn(tween(240)) +
+            scaleIn(initialScale = 0.985f, animationSpec = tween(240))
+        },
+        exitTransition = {
+            fadeOut(tween(160)) +
+            scaleOut(targetScale = 0.985f, animationSpec = tween(160))
+        },
+        popEnterTransition = {
+            fadeIn(tween(220)) +
+            scaleIn(initialScale = 0.985f, animationSpec = tween(220))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                animationSpec = tween(260, easing = FastOutSlowInEasing)
+            ) { it / 4 } + fadeOut(tween(180))
+        }
     ) {
         composable(NavRoute.Feed.name) {
             VideoFeedScreen(
