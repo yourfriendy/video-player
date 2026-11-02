@@ -69,6 +69,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -941,6 +944,27 @@ private fun ViewerVideo(url: String) {
         }
     }
     DisposableEffect(player) { onDispose { player.release() } }
+    // Pause when the app leaves the screen (home, recents, another app); carry on when it comes back
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(player, lifecycleOwner) {
+        var resumeOnReturn = false
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
+                    if (player.playWhenReady) resumeOnReturn = true
+                    player.playWhenReady = false
+                    player.pause()
+                }
+                Lifecycle.Event.ON_RESUME -> if (resumeOnReturn) {
+                    resumeOnReturn = false
+                    player.playWhenReady = true
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     AndroidView(
         factory = { ctx ->
             (LayoutInflater.from(ctx).inflate(R.layout.reel_player_view, null, false) as PlayerView).apply { this.player = player }
