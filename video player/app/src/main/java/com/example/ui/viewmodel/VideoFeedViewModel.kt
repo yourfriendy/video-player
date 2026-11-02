@@ -84,6 +84,12 @@ data class VideoFeedUiState(
     val people: List<com.example.data.download.SavedPerson> = emptyList(),
     val storyKind: com.example.ui.model.StoryKind = com.example.ui.model.StoryKind.STORIES,
     val repostsState: StoryUiState = StoryUiState.Idle,
+    /** Every repost loaded for the current person; [repostsState] shows the part inside the chosen date range. */
+    val repostsAll: List<com.example.data.download.InstagramParser.StoryItem> = emptyList(),
+    /** Start / end of the chosen range (epoch seconds), or null for no limit. */
+    val repostFrom: Long? = null,
+    val repostTo: Long? = null,
+    val highlights: List<com.example.data.download.InstagramParser.HighlightInfo> = emptyList(),
     val igAccountError: String? = null,
     val currentIndex: Int = 0,
     val isPlaying: Boolean = true,
@@ -413,6 +419,8 @@ class VideoFeedViewModel(
             else state.copy(
                 storyInput = text,
                 repostsState = StoryUiState.Idle,
+                repostsAll = emptyList(),
+                highlights = emptyList(),
                 storyState = if (state.storyState is StoryUiState.Loading) state.storyState else StoryUiState.Idle,
                 storyDownloads = if (state.storyState is StoryUiState.Loading) state.storyDownloads else emptyMap()
             )
@@ -514,9 +522,39 @@ class VideoFeedViewModel(
     }
 
     private var repostJob: kotlinx.coroutines.Job? = null
+    private var enrichJob: kotlinx.coroutines.Job? = null
+    private var repostsLoadedFrom: Long? = null
+    private var highlightsFor: String? = null
 
-    fun findReposts() {
-        if (repostJob?.isActive == true) return
+    private fun effectiveTime(item: InstagramParser.StoryItem): Long =
+        if (item.repostedAtSec != null && item.repostedAtSec > 0) item.repostedAtSec else item.takenAtSec
+
+    /** Shows only the reposts inside the chosen dates (by repost time when known, else by original post time). */
+    private fun applyRepostRange() {
+        _uiState.update { s ->
+            val loaded = s.repostsState as? StoryUiState.Loaded ?: return@update s
+            val shown = s.repostsAll.filter {
+                val t = effectiveTime(it)
+                (s.repostFrom == null || t >= s.repostFrom) && (s.repostTo == null || t <= s.repostTo)
+            }
+            s.copy(repostsState = loaded.copy(items = shown))
+        }
+    }
+
+    fun setRepostRange(from: Long?, to: Long?) {
+        val previousFrom = repostsLoadedFrom
+        _uiState.update { it.copy(repostFrom = from, repostTo = to) }
+        applyRepostRange()
+        // Loading stops once it has gone back past the start date. A date further back needs more loading.
+        val needMore = previousFrom != null && (from == null || from < previousFrom)
+        if (needMore) findReposts(force = true)
+    }
+
+    fun findReposts(force: Boolean = false) {
+        if (repostJob?.isActive == true) {
+            if (!force) return
+            repostJob?.cancel()
+        }
         val target = InstagramParser.parseStoryTarget(_uiState.value.storyInput)
         val username = when (target) {
             is InstagramParser.StoryTarget.User -> target.username
@@ -530,10 +568,19 @@ class VideoFeedViewModel(
         repostJob = viewModelScope.launch {
             try {
                 _uiState.update { it.copy(repostsState = StoryUiState.Loading) }
-                val result = downloader.stories.loadReposts(username)
-                _uiState.update { it.copy(repostsState = StoryUiState.Loaded(result.owner, result.items, result.profile)) }
+                val from = _uiState.value.repostFrom
+                val result = downloader.stories.loadReposts(username, from)
+                repostsLoadedFrom = from
+                _uiState.update {
+                    it.copy(
+                        repostsAll = result.items,
+                        repostsState = StoryUiState.Loaded(result.owner, result.items, result.profile)
+                    )
+                }
+                applyRepostRange()
+                enrichReposts()
             } catch (e: kotlinx.coroutines.CancellationException) {
-                _uiState.update { it.copy(repostsState = StoryUiState.Idle) }
+                _uiState.update { if (it.repostsState is StoryUiState.Loading) it.copy(repostsState = StoryUiState.Idle) else it }
                 throw e
             } catch (e: DownloadException) {
                 _uiState.update { it.copy(repostsState = StoryUiState.Error(e.message ?: "Couldn't load reposts.")) }
@@ -543,13 +590,74 @@ class VideoFeedViewModel(
         }
     }
 
+    private fun replaceRepost(item: InstagramParser.StoryItem) {
+        _uiState.update { s -> s.copy(repostsAll = s.repostsAll.map { if (it.id == item.id) item else it }) }
+        applyRepostRange()
+    }
+
+    private suspend fun resolveAndReplace(item: InstagramParser.StoryItem): InstagramParser.StoryItem {
+        val resolved = try {
+            downloader.resolveRepost(item)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            item
+        }
+        replaceRepost(resolved)
+        return resolved
+    }
+
+    /**
+     * The Reposts tab only sends previews (a picture). In the background, one at a time and gently, look up each
+     * reel's real video, caption, counts and times, so the list fills in while you browse.
+     */
+    private fun enrichReposts() {
+        enrichJob?.cancel()
+        enrichJob = viewModelScope.launch {
+            val ids = _uiState.value.repostsAll.filter { it.needsResolve || it.caption == null }.map { it.id }.take(60)
+            for (id in ids) {
+                val current = _uiState.value.repostsAll.firstOrNull { it.id == id } ?: continue
+                if (current.needsResolve || current.caption == null) resolveAndReplace(current)
+                kotlinx.coroutines.delay(350L)
+            }
+        }
+    }
+
+    /** Called when the viewer shows a reel that hasn't been looked up yet. */
+    fun resolveRepostNow(item: InstagramParser.StoryItem) {
+        if (!item.needsResolve) return
+        viewModelScope.launch { resolveAndReplace(item) }
+    }
+
+    fun loadHighlights(userId: String) {
+        if (highlightsFor == userId) return
+        highlightsFor = userId
+        viewModelScope.launch {
+            val list = try { downloader.stories.highlights(userId) } catch (e: Exception) { emptyList() }
+            _uiState.update { it.copy(highlights = list) }
+        }
+    }
+
+    fun openHighlight(highlight: InstagramParser.HighlightInfo) {
+        val id = highlight.id.removePrefix("highlight:")
+        _uiState.update { it.copy(storyInput = "https://www.instagram.com/stories/highlights/$id/", storyState = StoryUiState.Idle, storyDownloads = emptyMap()) }
+        findStories()
+    }
+
     /** Saves one story or repost (whichever list it came from). */
     fun saveMediaItem(item: com.example.data.download.InstagramParser.StoryItem) {
         val state = _uiState.value
         val owner = (state.storyState as? StoryUiState.Loaded)?.owner
             ?: (state.repostsState as? StoryUiState.Loaded)?.owner ?: return
         if (state.storyDownloads[item.id] is StoryItemDownload.Downloading) return
-        viewModelScope.launch { if (saveStoryItem(item, owner)) reloadLibrary(showLoading = false) }
+        viewModelScope.launch {
+            val target = if (item.needsResolve) resolveAndReplace(item) else item
+            if (target.needsResolve) {
+                _uiState.update { it.copy(toastMessage = "Couldn't get the video for this reel. Try again in a moment.") }
+                return@launch
+            }
+            if (saveStoryItem(target, owner)) reloadLibrary(showLoading = false)
+        }
     }
 
     fun saveAllReposts() {
@@ -558,7 +666,9 @@ class VideoFeedViewModel(
         storyDownloadJob = viewModelScope.launch {
             for (item in loaded.items) {
                 if (_uiState.value.storyDownloads[item.id] is StoryItemDownload.Done) continue
-                saveStoryItem(item, loaded.owner)
+                val target = if (item.needsResolve) resolveAndReplace(item) else item
+                if (target.needsResolve) continue
+                saveStoryItem(target, loaded.owner)
             }
             reloadLibrary(showLoading = false)
         }

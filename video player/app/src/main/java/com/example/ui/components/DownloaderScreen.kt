@@ -96,6 +96,18 @@ import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.Slate950
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import kotlin.math.roundToInt
 
 private val Cyan = Color(0xFF5EEAD4)
 private val Violet = Color(0xFF8B5CF6)
@@ -220,7 +232,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
     val clipboard = LocalClipboardManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     val signedIn = uiState.isIgSignedIn
-    var viewer by remember { mutableStateOf<Pair<List<InstagramParser.StoryItem>, Int>?>(null) }
+    var viewer by remember { mutableStateOf<Pair<StoryKind, Int>?>(null) }
     var pendingAlertFor by remember { mutableStateOf<String?>(null) }
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -301,7 +313,27 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
         val owner = (stories as? StoryUiState.Loaded)?.owner
         if (stories is StoryUiState.Loaded) {
             Spacer(modifier = Modifier.height(16.dp))
-            stories.profile?.let { ProfileCard(it) }
+            stories.profile?.let {
+                ProfileCard(it)
+                LaunchedEffect(it.id) { viewModel.loadHighlights(it.id) }
+            }
+            if (uiState.highlights.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Highlights", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(uiState.highlights, key = { it.id }) { h ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(68.dp).clickable { viewModel.openHighlight(h) }
+                        ) {
+                            Avatar(h.coverUrl, 60.dp)
+                            Text(h.title, color = Color(0xFFE2E8F0), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 4.dp))
+                        }
+                    }
+                }
+            }
             if (owner != null && owner != "Highlight") {
                 Spacer(modifier = Modifier.height(10.dp))
                 val saved = uiState.people.firstOrNull { it.username.equals(owner, ignoreCase = true) }
@@ -372,7 +404,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
             kind = kind,
             uiState = uiState,
             viewModel = viewModel,
-            onOpen = { list, index -> viewer = list to index }
+            onOpen = { index -> viewer = kind to index }
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -382,12 +414,12 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
         )
     }
 
-    viewer?.let { (list, index) ->
+    viewer?.let { (kind, index) ->
         MediaViewerDialog(
-            items = list,
+            kind = kind,
             startIndex = index,
-            downloads = uiState.storyDownloads,
-            onSave = { viewModel.saveMediaItem(it) },
+            uiState = uiState,
+            viewModel = viewModel,
             onClose = { viewer = null }
         )
     }
@@ -399,9 +431,13 @@ private fun ResultsSection(
     kind: StoryKind,
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
-    onOpen: (List<InstagramParser.StoryItem>, Int) -> Unit
+    onOpen: (Int) -> Unit
 ) {
     val retry = { if (kind == StoryKind.STORIES) viewModel.findStories() else viewModel.findReposts() }
+    if (kind == StoryKind.REPOSTS && state !is StoryUiState.Idle) {
+        RepostFilters(uiState, viewModel)
+        Spacer(modifier = Modifier.height(12.dp))
+    }
     when (state) {
         is StoryUiState.Idle -> {
             if (kind == StoryKind.REPOSTS) {
@@ -426,27 +462,166 @@ private fun ResultsSection(
         is StoryUiState.Loaded -> {
             val downloads = uiState.storyDownloads
             val remaining = state.items.count { downloads[it.id] !is StoryItemDownload.Done }
+            val total = uiState.repostsAll.size
             Text(
-                text = "${state.items.size} ${if (kind == StoryKind.STORIES) "stories" else "reposts"}",
+                text = if (kind == StoryKind.REPOSTS) "${state.items.size} of $total reposts" else "${state.items.size} stories",
                 color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
-            if (remaining > 0) {
-                OutlineButton(
-                    text = "Save all ($remaining)",
-                    onClick = { if (kind == StoryKind.STORIES) viewModel.downloadAllStories() else viewModel.saveAllReposts() },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            if (state.items.isEmpty()) {
+                MessageCard(Icons.Default.ErrorOutline, Orange, "Nothing in these dates. Clear the dates to see all $total reposts.")
             } else {
-                MessageCard(Icons.Default.CheckCircle, Cyan, "All saved to your phone.")
+                if (remaining > 0) {
+                    OutlineButton(
+                        text = "Save all ($remaining)",
+                        onClick = { if (kind == StoryKind.STORIES) viewModel.downloadAllStories() else viewModel.saveAllReposts() },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    MessageCard(Icons.Default.CheckCircle, Cyan, "All saved to your phone.")
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                if (kind == StoryKind.REPOSTS) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        state.items.forEachIndexed { index, item ->
+                            RepostCard(item, downloads[item.id], onOpen = { onOpen(index) }, onSave = { viewModel.saveMediaItem(item) })
+                        }
+                    }
+                } else {
+                    MediaGrid(
+                        items = state.items,
+                        downloads = downloads,
+                        onOpen = { index -> onOpen(index) },
+                        onSave = { viewModel.saveMediaItem(it) }
+                    )
+                }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            MediaGrid(
-                items = state.items,
-                downloads = downloads,
-                onOpen = { index -> onOpen(state.items, index) },
-                onSave = { viewModel.saveMediaItem(it) }
+        }
+    }
+}
+
+// ---- dates ----
+
+private fun exactTime(sec: Long): String =
+    if (sec <= 0) "unknown" else SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()).format(Date(sec * 1000))
+
+private fun exactClock(sec: Long): String =
+    if (sec <= 0) "" else SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(sec * 1000))
+
+private fun dayLabel(sec: Long): String = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(sec * 1000))
+
+/** The date picker answers in UTC midnight; turn the picked day into this phone's start (or end) of that day. */
+private fun localDay(utcMillis: Long, endOfDay: Boolean): Long {
+    val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = utcMillis }
+    val local = Calendar.getInstance().apply {
+        clear()
+        set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH),
+            if (endOfDay) 23 else 0, if (endOfDay) 59 else 0, if (endOfDay) 59 else 0)
+    }
+    return local.timeInMillis / 1000
+}
+
+private fun countsLine(item: InstagramParser.StoryItem): String = listOfNotNull(
+    item.likes?.let { "♥ ${formatCount(it)}" },
+    item.comments?.let { "💬 ${formatCount(it)}" },
+    item.plays?.let { "▶ ${formatCount(it)}" },
+    item.durationSec?.let { "${it.roundToInt()} s" }
+).joinToString("   ")
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RepostFilters(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel) {
+    var picking by remember { mutableStateOf<Int?>(null) }
+    Text("Reposts between two dates", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Spacer(modifier = Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Pill(text = uiState.repostFrom?.let { "From ${dayLabel(it)}" } ?: "From date", highlighted = uiState.repostFrom != null, onClick = { picking = 1 })
+        Pill(text = uiState.repostTo?.let { "To ${dayLabel(it)}" } ?: "To date", highlighted = uiState.repostTo != null, onClick = { picking = 2 })
+        if (uiState.repostFrom != null || uiState.repostTo != null) {
+            Pill(text = "Clear", onClick = { viewModel.setRepostRange(null, null) })
+        }
+    }
+    picking?.let { which ->
+        val state = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { picking = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { ms ->
+                        val sec = localDay(ms, endOfDay = which == 2)
+                        viewModel.setRepostRange(
+                            if (which == 1) sec else uiState.repostFrom,
+                            if (which == 2) sec else uiState.repostTo
+                        )
+                    }
+                    picking = null
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { picking = null }) { Text("Cancel") } }
+        ) { DatePicker(state = state) }
+    }
+}
+
+@Composable
+private fun RepostCard(
+    item: InstagramParser.StoryItem,
+    download: StoryItemDownload?,
+    onOpen: () -> Unit,
+    onSave: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color(0x14FFFFFF))
+            .border(1.dp, GlassBorder, shape)
+            .padding(8.dp)
+    ) {
+        Box(
+            modifier = Modifier.width(96.dp).height(150.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1E293B)).clickable(onClick = onOpen)
+        ) {
+            AsyncImage(item.thumbnailUrl ?: item.mediaUrl, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (item.isVideo) {
+                Icon(Icons.Default.PlayArrow, "Video", tint = Color.White,
+                    modifier = Modifier.align(Alignment.Center).size(32.dp).background(Color(0x66000000), CircleShape))
+            }
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "@${item.author ?: "unknown"}" + (item.authorName?.let { "  ·  $it" } ?: ""),
+                color = Cyan, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = item.caption ?: if (item.needsResolve) "Loading caption…" else "No caption",
+                color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 4, overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            if (item.repostedAtSec != null) {
+                Text("Reposted ${exactTime(item.repostedAtSec)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                Text("Originally posted ${exactTime(item.takenAtSec)}", color = Muted, fontSize = 11.sp)
+            } else {
+                Text("Posted ${exactTime(item.takenAtSec)}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                Text("Repost time: not shown by Instagram", color = Muted, fontSize = 11.sp)
+            }
+            val counts = countsLine(item)
+            if (counts.isNotBlank()) Text(counts, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(text = "Watch", icon = Icons.Default.PlayArrow, onClick = onOpen)
+                Pill(
+                    text = when (download) {
+                        is StoryItemDownload.Done -> "Saved"
+                        is StoryItemDownload.Downloading -> "Saving…"
+                        else -> "Save"
+                    },
+                    icon = if (download is StoryItemDownload.Done) Icons.Default.CheckCircle else Icons.Default.Download,
+                    highlighted = download is StoryItemDownload.Done,
+                    onClick = onSave
+                )
+            }
         }
     }
 }
@@ -572,7 +747,7 @@ private fun MediaTile(
             )
         }
         Text(
-            text = item.author?.let { "@$it" } ?: timeAgo(item.takenAtSec),
+            text = item.author?.let { "@$it" } ?: exactClock(item.takenAtSec).ifBlank { timeAgo(item.takenAtSec) },
             color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)
         )
@@ -590,12 +765,19 @@ private fun MediaTile(
 /** Watch stories/reposts full screen without saving anything. Saving is one optional tap. */
 @Composable
 private fun MediaViewerDialog(
-    items: List<InstagramParser.StoryItem>,
+    kind: StoryKind,
     startIndex: Int,
-    downloads: Map<String, StoryItemDownload>,
-    onSave: (InstagramParser.StoryItem) -> Unit,
+    uiState: VideoFeedUiState,
+    viewModel: VideoFeedViewModel,
     onClose: () -> Unit
 ) {
+    val context = LocalContext.current
+    val source = if (kind == StoryKind.STORIES) uiState.storyState else uiState.repostsState
+    val items = (source as? StoryUiState.Loaded)?.items.orEmpty()
+    if (items.isEmpty()) {
+        LaunchedEffect(Unit) { onClose() }
+        return
+    }
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
@@ -604,10 +786,18 @@ private fun MediaViewerDialog(
         Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
             HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
                 val item = items[page]
-                if (item.isVideo && pager.currentPage == page) {
-                    ViewerVideo(item.mediaUrl)
-                } else {
-                    AsyncImage(
+                val isCurrent = pager.currentPage == page
+                when {
+                    item.needsResolve -> {
+                        // A reel preview: look the real video up now, then it plays
+                        if (isCurrent) LaunchedEffect(item.id) { viewModel.resolveRepostNow(item) }
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            AsyncImage(item.thumbnailUrl ?: item.mediaUrl, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                            CircularProgressIndicator(color = Cyan)
+                        }
+                    }
+                    item.isVideo && isCurrent -> ViewerVideo(item.mediaUrl)
+                    else -> AsyncImage(
                         model = if (item.isVideo) (item.thumbnailUrl ?: item.mediaUrl) else item.mediaUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
@@ -617,45 +807,87 @@ private fun MediaViewerDialog(
             }
 
             val current = items[pager.currentPage.coerceIn(0, items.lastIndex)]
+            val done = uiState.storyDownloads[current.id] is StoryItemDownload.Done
+
             Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 10.dp, vertical = 8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxWidth()) {
                     items.take(40).forEachIndexed { i, _ ->
                         Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(3.dp)
-                                .clip(CircleShape)
+                            modifier = Modifier.weight(1f).height(3.dp).clip(CircleShape)
                                 .background(if (i <= pager.currentPage) Color.White else Color(0x55FFFFFF))
                         )
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                    current.authorPic?.let { Avatar(it, 30.dp); Spacer(modifier = Modifier.width(8.dp)) }
                     Text(
-                        text = (current.author?.let { "@$it · " } ?: "") + timeAgo(current.takenAtSec),
-                        color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f)
+                        text = current.author?.let { "@$it" } ?: "Story",
+                        color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    IconButton(onClick = { if (!done) viewModel.saveMediaItem(current) }) {
+                        Icon(
+                            if (done) Icons.Default.CheckCircle else Icons.Default.Download,
+                            contentDescription = if (done) "Saved" else "Save",
+                            tint = if (done) Cyan else Color.White
+                        )
                     }
+                    IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White) }
                 }
             }
 
-            val done = downloads[current.id] is StoryItemDownload.Done
-            Row(
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color(0x99000000))
-                    .clickable(enabled = !done) { onSave(current) }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // ---- details ----
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xDD000000))))
+                    .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    if (done) Icons.Default.CheckCircle else Icons.Default.Download,
-                    contentDescription = null, tint = if (done) Cyan else Color.White, modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (done) "Saved" else "Save", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                current.caption?.let {
+                    Text(it, color = Color.White, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                }
+                if (kind == StoryKind.REPOSTS) {
+                    if (current.repostedAtSec != null) {
+                        Text("Reposted ${exactTime(current.repostedAtSec)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Originally posted ${exactTime(current.takenAtSec)}", color = Muted, fontSize = 12.sp)
+                    } else {
+                        Text("Posted ${exactTime(current.takenAtSec)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                } else {
+                    Text("Posted ${exactTime(current.takenAtSec)}  (${timeAgo(current.takenAtSec)})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    current.expiresAtSec?.let { Text("Disappears ${exactTime(it)}", color = Muted, fontSize = 12.sp) }
+                }
+                val counts = countsLine(current)
+                if (counts.isNotBlank()) Text(counts, color = Muted, fontSize = 12.sp)
+                if (current.mentions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Mentioned in this story", color = Muted, fontSize = 11.sp)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(current.mentions, key = { it.username }) { who ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Color(0x33FFFFFF))
+                                    .clickable { onClose(); viewModel.openPerson(who.username) }
+                                    .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
+                            ) {
+                                Avatar(who.picUrl, 26.dp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("@${who.username}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+                current.code?.let { code ->
+                    Text(
+                        "Open on Instagram", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 4.dp).clickable {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/reel/$code/")))
+                            } catch (_: Exception) {
+                            }
+                        }
+                    )
+                }
             }
         }
     }

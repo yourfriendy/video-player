@@ -352,4 +352,71 @@ class InstagramParserTest {
         assertEquals("https://c/first.jpg", items[1].mediaUrl)
         assertTrue(InstagramParser.parseRepostItems("garbage", "x").isEmpty())
     }
+
+    @Test
+    fun reelPreviewNeedsItsVideoLookedUp() {
+        // A reposts-tab entry: a picture, a short code and "this is a reel" — but no video address yet
+        val json = """{"items":[{"pk":"900","code":"Cabc123","media_type":2,"product_type":"clips","taken_at":1700000000,
+            "user":{"username":"orig","full_name":"Original Person"},"video_duration":14.5,"like_count":120,
+            "image_versions2":{"candidates":[{"url":"https://c/thumb.jpg"}]},"caption":{"text":"hello reel"}}]}"""
+        val item = InstagramParser.parseRepostItems(json, "me").single()
+        assertTrue(item.isVideo)
+        assertTrue(item.needsResolve)
+        assertEquals("Cabc123", item.code)
+        assertEquals("hello reel", item.caption)
+        assertEquals(120L, item.likes)
+        assertEquals("Original Person", item.authorName)
+        assertEquals(14.5, item.durationSec!!, 0.001)
+    }
+
+    @Test
+    fun resolvedReelGetsItsVideoCaptionAndTimes() {
+        val preview = InstagramParser.parseRepostItems(
+            """{"items":[{"pk":"900","code":"Cabc123","media_type":2,"taken_at":10,"user":{"username":"orig"},
+               "image_versions2":{"candidates":[{"url":"https://c/thumb.jpg"}]}}]}""", "me"
+        ).single()
+        val full = InstagramParser.parseMediaInfo(
+            """{"items":[{"pk":"900","code":"Cabc123","media_type":2,"taken_at":1700000123,"play_count":5000,
+               "video_versions":[{"url":"https://c/real.mp4"}],"image_versions2":{"candidates":[{"url":"https://c/t.jpg"}]},
+               "caption":{"text":"the caption"},"repost_info":{"reposted_at":1700009999}}]}"""
+        )!!
+        val merged = InstagramParser.mergeResolved(preview, full)
+        assertEquals("https://c/real.mp4", merged.mediaUrl)
+        assertFalse(merged.needsResolve)
+        assertEquals("the caption", merged.caption)
+        assertEquals(1700000123L, merged.takenAtSec)
+        assertEquals(1700009999L, merged.repostedAtSec)
+        assertEquals(5000L, merged.plays)
+        assertEquals("orig", merged.author)
+    }
+
+    @Test
+    fun readsMentionsAndExpiryOfAStory() {
+        val json = """{"reels_media":[{"id":"1","items":[{"pk":"5","taken_at":100,"expiring_at":86500,
+            "image_versions2":{"candidates":[{"url":"https://c/s.jpg"}]},
+            "reel_mentions":[{"user":{"pk":"9","username":"friend","full_name":"A Friend","profile_pic_url":"https://c/f.jpg"}}]}]}]}"""
+        val item = InstagramParser.parseStoryItems(json).single()
+        assertEquals(86500L, item.expiresAtSec)
+        assertEquals("friend", item.mentions.single().username)
+        assertEquals("https://c/f.jpg", item.mentions.single().picUrl)
+    }
+
+    @Test
+    fun readsBioCountsAndHighlights() {
+        val p = InstagramParser.parseProfile(
+            """{"data":{"user":{"id":"1","username":"u","biography":"hello bio","external_url":"https://x.dev",
+               "edge_followed_by":{"count":10},"edge_follow":{"count":20},"edge_owner_to_timeline_media":{"count":30}}}}"""
+        )!!
+        assertEquals("hello bio", p.bio)
+        assertEquals(20L, p.following)
+        assertEquals(30L, p.posts)
+        assertEquals("https://x.dev", p.externalUrl)
+
+        val h = InstagramParser.parseHighlightsTray(
+            """{"tray":[{"id":"highlight:123","title":"Trip","cover_media":{"cropped_image_version":{"url":"https://c/c.jpg"}}}]}"""
+        )
+        assertEquals("highlight:123", h.single().id)
+        assertEquals("Trip", h.single().title)
+        assertEquals("https://c/c.jpg", h.single().coverUrl)
+    }
 }

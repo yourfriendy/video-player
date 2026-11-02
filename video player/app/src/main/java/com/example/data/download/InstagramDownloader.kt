@@ -58,6 +58,25 @@ class InstagramDownloader(private val context: Context) {
 
     val stories = InstagramStoryService(client, webUserAgent, webFetcher, pageCapture)
 
+    /**
+     * Turns a repost preview (just a picture) into the real thing: asks Instagram for the full post, and if the
+     * video address still isn't there, falls back to the reel resolver that the Reels tab already uses.
+     */
+    suspend fun resolveRepost(item: InstagramParser.StoryItem): InstagramParser.StoryItem {
+        var merged = item
+        stories.mediaInfo(item.id)?.let { merged = InstagramParser.mergeResolved(merged, it) }
+        val code = merged.code
+        if (merged.needsResolve && code != null) {
+            try {
+                val reel = resolve("https://www.instagram.com/reel/$code/")
+                merged = merged.copy(mediaUrl = reel.videoUrl, isVideo = true, needsResolve = false, caption = merged.caption ?: reel.title)
+            } catch (e: DownloadException) {
+                // leave it unresolved: the UI says so
+            }
+        }
+        return merged
+    }
+
     /** Frees the hidden browser engine. */
     fun release() = webFetcher.release()
 

@@ -17,6 +17,9 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.CopyOnWriteArrayList
@@ -44,7 +47,9 @@ class IgPageCapture(context: Context, private val userAgent: String) {
     suspend fun capture(
         pageUrl: String,
         timeoutMs: Long = 25_000L,
-        enough: (List<Captured>) -> Boolean
+        autoScroll: Boolean = false,
+        /** Called on every reply (second argument false) and every 1.5 s tick (true). Return true to stop early. */
+        enough: (List<Captured>, Boolean) -> Boolean
     ): CaptureResult = withContext(Dispatchers.Main) {
         val captured = CopyOnWriteArrayList<Captured>()
         val done = CompletableDeferred<Unit>()
@@ -67,7 +72,7 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                 @JavascriptInterface
                 fun onCapture(url: String, status: Int, body: String) {
                     captured.add(Captured(url, status, body))
-                    if (enough(captured.toList())) done.complete(Unit)
+                    if (enough(captured.toList(), false)) done.complete(Unit)
                 }
             }, "OffScrollCapture")
 
@@ -118,7 +123,18 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                 }
             }
             view.loadUrl(pageUrl)
-            withTimeoutOrNull(timeoutMs) { done.await() }
+            kotlinx.coroutines.coroutineScope {
+                val ticker = launch {
+                    while (isActive && !done.isCompleted) {
+                        delay(1_500L)
+                        // Scrolling makes Instagram's own page ask for the next batch, which we then read
+                        if (autoScroll) view.evaluateJavascript(SCROLL_SCRIPT, null)
+                        if (enough(captured.toList(), true)) done.complete(Unit)
+                    }
+                }
+                withTimeoutOrNull(timeoutMs) { done.await() }
+                ticker.cancel()
+            }
             CaptureResult(captured.toList(), pageNote)
         } finally {
             view.stopLoading()
@@ -133,6 +149,13 @@ class IgPageCapture(context: Context, private val userAgent: String) {
         val MEDIA_FILE = Regex("""\.(mp4|m4s|webm|m4a|jpg|jpeg|webp|heic)(\?|$)""")
 
         val SEEN_URL = Regex("""(/seen\b|/seen/|seen_|_seen|mark_as_seen|markasseen|stories/reel/seen|media/seen)""")
+
+        const val SCROLL_SCRIPT = """
+            (function () {
+              window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight));
+              window.dispatchEvent(new Event('scroll'));
+            })();
+        """
 
         /** Hands over the JSON blocks embedded in the page that look like they carry stories, profiles or reels. */
         const val HARVEST_SCRIPT = """

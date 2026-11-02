@@ -742,11 +742,27 @@ internal fun ProfileCard(profile: InstagramParser.ProfileInfo) {
             val facts = buildList {
                 if (profile.isVerified) add("Verified ✓")
                 if (profile.isPrivate) add("Private 🔒")
-                profile.followers?.let { add("${formatCount(it)} followers") }
             }
             if (facts.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(facts.joinToString("  ·  "), color = Muted, fontSize = 12.sp)
+            }
+            val counts = listOfNotNull(
+                profile.posts?.let { "${formatCount(it)} posts" },
+                profile.followers?.let { "${formatCount(it)} followers" },
+                profile.following?.let { "${formatCount(it)} following" }
+            )
+            if (counts.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(counts.joinToString("  ·  "), color = Color(0xFFE2E8F0), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            }
+            if (profile.bio.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(profile.bio, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+            }
+            profile.externalUrl?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(it.removePrefix("https://").removePrefix("http://").take(40), color = Cyan, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

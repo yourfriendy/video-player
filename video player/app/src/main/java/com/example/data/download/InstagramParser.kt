@@ -118,8 +118,26 @@ object InstagramParser {
         val thumbnailUrl: String?,
         val takenAtSec: Long,
         /** Original poster, for reposts. */
-        val author: String? = null
+        val author: String? = null,
+        val authorName: String? = null,
+        val authorPic: String? = null,
+        val caption: String? = null,
+        /** Short code of a post/reel (instagram.com/reel/<code>). */
+        val code: String? = null,
+        val likes: Long? = null,
+        val comments: Long? = null,
+        val plays: Long? = null,
+        val durationSec: Double? = null,
+        /** When it was reposted, if Instagram says so (otherwise only [takenAtSec], the original post time, is known). */
+        val repostedAtSec: Long? = null,
+        val expiresAtSec: Long? = null,
+        /** People tagged in a story (@mentions). */
+        val mentions: List<ProfileInfo> = emptyList(),
+        /** A reel whose video address isn't in the list reply yet: it must be looked up before it can play or save. */
+        val needsResolve: Boolean = false
     )
+
+    data class HighlightInfo(val id: String, val title: String, val coverUrl: String?)
 
     private val USERNAME_REGEX = Regex("""^[A-Za-z0-9._]{1,30}$""")
     private val RESERVED_FIRST_SEGMENTS = setOf(
@@ -214,7 +232,11 @@ object InstagramParser {
         val picUrl: String?,
         val isPrivate: Boolean,
         val isVerified: Boolean,
-        val followers: Long?
+        val followers: Long?,
+        val bio: String = "",
+        val following: Long? = null,
+        val posts: Long? = null,
+        val externalUrl: String? = null
     )
 
     private fun text(obj: org.json.JSONObject, key: String): String {
@@ -235,7 +257,13 @@ object InstagramParser {
             picUrl = pic.takeIf { it.startsWith("http") },
             isPrivate = user.optBoolean("is_private", false),
             isVerified = user.optBoolean("is_verified", false),
-            followers = followers
+            followers = followers,
+            bio = text(user, "biography"),
+            following = user.optJSONObject("edge_follow")?.optLong("count", -1L)?.takeIf { it >= 0 }
+                ?: user.optLong("following_count", -1L).takeIf { it >= 0 },
+            posts = user.optJSONObject("edge_owner_to_timeline_media")?.optLong("count", -1L)?.takeIf { it >= 0 }
+                ?: user.optLong("media_count", -1L).takeIf { it >= 0 },
+            externalUrl = text(user, "external_url").takeIf { it.startsWith("http") }
         )
     }
 
@@ -296,13 +324,104 @@ object InstagramParser {
         val isVideo = videoUrl.startsWith("http")
         val media = if (isVideo) videoUrl else imageUrl
         if (!media.startsWith("http")) return null
+        // A reel from a list reply carries only its picture: mark it so the real video gets looked up
+        val reelLike = item.optInt("media_type", 0) == 2 || text(item, "product_type") == "clips" ||
+            item.has("video_duration") || item.optBoolean("is_video", false)
+        val needsResolve = !isVideo && reelLike
+        val owner = item.optJSONObject("user") ?: item.optJSONObject("owner")
         return StoryItem(
             id = id,
-            isVideo = isVideo,
+            isVideo = isVideo || needsResolve,
             mediaUrl = media,
             thumbnailUrl = (thumbUrl.ifBlank { imageUrl }).takeIf { it.startsWith("http") },
-            takenAtSec = item.optLong("taken_at", 0L)
+            takenAtSec = item.optLong("taken_at", 0L),
+            authorName = owner?.let { text(it, "full_name") }?.ifBlank { null },
+            authorPic = owner?.let { text(it, "profile_pic_url") }?.takeIf { it.startsWith("http") },
+            caption = captionOf(item),
+            code = text(item, "code").ifBlank { text(item, "shortcode") }.ifBlank { null },
+            likes = item.optLong("like_count", -1L).takeIf { it >= 0 },
+            comments = item.optLong("comment_count", -1L).takeIf { it >= 0 },
+            plays = (item.optLong("play_count", -1L).takeIf { it >= 0 } ?: item.optLong("view_count", -1L).takeIf { it >= 0 }),
+            durationSec = item.optDouble("video_duration", -1.0).takeIf { it >= 0 },
+            repostedAtSec = scanRepostTime(item, 0),
+            expiresAtSec = item.optLong("expiring_at", -1L).takeIf { it > 0 },
+            mentions = mentionsOf(item),
+            needsResolve = needsResolve
         )
+    }
+
+    private fun captionOf(item: org.json.JSONObject): String? {
+        val c = item.opt("caption")
+        val direct = when (c) {
+            is org.json.JSONObject -> text(c, "text")
+            is String -> c.trim()
+            else -> ""
+        }
+        if (direct.isNotBlank()) return direct
+        return item.optJSONObject("edge_media_to_caption")?.optJSONArray("edges")?.optJSONObject(0)
+            ?.optJSONObject("node")?.let { text(it, "text") }?.takeIf { it.isNotBlank() }
+    }
+
+    private fun mentionsOf(item: org.json.JSONObject): List<ProfileInfo> {
+        val array = item.optJSONArray("reel_mentions") ?: return emptyList()
+        return (0 until array.length()).mapNotNull { i -> array.optJSONObject(i)?.optJSONObject("user")?.let { profileFrom(it) } }
+            .distinctBy { it.username }
+    }
+
+    /** Looks for a "reposted at" time inside an item: any number under a key that mentions repost/reshare. */
+    private fun scanRepostTime(obj: org.json.JSONObject, depth: Int): Long? {
+        val keys = obj.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            val value = obj.opt(key)
+            if (Regex("(repost|reshare)", RegexOption.IGNORE_CASE).containsMatchIn(key)) {
+                val n = (value as? Number)?.toLong() ?: (value as? String)?.toLongOrNull()
+                if (n != null && n in 1_000_000_000L..4_000_000_000L) return n
+                if (n != null && n in 1_000_000_000_000L..4_000_000_000_000L) return n / 1000
+            }
+            if (depth < 3 && value is org.json.JSONObject) scanRepostTime(value, depth + 1)?.let { return it }
+        }
+        return null
+    }
+
+    /** Reply of `media/<id>/info/`: the full post/reel (video address, caption, counts, times). */
+    fun parseMediaInfo(json: String): StoryItem? = try {
+        org.json.JSONObject(json).optJSONArray("items")?.optJSONObject(0)?.let { itemToStory(it) }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Fills a list entry in with what the full lookup found. */
+    fun mergeResolved(old: StoryItem, full: StoryItem): StoryItem = old.copy(
+        isVideo = full.isVideo || old.isVideo,
+        mediaUrl = if (full.isVideo) full.mediaUrl else old.mediaUrl,
+        needsResolve = !full.isVideo && old.needsResolve,
+        takenAtSec = if (full.takenAtSec > 0) full.takenAtSec else old.takenAtSec,
+        caption = full.caption ?: old.caption,
+        code = full.code ?: old.code,
+        likes = full.likes ?: old.likes,
+        comments = full.comments ?: old.comments,
+        plays = full.plays ?: old.plays,
+        durationSec = full.durationSec ?: old.durationSec,
+        repostedAtSec = full.repostedAtSec ?: old.repostedAtSec,
+        authorName = full.authorName ?: old.authorName,
+        authorPic = full.authorPic ?: old.authorPic
+    )
+
+    /** Reply of `highlights/<id>/highlights_tray/`. */
+    fun parseHighlightsTray(json: String): List<HighlightInfo> = try {
+        val tray = org.json.JSONObject(json).optJSONArray("tray")
+        (0 until (tray?.length() ?: 0)).mapNotNull { i ->
+            val h = tray?.optJSONObject(i) ?: return@mapNotNull null
+            val id = text(h, "id")
+            if (id.isBlank()) return@mapNotNull null
+            val cover = h.optJSONObject("cover_media")
+            val url = cover?.optJSONObject("cropped_image_version")?.let { text(it, "url") }
+                ?: cover?.optJSONObject("full_image_version")?.let { text(it, "url") }
+            HighlightInfo(id, text(h, "title"), url?.takeIf { it.startsWith("http") })
+        }
+    } catch (e: Exception) {
+        emptyList()
     }
 
     /**
@@ -472,19 +591,35 @@ object InstagramParser {
         val root = parseAny(json) ?: return emptyList()
         val found = ArrayList<StoryItem>()
         walk(root) { obj ->
-            val hasMedia = obj.has("video_versions") || obj.has("image_versions2") || obj.has("carousel_media")
-            if (!hasMedia || !(obj.has("code") || obj.has("pk"))) return@walk
-            val author = (obj.optJSONObject("user") ?: obj.optJSONObject("owner"))?.let { text(it, "username") }.orEmpty()
+            val mobileShape = obj.has("video_versions") || obj.has("image_versions2") || obj.has("carousel_media")
+            val webShape = obj.has("shortcode") && obj.has("display_url")
+            if (!(mobileShape || webShape) || !(obj.has("code") || obj.has("pk") || obj.has("shortcode"))) return@walk
+            val ownerObj = obj.optJSONObject("user") ?: obj.optJSONObject("owner")
+            val author = ownerObj?.let { text(it, "username") }.orEmpty()
             if (author.isBlank() || author.equals(profileUsername, ignoreCase = true)) return@walk
             var source = obj
-            if (!obj.has("video_versions") && !obj.has("image_versions2")) {
+            if (webShape && !obj.has("image_versions2")) {
+                // The website's shape: translate to the common one
+                source = org.json.JSONObject(obj.toString()).apply {
+                    put("pk", text(obj, "id"))
+                    put("code", text(obj, "shortcode"))
+                    put("taken_at", obj.optLong("taken_at_timestamp", 0L))
+                    put("image_versions2", org.json.JSONObject().put("candidates", org.json.JSONArray().put(org.json.JSONObject().put("url", text(obj, "display_url")))))
+                    if (text(obj, "video_url").startsWith("http")) put("video_versions", org.json.JSONArray().put(org.json.JSONObject().put("url", text(obj, "video_url"))))
+                    put("media_type", if (obj.optBoolean("is_video", false)) 2 else 1)
+                    put("like_count", obj.optJSONObject("edge_liked_by")?.optLong("count", -1L) ?: -1L)
+                    put("comment_count", obj.optJSONObject("edge_media_to_comment")?.optLong("count", -1L) ?: -1L)
+                }
+            } else if (!obj.has("video_versions") && !obj.has("image_versions2")) {
                 val child = obj.optJSONArray("carousel_media")?.optJSONObject(0) ?: return@walk
                 source = org.json.JSONObject(obj.toString()).apply {
                     child.opt("video_versions")?.let { put("video_versions", it) }
                     child.opt("image_versions2")?.let { put("image_versions2", it) }
                 }
             }
-            itemToStory(source)?.let { found.add(it.copy(author = author)) }
+            itemToStory(source)?.let {
+                found.add(it.copy(author = author, authorName = it.authorName ?: ownerObj?.let { o -> text(o, "full_name") }?.ifBlank { null }))
+            }
         }
         return found.distinctBy { it.id }
     }

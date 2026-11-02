@@ -207,7 +207,7 @@ class InstagramStoryService(
             is InstagramParser.StoryTarget.Highlight -> "$WEB_BASE/stories/highlights/${target.id}/" to ""
         }
         val highlightId = (target as? InstagramParser.StoryTarget.Highlight)?.id
-        val result = pageCapture.capture(pageUrl) { replies ->
+        val result = pageCapture.capture(pageUrl) { replies, _ ->
             replies.any {
                 it.status in 200..299 &&
                     InstagramParser.parseStoryItemsForOwner(it.body, username, null, highlightId).isNotEmpty()
@@ -241,27 +241,38 @@ class InstagramStoryService(
         return StoryResult(profile?.username?.ifBlank { username } ?: username.ifBlank { "Highlight" }, items, profile, null)
     }
 
-    /**
-     * (Beta) A person's Reposts tab. There is no documented address for it, so, like the stories fallback,
-     * their real Reposts page is opened in the hidden browser and what that page receives is read.
-     * Only other people's media is kept (the owner's own posts are not reposts).
-     */
-    suspend fun loadReposts(username: String): StoryResult = withContext(Dispatchers.IO) {
-        val result = pageCapture.capture("$WEB_BASE/${java.net.URLEncoder.encode(username, "UTF-8")}/reposts/") { replies ->
-            replies.any {
-                it.status in 200..299 && it.url.contains("repost", ignoreCase = true) &&
-                    InstagramParser.parseRepostItems(it.body, username).isNotEmpty()
-            }
-        }
-        val ok = result.replies.filter { it.status in 200..299 }
-        var items = ok.filter { it.url.contains("repost", ignoreCase = true) }
+    private fun collectReposts(replies: List<IgPageCapture.Captured>, username: String): List<InstagramParser.StoryItem> {
+        val ok = replies.filter { it.status in 200..299 }
+        val tagged = ok.filter { it.url.contains("repost", ignoreCase = true) }
             .flatMap { InstagramParser.parseRepostItems(it.body, username) }
-        if (items.isEmpty()) {
-            // Some pages ship the first batch inside the page itself
-            items = ok.filter { it.url.startsWith("embedded-page-data") }
-                .flatMap { InstagramParser.parseRepostItems(it.body, username) }
+        val items = if (tagged.isNotEmpty()) tagged
+        else ok.filter { it.url.startsWith("embedded-page-data") }.flatMap { InstagramParser.parseRepostItems(it.body, username) }
+        return items.distinctBy { it.id }
+    }
+
+    /**
+     * (Beta) A person's Reposts tab: opens their real Reposts page in the hidden browser, keeps scrolling it so
+     * Instagram's own page loads the next batches, and reads every batch. Stops when nothing new arrives,
+     * when [limit] is reached, or (if the repost times are known) when it has gone back past [fromSec].
+     * Entries are previews: [resolveMedia] fetches each one's real video, caption and times.
+     */
+    suspend fun loadReposts(username: String, fromSec: Long?, limit: Int = 150): StoryResult = withContext(Dispatchers.IO) {
+        var lastCount = 0
+        var stalls = 0
+        val result = pageCapture.capture(
+            "$WEB_BASE/${java.net.URLEncoder.encode(username, "UTF-8")}/reposts/",
+            timeoutMs = 75_000L,
+            autoScroll = true
+        ) { replies, tick ->
+            val items = collectReposts(replies, username)
+            if (tick) {
+                if (items.size == lastCount) stalls++ else { stalls = 0; lastCount = items.size }
+            }
+            val times = items.mapNotNull { it.repostedAtSec }
+            val wentPastStart = fromSec != null && times.size == items.size && times.isNotEmpty() && times.min() < fromSec
+            items.size >= limit || wentPastStart || (items.isNotEmpty() && stalls >= 5) || (items.isEmpty() && stalls >= 12)
         }
-        items = items.distinctBy { it.id }
+        val items = collectReposts(result.replies, username).take(limit)
         val profile = result.replies.firstNotNullOfOrNull { InstagramParser.parseProfileDeep(it.body, username) }
         if (items.isEmpty()) {
             val seen = result.replies.take(5).joinToString("; ") {
@@ -273,6 +284,26 @@ class InstagramStoryService(
             )
         }
         StoryResult(username, items, profile, null)
+    }
+
+    /** The full post/reel (video address, caption, counts, times) for one id. */
+    suspend fun mediaInfo(id: String): InstagramParser.StoryItem? {
+        val (code, text) = try {
+            rawRequest("$MOBILE_BASE/api/v1/media/${enc(id)}/info/", "GET", mapOf("Accept" to "*/*", "X-IG-App-ID" to IG_APP_ID), null)
+        } catch (e: DownloadException) {
+            return null
+        }
+        return if (code in 200..299) InstagramParser.parseMediaInfo(text) else null
+    }
+
+    /** The highlights shown on a profile (cover + title). Not essential, so failures just give an empty list. */
+    suspend fun highlights(userId: String): List<InstagramParser.HighlightInfo> {
+        val (code, text) = try {
+            rawRequest("$MOBILE_BASE/api/v1/highlights/${enc(userId)}/highlights_tray/", "GET", mapOf("Accept" to "*/*", "X-IG-App-ID" to IG_APP_ID), null)
+        } catch (e: Exception) {
+            return emptyList()
+        }
+        return if (code in 200..299) InstagramParser.parseHighlightsTray(text) else emptyList()
     }
 
     private fun noStoriesMessage(profile: InstagramParser.ProfileInfo, typed: String): String {
