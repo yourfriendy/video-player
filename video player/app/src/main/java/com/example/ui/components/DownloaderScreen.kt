@@ -626,7 +626,14 @@ private fun RepostCard(
                 color = Cyan, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
-            RepostNoteText(item, maxLines = 4)
+            val originalCaption = item.caption?.trim()?.takeIf { it.isNotEmpty() }
+            if (item.repostNote.isNullOrBlank() && originalCaption != null) {
+                // No note from the reposter: show a short piece of the reel's own caption instead (clearly labelled)
+                Text(originalCaption, color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text("Original caption", color = Muted, fontSize = 10.sp)
+            } else {
+                RepostNoteText(item, maxLines = 3)
+            }
             Spacer(modifier = Modifier.height(6.dp))
             RepostTimeText(item)
             val counts = countsLine(item)
