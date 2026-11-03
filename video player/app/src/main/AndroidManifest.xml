@@ -40,8 +40,20 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-            <!-- Appear in the Share sheet so a reel can be sent straight to OffScroll -->
+        </activity>
+        <!--
+            Share sheet target: a small pop-up over the app you shared from (Instagram, YouTube, ...) that
+            downloads the link, so you never have to switch apps. Stories and anything that needs the full
+            app are handed over to MainActivity.
+        -->
+        <activity
+            android:name=".ShareDownloadActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:taskAffinity=""
+            android:theme="@style/Theme.MyApplication.SharePopup">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
 

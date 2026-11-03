@@ -169,6 +169,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Picks up permission granted/revoked in system Settings, and resumes playback that onPause stopped
         viewModel.onPermissionResult(hasMediaPermission())
+        // The share pop-up saved a video while this app sat in the background: pick it up
+        if (com.example.service.ShareDownloads.consumeLibraryDirty()) viewModel.refreshVideos()
         viewModel.resumePlayback()
         // Looks for a newer build on GitHub (skips the network if it checked in the last 15 minutes)
         updateViewModel.checkOnLaunch()

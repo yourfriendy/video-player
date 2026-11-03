@@ -48,6 +48,7 @@ class DownloadKeepAliveService : Service() {
     companion object {
         private const val CHANNEL_ID = "offscroll_downloads"
         private const val NOTIFICATION_ID = 4107
+        private const val FINISHED_NOTIFICATION_ID = 4108
         private const val EXTRA_TITLE = "title"
 
         fun start(context: Context, title: String) {
@@ -81,6 +82,39 @@ class DownloadKeepAliveService : Service() {
                     .notify(NOTIFICATION_ID, buildNotification(context, title, text, percent))
             } catch (e: SecurityException) {
                 // Notifications are switched off: nothing to update
+            }
+        }
+
+        /** A normal, dismissable notification for when a download ends while the pop-up isn't on screen. */
+        @SuppressLint("MissingPermission")
+        fun notifyFinished(context: Context, title: String, text: String, success: Boolean) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+            try {
+                ensureChannel(context)
+                val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                val open = launch?.let {
+                    PendingIntent.getActivity(
+                        context, 1, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                }
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(
+                        if (success) android.R.drawable.stat_sys_download_done
+                        else android.R.drawable.stat_notify_error
+                    )
+                    .setContentTitle(title)
+                    .setContentText(text)
+                    .setAutoCancel(true)
+                    .setContentIntent(open)
+                    .build()
+                NotificationManagerCompat.from(context).notify(FINISHED_NOTIFICATION_ID, notification)
+            } catch (e: SecurityException) {
+                // Notifications are switched off: nothing to show
             }
         }
 
