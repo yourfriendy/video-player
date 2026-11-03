@@ -48,6 +48,20 @@ object InstagramParser {
         return null
     }
 
+    /** Username of the account that posted the reel, read from the public page. */
+    fun extractUsername(html: String): String? {
+        val patterns = listOf(
+            Regex("""\\?"username\\?"\s*:\s*\\?"([A-Za-z0-9._]{1,30})"""),
+            Regex("""UsernameText[^>]*>([A-Za-z0-9._]{1,30})<"""),
+            Regex("""instagram\.com/([A-Za-z0-9._]{1,30})/(?:reel|p)/""")
+        )
+        for (p in patterns) {
+            val name = p.find(html)?.groupValues?.get(1)
+            if (!name.isNullOrBlank() && name !in setOf("reel", "p", "explore", "accounts")) return name
+        }
+        return null
+    }
+
     fun extractTitle(html: String): String? =
         metaContent(html, "og:title")?.take(80)?.takeIf { it.isNotBlank() }
 

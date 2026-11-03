@@ -122,7 +122,12 @@ class UniversalDownloader(context: Context) {
             val output = findOutput(workDir)
                 ?: throw UniversalException("The download finished but no video file came out of it.", true)
             val suffix = if (option.quality > 0) " [${option.quality}p]" else ""
-            saveToLibrary(output, "${safeFileName(info.title)}$suffix.${output.extension.lowercase()}")
+            saveToLibrary(
+                output,
+                "${safeFileName(info.uploader?.takeIf { it.isNotBlank() } ?: info.title)}_" +
+                    java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.US).format(java.util.Date()) +
+                    "${suffix}.${output.extension.lowercase()}"
+            )
         } finally {
             workDir.deleteRecursively()
         }

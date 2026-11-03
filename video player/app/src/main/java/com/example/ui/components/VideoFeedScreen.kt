@@ -312,7 +312,8 @@ fun VideoFeedScreen(
                             onOpenPlaylist = { viewModel.openAddToPlaylist(video) },
                             onToggleMute = { viewModel.toggleMute() },
                             onShare = { shareVideo(context, video) },
-                            onOpenMore = { viewModel.openOptions(video) }
+                            onOpenMore = { viewModel.openOptions(video) },
+                            onOpenDetails = { viewModel.openMetadata(video) }
                         )
                     }
 

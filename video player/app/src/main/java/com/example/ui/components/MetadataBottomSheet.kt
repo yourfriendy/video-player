@@ -3,33 +3,48 @@ package com.example.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Environment
+import android.os.StatFs
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -39,20 +54,39 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.VideoMetadataDetails
 import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.GlassBorderSubtle
-import com.example.ui.theme.Slate950
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private val Violet = Color(0xFFA78BFA)
+private val Teal = Color(0xFF5EEAD4)
+private val Sky = Color(0xFF60A5FA)
+private val Amber = Color(0xFFFBBF24)
+private val Rose = Color(0xFFFB7185)
+private val CardFill = Color(0x66020617)
+private val Muted = Color(0xFF94A3B8)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +101,7 @@ fun MetadataBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xF20F172A),
+        containerColor = Color(0xFA0B1020),
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -83,221 +117,357 @@ fun MetadataBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(Color(0x338B5CF6), CircleShape)
-                            .border(1.dp, Color(0x44C4B5FD), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = Color(0xFFC4B5FD),
-                            modifier = Modifier.size(20.dp)
-                        )
+            Reveal(0) { TopBar(onDismiss) }
+
+            Reveal(1) {
+                HeroCard(
+                    name = video.displayName,
+                    extension = video.fileExtension,
+                    folder = video.relativePath.ifEmpty { video.bucketDisplayName },
+                    onCopy = { copyToClipboard(context, "File name", video.displayName) }
+                )
+            }
+
+            Reveal(2) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StatTile(Icons.Default.Timer, video.formattedDuration, "Duration", Violet, Modifier.weight(1f))
+                    StatTile(Icons.Default.AspectRatio, video.formattedResolution, "Resolution", Sky, Modifier.weight(1f))
+                    StatTile(Icons.Default.DataUsage, video.formattedSize, "Size", Teal, Modifier.weight(1f))
+                }
+            }
+
+            Reveal(3) { StorageCard(video.sizeBytes) }
+
+            Reveal(4) {
+                SectionCard("Video", Icons.Default.Videocam, Sky) {
+                    DetailRow("Codec", details.videoCodec)
+                    RowDivider()
+                    DetailRow("Format", video.fileExtension)
+                    RowDivider()
+                    DetailRow("Frame rate", details.frameRate)
+                    if (details.captureFps.isNotBlank()) {
+                        RowDivider()
+                        DetailRow("Capture FPS", details.captureFps)
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Video Metadata",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "100% Local File Details",
-                            color = Color(0x99FFFFFF),
-                            fontSize = 12.sp
+                    RowDivider()
+                    DetailRow("Bitrate", details.bitrate)
+                    RowDivider()
+                    DetailRow("Rotation", details.rotation)
+                    RowDivider()
+                    DetailRow("Color", details.colorStandard)
+                }
+            }
+
+            Reveal(5) {
+                SectionCard("Audio", Icons.Default.MusicNote, Teal) {
+                    DetailRow("Track", details.audioCodec)
+                }
+            }
+
+            Reveal(6) {
+                SectionCard("File", Icons.Default.Folder, Amber) {
+                    DetailRow("Added", video.formattedDateAdded)
+                    RowDivider()
+                    DetailRow("Modified", formatSeconds(video.dateModifiedSec))
+                    RowDivider()
+                    DetailRow("Type", video.mimeType.ifBlank { "Unknown" })
+                    RowDivider()
+                    DetailRow(
+                        label = "Folder",
+                        value = video.relativePath.ifEmpty { video.bucketDisplayName },
+                        onCopy = { copyToClipboard(context, "Folder", video.relativePath.ifEmpty { video.bucketDisplayName }) }
+                    )
+                    if (video.filePath.isNotBlank()) {
+                        RowDivider()
+                        DetailRow(
+                            label = "Full path",
+                            value = video.filePath,
+                            onCopy = { copyToClipboard(context, "Path", video.filePath) }
                         )
                     }
                 }
+            }
+        }
+    }
+}
 
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0x22FFFFFF), CircleShape)
-                        .border(1.dp, GlassBorderSubtle, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color(0xCCFFFFFF),
-                        modifier = Modifier.size(18.dp)
+/** Fades and slides a section in, one after another, so the sheet feels alive instead of snapping open. */
+@Composable
+private fun Reveal(index: Int, content: @Composable () -> Unit) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(index * 55L)
+        shown = true
+    }
+    AnimatedVisibility(
+        visible = shown,
+        enter = fadeIn(tween(380)) + slideInVertically(tween(380, easing = FastOutSlowInEasing)) { it / 5 }
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun TopBar(onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
+            Text("Details", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Everything about this video, 100% on your phone", color = Muted, fontSize = 12.sp)
+        }
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier
+                .size(34.dp)
+                .background(Color(0x22FFFFFF), CircleShape)
+                .border(1.dp, GlassBorderSubtle, CircleShape)
+        ) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xCCFFFFFF), modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun HeroCard(name: String, extension: String, folder: String, onCopy: () -> Unit) {
+    val shape = RoundedCornerShape(24.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Color(0xFF3B2A7A), Color(0xFF1E2A5E), Color(0xFF0F3A47))))
+            .border(1.dp, Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x14FFFFFF))), shape)
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .background(Brush.linearGradient(listOf(Color(0x66A78BFA), Color(0x335EEAD4))), RoundedCornerShape(18.dp))
+                    .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Chip(extension.uppercase(Locale.getDefault()), Teal)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = folder,
+                        color = Color(0xB3FFFFFF),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // File Name Card
-            Box(
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                onClick = onCopy,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0x4D020617), RoundedCornerShape(16.dp))
-                    .border(1.dp, GlassBorderSubtle, RoundedCornerShape(16.dp))
-                    .padding(14.dp)
+                    .size(38.dp)
+                    .background(Color(0x33FFFFFF), CircleShape)
+                    .border(1.dp, Color(0x44FFFFFF), CircleShape)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "FILE NAME",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = video.displayName,
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            copyToClipboard(context, "File Name", video.displayName)
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color(0x338B5CF6), CircleShape)
-                            .border(1.dp, Color(0x44C4B5FD), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy file name",
-                            tint = Color(0xFFC4B5FD),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Grid of Properties
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0x4D020617), RoundedCornerShape(16.dp))
-                    .border(1.dp, GlassBorderSubtle, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                MetadataRow(
-                    icon = Icons.Default.Timer,
-                    label = "Duration",
-                    value = video.formattedDuration
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.AspectRatio,
-                    label = "Resolution",
-                    value = video.formattedResolution
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.DataUsage,
-                    label = "File Size",
-                    value = video.formattedSize
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.Movie,
-                    label = "Codec / Format",
-                    value = "${video.fileExtension} (${details.videoCodec})"
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.Speed,
-                    label = "Frame Rate & Bitrate",
-                    value = "${details.frameRate} · ${details.bitrate}"
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.MusicNote,
-                    label = "Audio Track",
-                    value = details.audioCodec
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.DateRange,
-                    label = "Date Added",
-                    value = video.formattedDateAdded
-                )
-                HorizontalDivider(color = Color(0x14FFFFFF))
-
-                MetadataRow(
-                    icon = Icons.Default.FolderOpen,
-                    label = "Folder Path",
-                    value = video.relativePath.ifEmpty { video.bucketDisplayName }
-                )
+                Icon(Icons.Default.ContentCopy, contentDescription = "Copy file name", tint = Color.White, modifier = Modifier.size(18.dp))
             }
         }
     }
 }
 
 @Composable
-private fun MetadataRow(
-    icon: ImageVector,
-    label: String,
-    value: String
-) {
-    Row(
+private fun Chip(text: String, color: Color) {
+    Text(
+        text = text,
+        color = color,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.6.sp,
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(color.copy(alpha = 0.16f), RoundedCornerShape(8.dp))
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    )
+}
+
+@Composable
+private fun StatTile(icon: ImageVector, value: String, label: String, accent: Color, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(CardFill)
+            .border(1.dp, GlassBorderSubtle, shape)
+            .padding(vertical = 14.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color(0xFFA78BFA),
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = label,
-            color = Color(0xFF94A3B8),
-            fontSize = 13.sp,
-            modifier = Modifier.weight(1f)
-        )
+        Box(
+            modifier = Modifier.size(34.dp).background(accent.copy(alpha = 0.16f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.height(8.dp))
         Text(
             text = value,
             color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(text = label, color = Muted, fontSize = 11.sp)
+    }
+}
+
+/** Shows how much of the phone's storage this one file takes, with a smooth animated bar. */
+@Composable
+private fun StorageCard(fileBytes: Long) {
+    val (freeBytes, totalBytes) = remember {
+        try {
+            val stat = StatFs(Environment.getDataDirectory().path)
+            stat.availableBytes to stat.blockCountLong * stat.blockSizeLong
+        } catch (e: Exception) {
+            0L to 0L
+        }
+    }
+    val usedShare = if (totalBytes > 0) (fileBytes.toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
+    val phoneUsed = if (totalBytes > 0) ((totalBytes - freeBytes).toFloat() / totalBytes).coerceIn(0f, 1f) else 0f
+    val animatedUsed by animateFloatAsState(phoneUsed, tween(900, easing = FastOutSlowInEasing), label = "phone_used")
+    val animatedFile by animateFloatAsState(usedShare, tween(1100, easing = FastOutSlowInEasing), label = "file_share")
+
+    SectionCard("Storage", Icons.Default.Storage, Violet) {
+        if (totalBytes <= 0) {
+            Text("Storage info isn't available on this phone.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 10.dp))
+            return@SectionCard
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(Color(0x22FFFFFF))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animatedUsed.coerceAtLeast(0.02f))
+                    .background(Brush.horizontalGradient(listOf(Color(0xFF6366F1), Violet)))
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animatedFile.coerceAtLeast(0.01f))
+                    .background(Rose)
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text("This video  " + formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(formatBytes(freeBytes) + " free of " + formatBytes(totalBytes), color = Muted, fontSize = 12.sp)
+        }
+        Spacer(Modifier.height(10.dp))
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    icon: ImageVector,
+    accent: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(CardFill)
+            .border(1.dp, GlassBorderSubtle, shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(26.dp).background(accent.copy(alpha = 0.16f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = title.uppercase(Locale.getDefault()),
+                color = accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+private fun RowDivider() = HorizontalDivider(color = Color(0x14FFFFFF))
+
+@Composable
+private fun DetailRow(label: String, value: String, onCopy: (() -> Unit)? = null) {
+    val clickable = if (onCopy != null) Modifier.clickable { onCopy() } else Modifier
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(clickable)
+            .padding(vertical = 11.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(text = label, color = Muted, fontSize = 13.sp, modifier = Modifier.width(96.dp))
+        Text(
+            text = value,
+            color = if (value == "Unknown") Color(0x66FFFFFF) else Color.White,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f)
         )
     }
 }
 
-private fun copyToClipboard(context: Context, label: String, text: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-    val clip = ClipData.newPlainText(label, text)
-    clipboard?.setPrimaryClip(clip)
-    Toast.makeText(context, "Copied $label to clipboard", Toast.LENGTH_SHORT).show()
+private fun formatBytes(bytes: Long): String {
+    val gb = bytes / 1_073_741_824.0
+    val mb = bytes / 1_048_576.0
+    return when {
+        gb >= 1 -> String.format(Locale.getDefault(), "%.1f GB", gb)
+        mb >= 1 -> String.format(Locale.getDefault(), "%.1f MB", mb)
+        else -> String.format(Locale.getDefault(), "%d KB", bytes / 1024)
+    }
 }
 
+private fun formatSeconds(sec: Long): String =
+    if (sec <= 0) "Unknown"
+    else SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault()).format(Date(sec * 1000))
+
+private fun copyToClipboard(context: Context, label: String, text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    clipboard?.setPrimaryClip(ClipData.newPlainText(label, text))
+    Toast.makeText(context, "Copied $label", Toast.LENGTH_SHORT).show()
+}

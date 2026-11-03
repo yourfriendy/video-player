@@ -764,7 +764,7 @@ class VideoFeedViewModel(
         return try {
             val uri = downloader.downloadMedia(
                 url = item.mediaUrl,
-                baseName = (if (item.author != null) "Instagram_repost_${item.author}_${item.id}" else "Instagram_story_${owner.replace(Regex("[^A-Za-z0-9._-]"), "_")}_${item.id}").replace(Regex("[^A-Za-z0-9._-]"), "_"),
+                baseName = (item.author ?: owner).replace(Regex("[^A-Za-z0-9._-]"), "_"),
                 isVideo = item.isVideo
             ) { progress -> setStatus(StoryItemDownload.Downloading(progress)) }
             setStatus(StoryItemDownload.Done(uri))

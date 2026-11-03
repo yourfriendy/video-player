@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Share
@@ -68,7 +69,8 @@ fun ActionRail(
     onToggleMute: () -> Unit,
     onShare: () -> Unit,
     onOpenMore: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDetails: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -108,7 +110,10 @@ fun ActionRail(
             onClick = onShare
         )
 
-        // 5. More Options (Speed, Display Aspect, Info, Delete)
+        // 5. Details & storage (special gradient button, sits right above the 3 dots)
+        DetailsActionButton(onClick = onOpenDetails)
+
+        // 6. More Options (Speed, Display Aspect, Info, Delete)
         ActionRailItem(
             icon = Icons.Default.MoreVert,
             label = "More",
@@ -208,6 +213,48 @@ private fun FavoriteActionButton(
                     color = Color.Black,
                     blurRadius = 4f
                 )
+            )
+        )
+    }
+}
+
+@Composable
+private fun DetailsActionButton(onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.testTag("action_details_button")
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .bouncyClickable(pressedScale = 0.86f, onClick = onClick)
+                .shadow(12.dp, CircleShape, ambientColor = Color(0xFF8B5CF6), spotColor = Color(0xFF8B5CF6))
+                .background(
+                    Brush.linearGradient(listOf(Color(0xCC8B5CF6), Color(0xCC22D3EE))),
+                    CircleShape
+                )
+                .border(
+                    1.5.dp,
+                    Brush.verticalGradient(listOf(Color(0xAAFFFFFF), Color(0x22FFFFFF))),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = "Video details and storage",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Details",
+            color = Color(0xFFE9D5FF),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            style = androidx.compose.ui.text.TextStyle(
+                shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, blurRadius = 4f)
             )
         )
     }

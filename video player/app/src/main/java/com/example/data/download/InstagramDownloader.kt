@@ -26,7 +26,7 @@ class VerificationRequiredException(message: String) : DownloadException(message
 /** The account was found but really has nothing to show. */
 class NoStoriesException(message: String) : DownloadException(message)
 
-data class ResolvedReel(val shortcode: String, val videoUrl: String, val title: String?)
+data class ResolvedReel(val shortcode: String, val videoUrl: String, val title: String?, val username: String? = null)
 
 /**
  * Downloads PUBLIC Instagram reels into the phone's Movies/OffScroll folder.
@@ -99,7 +99,7 @@ class InstagramDownloader(private val context: Context) {
                 coroutineContext.ensureActive()
                 val html = fetchText(pageUrl, userAgent) ?: continue
                 InstagramParser.extractVideoUrl(html)?.let { video ->
-                    return@withContext ResolvedReel(code, video, InstagramParser.extractTitle(html))
+                    return@withContext ResolvedReel(code, video, InstagramParser.extractTitle(html), InstagramParser.extractUsername(html))
                 }
                 if (InstagramParser.looksLikeLoginWall(html)) sawLoginWall = true
             }
@@ -120,7 +120,7 @@ class InstagramDownloader(private val context: Context) {
      * Returns the Uri of the saved file.
      */
     suspend fun download(reel: ResolvedReel, onProgress: (Float) -> Unit): Uri =
-        downloadMedia(reel.videoUrl, "Instagram_${reel.shortcode}", isVideo = true, onProgress = onProgress)
+        downloadMedia(reel.videoUrl, reel.username ?: "instagram", isVideo = true, onProgress = onProgress)
 
     /** Saves any video or photo URL into Movies/OffScroll or Pictures/OffScroll. Used by reels and stories. */
     suspend fun downloadMedia(
@@ -148,7 +148,9 @@ class InstagramDownloader(private val context: Context) {
                     throw DownloadException("Instagram didn't return a file. The link may have expired.")
                 }
                 val total = body.contentLength()
-                val name = "${baseName}_${System.currentTimeMillis() / 1000}.${if (isVideo) "mp4" else "jpg"}"
+                val stamp = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", java.util.Locale.US).format(java.util.Date())
+                val owner = baseName.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "instagram" }
+                val name = "${owner}_${stamp}.${if (isVideo) "mp4" else "jpg"}"
                 saveStream(name, isVideo) { out ->
                     val buffer = ByteArray(64 * 1024)
                     var copied = 0L
@@ -231,7 +233,11 @@ class InstagramDownloader(private val context: Context) {
         } else {
             val type = if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES
             val dir = File(context.getExternalFilesDir(type), "OffScroll").apply { mkdirs() }
-            val file = File(dir, fileName)
+            var file = File(dir, fileName)
+            var copy = 1
+            while (file.exists()) {
+                file = File(dir, fileName.substringBeforeLast('.') + "_${copy++}." + fileName.substringAfterLast('.'))
+            }
             try {
                 file.outputStream().use { writer(it) }
             } catch (e: Throwable) {
