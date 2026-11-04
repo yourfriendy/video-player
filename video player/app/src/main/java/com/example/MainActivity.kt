@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
         // Tapped a "new story" notification
         intent?.getStringExtra(com.example.data.download.StoryAlertWorker.EXTRA_OPEN_PERSON)?.let { person ->
             intent.removeExtra(com.example.data.download.StoryAlertWorker.EXTRA_OPEN_PERSON)
-            viewModel.openPerson(person)
+            viewModel.openPerson(person, autoStories = true)
             return
         }
         if (intent?.action != Intent.ACTION_SEND) return

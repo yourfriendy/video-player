@@ -129,6 +129,13 @@ class VideoFeedViewModel(
     private val _uiState: MutableStateFlow<VideoFeedUiState>
     val uiState: StateFlow<VideoFeedUiState>
 
+    /** The Instagram-style profile screen (photo, bio, highlights, posts, followers and more). */
+    val profile = ProfileController(
+        scope = viewModelScope,
+        downloader = downloader,
+        onMediaSaved = { viewModelScope.launch { reloadLibrary(showLoading = false) } }
+    )
+
     private var shuffledVideoIds: List<Long> = emptyList()
     private var recordJob: kotlinx.coroutines.Job? = null
     private var hasLoadedOnce = false
@@ -442,6 +449,10 @@ class VideoFeedViewModel(
             )
         }
         if (signedIn) verifyIgAccount()
+        if (signedIn && profile.state.value.visible) {
+            profile.retry()
+            return
+        }
         if (signedIn && _uiState.value.storyInput.isNotBlank()) findStories()
     }
 
@@ -498,7 +509,7 @@ class VideoFeedViewModel(
     }
 
     /** One tap on a saved person (or on a story notification): open the page and load their stories. */
-    fun openPerson(username: String) {
+    fun openPerson(username: String, autoStories: Boolean = false) {
         val name = cleanName(username)
         _uiState.update {
             it.copy(
@@ -512,7 +523,20 @@ class VideoFeedViewModel(
                 isIgSignedIn = InstagramStoryService.isSignedIn()
             )
         }
-        findStories()
+        profile.open(name, autoStories)
+        verifyIgAccount()
+    }
+
+    /** Opens the full profile of [username] on top of the downloader. */
+    fun openProfile(username: String, autoStories: Boolean = false) {
+        _uiState.update {
+            it.copy(
+                isDownloaderOpen = true,
+                downloaderTab = DownloaderTab.STORIES,
+                isIgSignedIn = InstagramStoryService.isSignedIn()
+            )
+        }
+        profile.open(username, autoStories)
         verifyIgAccount()
     }
 
@@ -681,6 +705,11 @@ class VideoFeedViewModel(
             _uiState.update {
                 it.copy(storyState = StoryUiState.Error("Enter an Instagram username (like @name) or paste a story link."))
             }
+            return
+        }
+        if (target is InstagramParser.StoryTarget.User) {
+            // A username opens the full profile; story links and highlight links keep the old results view
+            openProfile(target.username)
             return
         }
         if (!InstagramStoryService.isSignedIn()) {

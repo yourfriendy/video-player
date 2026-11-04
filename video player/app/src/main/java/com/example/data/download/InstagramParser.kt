@@ -777,4 +777,211 @@ object InstagramParser {
     } catch (e: Exception) {
         null
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Full profile: details, posts, reels, tagged, followers and following
+    // ------------------------------------------------------------------------------------------
+
+    private fun profileDetailsFrom(user: org.json.JSONObject): ProfileDetails? {
+        val base = profileFrom(user) ?: return null
+        val hd = user.optJSONObject("hd_profile_pic_url_info")?.let { text(it, "url") }?.takeIf { it.startsWith("http") }
+        val links = ArrayList<BioLink>()
+        user.optJSONArray("bio_links")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val link = arr.optJSONObject(i) ?: continue
+                val url = text(link, "url")
+                if (url.startsWith("http")) links.add(BioLink(text(link, "title"), url))
+            }
+        }
+        if (links.isEmpty() && base.externalUrl != null) links.add(BioLink("", base.externalUrl))
+        val pronouns = ArrayList<String>()
+        user.optJSONArray("pronouns")?.let { arr ->
+            for (i in 0 until arr.length()) arr.optString(i).trim().takeIf { it.isNotEmpty() }?.let { pronouns.add(it) }
+        }
+        return ProfileDetails(
+            id = base.id,
+            username = base.username,
+            fullName = base.fullName,
+            picUrl = hd ?: base.picUrl,
+            isPrivate = base.isPrivate,
+            isVerified = base.isVerified,
+            followers = base.followers,
+            following = base.following,
+            posts = base.posts,
+            bio = base.bio,
+            externalUrl = base.externalUrl,
+            bioLinks = links,
+            category = text(user, "category").ifBlank { text(user, "category_name") }.ifBlank { null },
+            pronouns = pronouns,
+            isBusiness = user.optBoolean("is_business", false) || user.optBoolean("is_business_account", false)
+        )
+    }
+
+    /** Reply of `users/<id>/info/`. */
+    fun parseProfileDetails(json: String): ProfileDetails? = try {
+        org.json.JSONObject(json).optJSONObject("user")?.let { profileDetailsFrom(it) }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Reply of `users/web_profile_info/`. */
+    fun parseProfileDetailsWeb(json: String): ProfileDetails? = try {
+        org.json.JSONObject(json).optJSONObject("data")?.optJSONObject("user")?.let { profileDetailsFrom(it) }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** When Instagram refuses the rich lookups, the basic account still gives a usable profile. */
+    fun detailsFromBasic(p: ProfileInfo): ProfileDetails = ProfileDetails(
+        id = p.id,
+        username = p.username,
+        fullName = p.fullName,
+        picUrl = p.picUrl,
+        isPrivate = p.isPrivate,
+        isVerified = p.isVerified,
+        followers = p.followers,
+        following = p.following,
+        posts = p.posts,
+        bio = p.bio,
+        externalUrl = p.externalUrl,
+        bioLinks = if (p.externalUrl != null) listOf(BioLink("", p.externalUrl)) else emptyList(),
+        category = null,
+        pronouns = emptyList(),
+        isBusiness = false
+    )
+
+    /** Instagram's own explanation inside an error reply (`{"message": "...", "status": "fail"}`), if it gave one. */
+    fun parseErrorMessage(json: String): String? = try {
+        org.json.JSONObject(json).let { o -> text(o, "message").ifBlank { text(o, "error_title") } }.ifBlank { null }
+    } catch (e: Exception) {
+        null
+    }
+
+    /** A grid thumbnail: the smallest picture that is still sharp at roughly a third of the screen. */
+    private fun gridThumb(media: org.json.JSONObject): String? {
+        val candidates = media.optJSONObject("image_versions2")?.optJSONArray("candidates") ?: return null
+        var best: String? = null
+        var bestWidth = Int.MAX_VALUE
+        var widest: String? = null
+        var widestWidth = -1
+        for (i in 0 until candidates.length()) {
+            val c = candidates.optJSONObject(i) ?: continue
+            val url = text(c, "url").takeIf { it.startsWith("http") } ?: continue
+            val w = c.optInt("width", 0)
+            if (w >= 320 && w < bestWidth) { best = url; bestWidth = w }
+            if (w > widestWidth) { widest = url; widestWidth = w }
+        }
+        return best ?: widest
+    }
+
+    private fun postFrom(m: org.json.JSONObject): PostItem? {
+        val id = text(m, "pk").ifBlank { text(m, "id").substringBefore('_') }
+        if (id.isBlank()) return null
+        val code = text(m, "code").ifBlank { text(m, "shortcode") }.ifBlank { null }
+        val caption = captionOf(m)
+        val likes = m.optLong("like_count", -1L).takeIf { it >= 0 }
+        val comments = m.optLong("comment_count", -1L).takeIf { it >= 0 }
+        val plays = m.optLong("play_count", -1L).takeIf { it >= 0 } ?: m.optLong("view_count", -1L).takeIf { it >= 0 }
+        val taken = m.optLong("taken_at", 0L)
+
+        val slides = ArrayList<StoryItem>()
+        val carousel = m.optJSONArray("carousel_media")
+        if (carousel != null && carousel.length() > 0) {
+            for (i in 0 until carousel.length()) {
+                val child = carousel.optJSONObject(i) ?: continue
+                itemToStory(child)?.let { slides.add(it) }
+            }
+        } else {
+            itemToStory(m)?.let { slides.add(it) }
+        }
+        if (slides.isEmpty()) return null
+        // Slides carry the post's own details so the viewer can show them
+        val merged = slides.map {
+            it.copy(
+                code = code ?: it.code,
+                caption = caption ?: it.caption,
+                takenAtSec = if (it.takenAtSec > 0) it.takenAtSec else taken,
+                likes = likes ?: it.likes,
+                comments = comments ?: it.comments,
+                plays = plays ?: it.plays
+            )
+        }
+        val product = text(m, "product_type")
+        val kind = when {
+            merged.size > 1 || m.optInt("media_type", 0) == 8 || product == "carousel_container" -> PostKind.CAROUSEL
+            product == "clips" -> PostKind.REEL
+            merged[0].isVideo -> PostKind.VIDEO
+            else -> PostKind.PHOTO
+        }
+        return PostItem(
+            id = id,
+            code = code,
+            kind = kind,
+            thumbUrl = gridThumb(m) ?: merged[0].thumbnailUrl,
+            caption = caption,
+            likes = likes,
+            comments = comments,
+            plays = plays,
+            takenAtSec = taken,
+            isPinned = m.optJSONObject("timeline_pin_info") != null,
+            media = merged
+        )
+    }
+
+    /** Reply of `feed/user/<id>/` or `usertags/<id>/feed/`: a page of posts. */
+    fun parsePostsFeed(json: String): PostPage = try {
+        val o = org.json.JSONObject(json)
+        val arr = o.optJSONArray("items")
+        val items = ArrayList<PostItem>()
+        for (i in 0 until (arr?.length() ?: 0)) {
+            arr?.optJSONObject(i)?.let { postFrom(it) }?.let { items.add(it) }
+        }
+        val next = text(o, "next_max_id").ifBlank { null }
+        PostPage(items, if (o.optBoolean("more_available", false)) next else null)
+    } catch (e: Exception) {
+        PostPage(emptyList(), null)
+    }
+
+    /** Reply of `clips/user/`: a page of reels (each wrapped in a `media` object). */
+    fun parseClipsFeed(json: String): PostPage = try {
+        val o = org.json.JSONObject(json)
+        val arr = o.optJSONArray("items")
+        val items = ArrayList<PostItem>()
+        for (i in 0 until (arr?.length() ?: 0)) {
+            val entry = arr?.optJSONObject(i) ?: continue
+            (entry.optJSONObject("media") ?: entry).let { postFrom(it) }?.let { items.add(it) }
+        }
+        val paging = o.optJSONObject("paging_info")
+        val next = paging?.let { text(it, "max_id") }?.ifBlank { null }
+        val more = paging?.optBoolean("more_available", false) ?: false
+        PostPage(items, if (more) next else null)
+    } catch (e: Exception) {
+        PostPage(emptyList(), null)
+    }
+
+    /** Reply of `friendships/<id>/followers/` or `.../following/`. */
+    fun parsePeople(json: String): PersonPage = try {
+        val o = org.json.JSONObject(json)
+        val arr = o.optJSONArray("users")
+        val people = ArrayList<PersonRow>()
+        for (i in 0 until (arr?.length() ?: 0)) {
+            val u = arr?.optJSONObject(i) ?: continue
+            val id = text(u, "pk").ifBlank { text(u, "pk_id") }.ifBlank { text(u, "id") }
+            val name = text(u, "username")
+            if (id.isBlank() || name.isBlank()) continue
+            people.add(
+                PersonRow(
+                    id = id,
+                    username = name,
+                    fullName = text(u, "full_name"),
+                    picUrl = text(u, "profile_pic_url").takeIf { it.startsWith("http") },
+                    isVerified = u.optBoolean("is_verified", false),
+                    isPrivate = u.optBoolean("is_private", false)
+                )
+            )
+        }
+        PersonPage(people, text(o, "next_max_id").ifBlank { null })
+    } catch (e: Exception) {
+        PersonPage(emptyList(), null)
+    }
 }

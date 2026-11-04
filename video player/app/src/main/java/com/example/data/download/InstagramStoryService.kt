@@ -545,4 +545,142 @@ class InstagramStoryService(
             -1 to ""
         }
     }
+
+    // --- full profile: details, posts, reels, tagged, followers, following ---------------------------
+
+    private fun requireSession() {
+        val cookies = sessionCookies()
+        if (cookies == null || !cookies.contains("sessionid=")) {
+            throw LoginRequiredException("Sign in to Instagram to view profiles.")
+        }
+    }
+
+    /** One request for the profile screens, with the error handling they all share. Returns the reply text. */
+    private suspend fun profileRequest(url: String, method: String = "GET", body: String? = null): String {
+        val headers = if (method == "GET") {
+            mapOf("Accept" to "*/*", "X-IG-App-ID" to IG_APP_ID)
+        } else {
+            mapOf(
+                "Accept" to "*/*",
+                "X-IG-App-ID" to IG_APP_ID,
+                "Content-Type" to "application/x-www-form-urlencoded",
+                "X-CSRFToken" to "{csrf}"
+            )
+        }
+        val (code, text) = rawRequest(url, method, headers, body)
+        if (code == -1) throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+        if (text.contains("checkpoint_required") || text.contains("challenge_required")) {
+            throw VerificationRequiredException("Instagram wants to verify your account. Open the Instagram app, confirm it's you, then try again.")
+        }
+        if (code == 401 || text.contains("login_required")) {
+            throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
+        }
+        if (code == 429) throw DownloadException("Instagram says you're going too fast. Wait a minute, then try again.")
+        if (code !in 200..299) {
+            throw DownloadException(
+                InstagramParser.parseErrorMessage(text) ?: "Instagram answered HTTP $code (${InstagramParser.describeReply(text)})."
+            )
+        }
+        return text
+    }
+
+    /** The whole profile header: photo, name, bio, links, counts. Falls back to what a plain lookup knows. */
+    suspend fun profileDetails(username: String): ProfileDetails = withContext(Dispatchers.IO) {
+        val cookies = sessionCookies()
+        if (cookies == null || !cookies.contains("sessionid=")) {
+            throw LoginRequiredException("Sign in to Instagram to view profiles.")
+        }
+        val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
+        val base = try {
+            lookupProfile(username, cookies, csrf)
+        } catch (e: IOException) {
+            throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
+        }
+
+        var rich: ProfileDetails? = null
+        val urls = listOf(
+            "$MOBILE_BASE/api/v1/users/${enc(base.id)}/info/",
+            "$WEB_BASE/api/v1/users/web_profile_info/?username=${enc(base.username.ifBlank { username })}"
+        )
+        for (url in urls) {
+            val reply = try {
+                profileRequest(url)
+            } catch (e: LoginRequiredException) {
+                throw e
+            } catch (e: VerificationRequiredException) {
+                throw e
+            } catch (e: DownloadException) {
+                continue
+            }
+            rich = if (url.contains("web_profile_info")) InstagramParser.parseProfileDetailsWeb(reply) else InstagramParser.parseProfileDetails(reply)
+            if (rich != null) break
+        }
+
+        val basic = InstagramParser.detailsFromBasic(base)
+        val found = rich ?: return@withContext basic
+        found.copy(
+            username = found.username.ifBlank { basic.username },
+            fullName = found.fullName.ifBlank { basic.fullName },
+            picUrl = found.picUrl ?: basic.picUrl,
+            followers = found.followers ?: basic.followers,
+            following = found.following ?: basic.following,
+            posts = found.posts ?: basic.posts,
+            bio = found.bio.ifBlank { basic.bio },
+            bioLinks = if (found.bioLinks.isNotEmpty()) found.bioLinks else basic.bioLinks,
+            isPrivate = found.isPrivate || basic.isPrivate,
+            isVerified = found.isVerified || basic.isVerified
+        )
+    }
+
+    /** True if the account has stories right now (so the photo gets its colourful ring). Never throws. */
+    suspend fun hasStories(userId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val reply = profileRequest("$MOBILE_BASE/api/v1/feed/reels_media/?reel_ids=${enc(userId)}")
+            InstagramParser.parseStoryItemsForOwner(reply, "", userId, null).isNotEmpty()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** One page of a profile's Posts, Reels or Tagged grid. Pass the previous page's cursor to get the next one. */
+    suspend fun postsPage(userId: String, username: String, tab: PostsTab, cursor: String?): PostPage = withContext(Dispatchers.IO) {
+        requireSession()
+        val cursorPart = if (cursor != null) "&max_id=${enc(cursor)}" else ""
+        when (tab) {
+            PostsTab.POSTS -> {
+                val reply = try {
+                    profileRequest("$MOBILE_BASE/api/v1/feed/user/${enc(userId)}/?count=18$cursorPart")
+                } catch (e: LoginRequiredException) {
+                    throw e
+                } catch (e: VerificationRequiredException) {
+                    throw e
+                } catch (e: DownloadException) {
+                    // The website's own route for the same list
+                    profileRequest("$WEB_BASE/api/v1/feed/user/${enc(username)}/username/?count=18$cursorPart")
+                }
+                InstagramParser.parsePostsFeed(reply)
+            }
+
+            PostsTab.REELS -> {
+                val body = "target_user_id=${enc(userId)}&page_size=12&include_feed_video=true$cursorPart"
+                InstagramParser.parseClipsFeed(profileRequest("$MOBILE_BASE/api/v1/clips/user/", "POST", body))
+            }
+
+            PostsTab.TAGGED -> {
+                InstagramParser.parsePostsFeed(profileRequest("$MOBILE_BASE/api/v1/usertags/${enc(userId)}/feed/?count=18$cursorPart"))
+            }
+        }
+    }
+
+    /** One page (50) of someone's followers or following list. */
+    suspend fun peoplePage(userId: String, followers: Boolean, cursor: String?): PersonPage = withContext(Dispatchers.IO) {
+        requireSession()
+        val list = if (followers) "followers" else "following"
+        val cursorPart = if (cursor != null) "&max_id=${enc(cursor)}" else ""
+        InstagramParser.parsePeople(
+            profileRequest("$MOBILE_BASE/api/v1/friendships/${enc(userId)}/$list/?count=50&search_surface=follow_list_page$cursorPart")
+        )
+    }
 }

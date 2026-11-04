@@ -138,7 +138,12 @@ fun DownloaderScreen(
     modifier: Modifier = Modifier
 ) {
     // Leaving the page by any route (back button, swipe) clears the "open" flag
-    DisposableEffect(Unit) { onDispose { viewModel.closeDownloader() } }
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.profile.close()
+            viewModel.closeDownloader()
+        }
+    }
 
     // Instagram's own sign-in runs on its own screen (a plain web view renders reliably there)
     val loginLauncher = rememberLauncherForActivityResult(
@@ -474,6 +479,15 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
             onClose = { viewer = null }
         )
     }
+
+    // The full Instagram-style profile floats above everything on this screen
+    ProfileOverlay(
+        controller = viewModel.profile,
+        savedPeople = uiState.people,
+        onSavePerson = { viewModel.savePerson(it) },
+        onRemovePerson = { viewModel.removePerson(it) },
+        onSignIn = { viewModel.openIgLogin() }
+    )
 }
 
 @Composable
@@ -981,7 +995,7 @@ private fun MediaViewerDialog(
 }
 
 @Composable
-private fun ViewerVideo(url: String) {
+internal fun ViewerVideo(url: String) {
     val context = LocalContext.current
     val player = remember(url) {
         ExoPlayer.Builder(context).build().apply {
