@@ -97,6 +97,15 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 3. Open it and allow *"Install from this source"* if Android asks.
 4. Launch OffScroll and grant access to your videos.
 
+### 🧩 Optional: OffScroll Engine (YouTube, TikTok, Facebook… about 50 MB)
+
+OffScroll itself is small (about 10 MB) and handles Instagram reels, stories and your own videos. Saving from **YouTube, Facebook, Snapchat, TikTok, X, Reddit, Vimeo and 1000+ more sites** needs yt-dlp, Python and ffmpeg, which live in a separate, optional app so everyone else doesn't have to carry them:
+
+1. Open the **Any link** tab in OffScroll and tap **Download and install engine** (or download **`OffScroll-Engine.apk`** from the same release yourself).
+2. Tap **Install** in Android's installer, then come back to OffScroll. Nothing else to set up.
+
+The two apps are always released together and signed with the same key, which is what lets them talk to each other (and nobody else can use the engine). Videos still end up in `Movies/OffScroll` and in your feed. If a site stops working, tap **Update engine** in the Any link tab; that fetches the newest yt-dlp without a new app version.
+
 > [!NOTE]
 > The APK is **debug-signed**, so Android may show an "unknown app" warning. That's expected for apps installed outside the Play Store.
 
@@ -169,7 +178,7 @@ gradle :app:assembleDebug
 
 ### 🤖 Automatic APK builds
 
-Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds an **R8-optimised, release-signed** APK and replaces the **`latest`** release with a fresh `OffScroll.apk`, so the newest build is always one tap away from the repo's front page.
+Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds an **R8-optimised, release-signed** `OffScroll.apk` plus the optional `OffScroll-Engine.apk`, and replaces the **`latest`** release with both, so the newest build is always one tap away from the repo's front page.
 
 ## 📁 Project layout
 
@@ -182,6 +191,12 @@ video player/app/src/main/java/com/example/
 │   ├── viewmodel/   VideoFeedViewModel (feed state, filters, search engine, playback)
 │   └── model/       Filters, sort options, display modes
 └── MainActivity.kt  Permission flow, PiP, app entry point
+
+video player/engine/src/main/java/com/example/engine/   (the optional OffScroll Engine app)
+├── EngineCore.kt      yt-dlp + ffmpeg: look a link up, download it, update yt-dlp
+├── EngineService.kt   Bound service the main app talks to (signature-protected)
+├── EngineProtocol.kt  The messages exchanged (a twin copy lives in the main app)
+└── EngineActivity.kt  A tiny info / "update yt-dlp" page
 ```
 
 ## 🗺️ Ideas for later

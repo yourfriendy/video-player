@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build & publish APK
+    name: Build & publish APKs
     runs-on: ubuntu-24.04
     timeout-minutes: 40
 
@@ -43,7 +43,7 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Run unit tests (Instagram parsing, update checker, any-link downloader)
+      - name: Run unit tests (Instagram parsing, update checker, any-link downloader and engine messages)
         working-directory: video player
         run: |
           set -o pipefail
@@ -73,11 +73,11 @@ jobs:
             echo "KEY_ALIAS=upload"
           } >> "$GITHUB_ENV"
 
-      - name: Build release APK (R8-optimised)
+      - name: Build release APKs (OffScroll, R8-optimised, and the optional OffScroll Engine)
         working-directory: video player
         run: |
           set -o pipefail
-          gradle :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          gradle :app:assembleRelease :engine:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Surface build errors as annotations
         if: failure()
@@ -89,14 +89,19 @@ jobs:
             echo "::error title=Build errors::no build.log (failed before the Gradle step)"
           fi
 
-      - name: Name the APK
-        run: cp "video player/app/build/outputs/apk/release/app-release.apk" OffScroll.apk
+      - name: Name the APKs
+        run: |
+          cp "video player/app/build/outputs/apk/release/app-release.apk" OffScroll.apk
+          cp "video player/engine/build/outputs/apk/release/engine-release.apk" OffScroll-Engine.apk
+          ls -l OffScroll.apk OffScroll-Engine.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: OffScroll-apk
-          path: OffScroll.apk
+          path: |
+            OffScroll.apk
+            OffScroll-Engine.apk
 
       - name: Branch build (public release left untouched)
         if: github.ref != 'refs/heads/main'
@@ -115,6 +120,10 @@ jobs:
 
           Install **OffScroll.apk** on your Android phone (Android 7.0+).
 
+          Want to save from YouTube, Facebook, TikTok, Snapchat, X and 1000+ more sites? Also install
+          **OffScroll-Engine.apk** (about 50 MB), or tap "Download and install engine" on the Any link tab
+          inside OffScroll. It is optional: OffScroll itself stays small without it.
+
           - Build number: ${GITHUB_RUN_NUMBER}
           - Commit: \`${SHORT_SHA}\`
           - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
@@ -123,7 +132,7 @@ jobs:
           sed -i 's/^          //' release-notes.md
 
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest OffScroll.apk \
+          gh release create latest OffScroll.apk OffScroll-Engine.apk \
             --title "OffScroll – latest build" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA" \

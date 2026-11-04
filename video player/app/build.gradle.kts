@@ -1,12 +1,9 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
 }
 
 android {
@@ -23,9 +20,8 @@ android {
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-    // The yt-dlp engine ships Python + ffmpeg per CPU type (~50 MB each). 64-bit ARM covers
-    // practically every phone made since 2017; add "armeabi-v7a" here for very old 32-bit phones.
-    ndk { abiFilters.add("arm64-v8a") }
+    // The 50 MB yt-dlp / Python / ffmpeg engine is no longer in this app: it is the separate, optional
+    // ":engine" module (OffScroll Engine), which keeps this APK small.
   }
 
   signingConfigs {
@@ -63,10 +59,6 @@ android {
     compose = true
     buildConfig = true
   }
-  packaging {
-    // The yt-dlp engine's Python and ffmpeg are stored as native libraries and unpacked at runtime
-    jniLibs { useLegacyPackaging = true }
-  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
@@ -82,13 +74,12 @@ secrets {
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
 }
 
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
-
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
+  // implementation(platform(libs.firebase.bom))  // Firebase is no longer used
+
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -111,16 +102,20 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.coil.video)
-  implementation(libs.youtubedl.android.library)
-  implementation(libs.youtubedl.android.ffmpeg)
+  // implementation(libs.youtubedl.android.library)  // moved to the :engine module
+
+  // implementation(libs.youtubedl.android.ffmpeg)  // moved to the :engine module
+
   implementation(libs.androidx.webkit)
   implementation(libs.androidx.work)
   implementation(libs.okhttp)
   implementation(libs.androidx.media3.exoplayer)
   implementation(libs.androidx.media3.ui)
   implementation(libs.androidx.media3.common)
-  implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
+  // implementation(libs.converter.moshi)  // unused
+
+  // implementation(libs.firebase.ai)  // unused
+
   // Uncomment to use Firestore:
   // implementation(libs.firebase.firestore)
 
@@ -130,15 +125,19 @@ dependencies {
   // implementation(libs.androidx.credentials)
   // implementation(libs.androidx.credentials.play.services)
   // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
+  // implementation(libs.firebase.appcheck.recaptcha)  // unused
+
+  // implementation(libs.firebase.appcheck.debug)  // unused
+
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
-  implementation(libs.okhttp)
+  // implementation(libs.logging.interceptor)  // unused
+
+  // implementation(libs.moshi.kotlin)  // unused
+
   // implementation(libs.play.services.location)
-  implementation(libs.retrofit)
+  // implementation(libs.retrofit)  // unused
+
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -158,5 +157,6 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
+  // "ksp"(libs.moshi.kotlin.codegen)  // unused (no Moshi classes)
+
 }

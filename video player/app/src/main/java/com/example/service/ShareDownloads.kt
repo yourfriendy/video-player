@@ -12,6 +12,7 @@ import com.example.data.universal.Platforms
 import com.example.data.universal.ProgressMapper
 import com.example.data.universal.UniversalDownloader
 import com.example.data.universal.UniversalException
+import com.example.data.universal.engine.EngineMissingException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -139,6 +140,13 @@ object ShareDownloads {
             _state.value = State.Choose(info, option.id)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: EngineMissingException) {
+            // The optional engine isn't installed: the full app has the one-tap install
+            _state.value = State.Failed(
+                (e.message ?: "The download engine isn't installed.") + " Open OffScroll to install it.",
+                platform,
+                FailAction.OpenApp
+            )
         } catch (e: UniversalException) {
             _state.value = State.Failed(
                 e.message ?: "Something went wrong.",
@@ -199,6 +207,8 @@ object ShareDownloads {
                 onSaved(app, title, platform, thumbnail, uri)
             } catch (e: CancellationException) {
                 throw e // cancel() has already reset the pop-up
+            } catch (e: EngineMissingException) {
+                onFailed(app, e.message ?: "The download engine isn't installed.", platform, FailAction.OpenApp)
             } catch (e: UniversalException) {
                 onFailed(
                     app,

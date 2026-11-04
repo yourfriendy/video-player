@@ -2,6 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        The optional OffScroll Engine app (yt-dlp, about 50 MB) does the "Any link" downloads. Only apps signed with
+        the same key may use it; both apps declare this same permission so install order doesn't matter.
+    -->
+    <permission
+        android:name="com.aistudio.offscroll.permission.USE_ENGINE"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.aistudio.offscroll.permission.USE_ENGINE" />
+
+    <!-- Android 11+: lets OffScroll see whether the engine app is installed -->
+    <queries>
+        <package android:name="com.aistudio.offscroll.engine" />
+    </queries>
+
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lets the user exempt OffScroll from battery optimisation so story alerts keep running when the app is closed -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -19,7 +33,6 @@
     <application
         android:name=".OffScrollApp"
         android:allowBackup="true"
-        android:extractNativeLibs="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

@@ -42,6 +42,18 @@ class UpdateParserTest {
     }
 
     @Test
+    fun engineApkInTheSameReleaseNeverReplacesTheAppApk() {
+        val engineFirst = UpdateParser.parseLatestRelease(
+            release(notes, asset("OffScroll-Engine.apk"), asset("OffScroll.apk"))
+        )!!
+        assertEquals("https://example.com/OffScroll.apk", engineFirst.apkUrl)
+        val appFirst = UpdateParser.parseLatestRelease(
+            release(notes, asset("OffScroll.apk"), asset("OffScroll-Engine.apk"))
+        )!!
+        assertEquals("https://example.com/OffScroll.apk", appFirst.apkUrl)
+    }
+
+    @Test
     fun prefersOffScrollApkWhenSeveralApksAreAttached() {
         val info = UpdateParser.parseLatestRelease(
             release(notes, asset("other.apk"), asset("OffScroll.apk"), asset("notes.txt"))

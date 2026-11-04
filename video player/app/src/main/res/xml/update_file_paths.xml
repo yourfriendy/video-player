@@ -2,4 +2,6 @@
 <paths>
     <!-- AppUpdateService downloads OffScroll-<build>.apk into cacheDir/updates -->
     <cache-path name="updates" path="updates/" />
+    <!-- EngineManager downloads OffScroll-Engine.apk into cacheDir/engine -->
+    <cache-path name="engine" path="engine/" />
 </paths>

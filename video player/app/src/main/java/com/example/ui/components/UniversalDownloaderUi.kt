@@ -1,5 +1,15 @@
 package com.example.ui.components
 
+import com.example.ui.viewmodel.EngineStatus
+import com.example.data.universal.engine.EngineManager
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.runtime.DisposableEffect
+import android.net.Uri
+import android.content.Intent
 import android.Manifest
 import android.content.Context
 import android.content.ContextWrapper
@@ -74,10 +84,125 @@ private val SupportedApps = listOf(
     "YouTube", "Facebook", "Snapchat", "TikTok", "X", "Reddit", "Pinterest", "Vimeo", "+1000 more"
 )
 
-/** The "Any link" tab of the downloader sheet. */
+/**
+ * The "Any link" tab of the downloader sheet. The yt-dlp engine behind it is a separate, optional app
+ * (about 50 MB), so until it is installed this tab shows a one-tap install card instead.
+ */
 @Composable
 fun UniversalContent(feedViewModel: VideoFeedViewModel) {
     val vm = rememberUniversalViewModel()
+    val status by vm.engineStatus.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Coming back from Android's installer: pick up that the engine is there now
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.refreshEngineStatus()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (status is EngineStatus.Installed) {
+        UniversalBody(feedViewModel, vm)
+    } else {
+        EngineInstallCard(
+            status = status,
+            onInstall = { vm.installEngine() },
+            onOpenGitHub = {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(EngineManager.RELEASE_PAGE)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
+        )
+    }
+}
+
+/** Shown instead of the downloader until the optional engine app is installed (or after it needs an update). */
+@Composable
+private fun EngineInstallCard(status: EngineStatus, onInstall: () -> Unit, onOpenGitHub: () -> Unit) {
+    val shape = RoundedCornerShape(24.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0x24FFFFFF), Color(0x0DFFFFFF))))
+            .border(1.dp, UBorder, shape)
+            .padding(20.dp)
+            .testTag("engine_install_card"),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0xFFEC4899), Color(0xFF8B5CF6)))),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Extension, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = if (status is EngineStatus.Outdated) "Update the download engine" else "Add the download engine",
+            color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = when (status) {
+                is EngineStatus.Outdated -> status.message
+                else -> "Saving from YouTube, Facebook, TikTok, Snapchat, X, Reddit and 1000+ more sites needs a small " +
+                    "add-on app (about 50 MB). It keeps OffScroll itself light, and Instagram reels and stories work without it."
+            },
+            color = UMuted, fontSize = 13.sp, lineHeight = 19.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        SupportedAppsRow()
+        Spacer(modifier = Modifier.height(18.dp))
+
+        when (status) {
+            is EngineStatus.Downloading -> BusyCard(
+                label = "Downloading engine… ${(status.progress * 100).roundToInt()}%",
+                progress = status.progress,
+                onCancel = null
+            )
+
+            is EngineStatus.Installing -> MessageCard(
+                icon = Icons.Default.CheckCircle,
+                tint = UCyan,
+                text = if (status.needsPermission) {
+                    "Allow installs from OffScroll on the screen that just opened, come back, and tap Install again."
+                } else {
+                    "Tap Install in the Android installer, then come back here."
+                }
+            )
+
+            is EngineStatus.Failed -> Column {
+                MessageCard(icon = Icons.Default.ErrorOutline, tint = URose, text = status.message)
+                Spacer(modifier = Modifier.height(12.dp))
+                GradientButton(text = "Try again", icon = Icons.Default.Refresh, onClick = onInstall)
+            }
+
+            else -> GradientButton(
+                text = if (status is EngineStatus.Outdated) "Update engine" else "Download and install engine",
+                icon = Icons.Default.Download,
+                onClick = onInstall,
+                modifier = Modifier.testTag("engine_install_button")
+            )
+        }
+        if (status !is EngineStatus.Downloading) {
+            Spacer(modifier = Modifier.height(10.dp))
+            TextButton(onClick = onOpenGitHub) {
+                Text("Open GitHub page", color = UMuted, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun UniversalBody(feedViewModel: VideoFeedViewModel, vm: UniversalDownloadViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     val input by vm.input.collectAsStateWithLifecycle()
     val engine by vm.engineVersion.collectAsStateWithLifecycle()

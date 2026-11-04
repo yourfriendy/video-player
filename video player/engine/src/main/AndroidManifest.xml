@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        Only apps signed with the same key as this one (the main OffScroll app) can use the engine.
+        The main app declares the very same permission, so it doesn't matter which one is installed first.
+    -->
+    <permission
+        android:name="com.aistudio.offscroll.permission.USE_ENGINE"
+        android:protectionLevel="signature" />
+
+    <application
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <activity
+            android:name=".EngineActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".EngineService"
+            android:exported="true"
+            android:permission="com.aistudio.offscroll.permission.USE_ENGINE" />
+
+        <!-- Hands a finished download to the main app (it gets read access to that one file) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.handoff"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/handoff_paths" />
+        </provider>
+    </application>
+
+</manifest>
