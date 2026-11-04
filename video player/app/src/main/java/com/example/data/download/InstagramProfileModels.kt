@@ -55,3 +55,6 @@ data class PersonRow(
 )
 
 data class PersonPage(val people: List<PersonRow>, val nextCursor: String?)
+
+/** A profile's header plus the first posts that arrived with the page. */
+data class ProfilePageData(val details: ProfileDetails, val posts: List<PostItem>)

@@ -984,4 +984,114 @@ object InstagramParser {
     } catch (e: Exception) {
         PersonPage(emptyList(), null)
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Reading whatever the profile pages send: accounts and posts "anywhere" in a reply
+    // ------------------------------------------------------------------------------------------
+
+    private fun detailsScore(d: ProfileDetails): Int =
+        (if (d.followers != null) 4 else 0) + (if (d.following != null) 1 else 0) + (if (d.posts != null) 1 else 0) +
+            (if (d.picUrl != null) 2 else 0) + (if (d.bio.isNotBlank()) 2 else 0) + (if (d.fullName.isNotBlank()) 1 else 0) +
+            d.bioLinks.size
+
+    /** The one with more information. */
+    fun betterDetails(a: ProfileDetails?, b: ProfileDetails?): ProfileDetails? = when {
+        a == null -> b
+        b == null -> a
+        detailsScore(b) > detailsScore(a) -> b
+        else -> a
+    }
+
+    /** The fullest account object for [username] found anywhere in a reply (any shape Instagram uses). */
+    fun parseDetailsDeep(json: String, username: String): ProfileDetails? {
+        val root = parseAny(json) ?: return null
+        var best: ProfileDetails? = null
+        walk(root) { obj ->
+            if (text(obj, "username").equals(username, ignoreCase = true)) {
+                best = betterDetails(best, profileDetailsFrom(obj))
+            }
+        }
+        return best
+    }
+
+    /** A post in the website's older GraphQL shape (`shortcode`, `display_url`, `edge_*`). */
+    private fun postFromWebNode(n: org.json.JSONObject): PostItem? {
+        val id = text(n, "id")
+        val code = text(n, "shortcode")
+        if (id.isBlank() || code.isBlank()) return null
+        val caption = n.optJSONObject("edge_media_to_caption")?.optJSONArray("edges")?.optJSONObject(0)
+            ?.optJSONObject("node")?.let { text(it, "text") }?.ifBlank { null }
+        val likes = (n.optJSONObject("edge_media_preview_like") ?: n.optJSONObject("edge_liked_by"))
+            ?.optLong("count", -1L)?.takeIf { it >= 0 }
+        val comments = (n.optJSONObject("edge_media_to_comment") ?: n.optJSONObject("edge_media_preview_comment"))
+            ?.optLong("count", -1L)?.takeIf { it >= 0 }
+        val plays = n.optLong("video_view_count", -1L).takeIf { it >= 0 }
+        val taken = n.optLong("taken_at_timestamp", 0L)
+
+        fun slide(node: org.json.JSONObject): StoryItem? {
+            val display = text(node, "display_url")
+            if (!display.startsWith("http")) return null
+            val video = node.optBoolean("is_video", false)
+            val videoUrl = text(node, "video_url")
+            val sid = text(node, "id").ifBlank { id }
+            return StoryItem(
+                id = sid,
+                isVideo = video,
+                mediaUrl = if (video && videoUrl.startsWith("http")) videoUrl else display,
+                thumbnailUrl = display,
+                takenAtSec = taken,
+                caption = caption,
+                code = code,
+                likes = likes,
+                comments = comments,
+                plays = plays,
+                // A video whose address wasn't in the list reply has to be looked up before it can play or save
+                needsResolve = video && !videoUrl.startsWith("http")
+            )
+        }
+
+        val children = n.optJSONObject("edge_sidecar_to_children")?.optJSONArray("edges")
+        val slides = ArrayList<StoryItem>()
+        if (children != null && children.length() > 0) {
+            for (i in 0 until children.length()) children.optJSONObject(i)?.optJSONObject("node")?.let { slide(it) }?.let { slides.add(it) }
+        } else {
+            slide(n)?.let { slides.add(it) }
+        }
+        if (slides.isEmpty()) return null
+        val kind = when {
+            slides.size > 1 -> PostKind.CAROUSEL
+            text(n, "product_type") == "clips" -> PostKind.REEL
+            slides[0].isVideo -> PostKind.VIDEO
+            else -> PostKind.PHOTO
+        }
+        return PostItem(
+            id = id, code = code, kind = kind, thumbUrl = text(n, "display_url").takeIf { it.startsWith("http") },
+            caption = caption, likes = likes, comments = comments, plays = plays, takenAtSec = taken,
+            isPinned = n.optJSONArray("pinned_for_users")?.let { it.length() > 0 } ?: false, media = slides
+        )
+    }
+
+    /**
+     * Every post found anywhere in a reply. [owner], when given, keeps only that account's own posts
+     * (so "suggested" content on the same page is left out).
+     */
+    fun parsePostsDeep(json: String, owner: String?): List<PostItem> {
+        val root = parseAny(json) ?: return emptyList()
+        val out = ArrayList<PostItem>()
+        walk(root) { obj ->
+            val hasCode = text(obj, "code").isNotBlank() || text(obj, "shortcode").isNotBlank()
+            if (hasCode) {
+                val looksV1 = obj.has("image_versions2") || obj.has("video_versions") || obj.has("carousel_media")
+                val looksWeb = obj.has("display_url") && obj.has("shortcode")
+                if (looksV1 || looksWeb) {
+                    val by = (obj.optJSONObject("user") ?: obj.optJSONObject("owner"))?.let { text(it, "username") }.orEmpty()
+                    if (owner == null || by.isBlank() || by.equals(owner, ignoreCase = true)) {
+                        val post = if (looksV1) postFrom(obj) else postFromWebNode(obj)
+                        if (post != null) out.add(post)
+                    }
+                }
+            }
+        }
+        return out
+    }
 }

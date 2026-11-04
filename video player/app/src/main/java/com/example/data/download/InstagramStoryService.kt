@@ -52,6 +52,21 @@ class InstagramStoryService(
         /** Instagram's public web-app id (sent by the website itself on every request). */
         private const val IG_APP_ID = "936619743392459"
 
+        /** Scrolls the list inside Instagram's followers / following pop-up (the page behind it doesn't move). */
+        private const val DIALOG_SCROLL = """
+            (function () {
+              var best = null;
+              var els = document.querySelectorAll('div');
+              for (var i = 0; i < els.length; i++) {
+                var e = els[i];
+                var oy = getComputedStyle(e).overflowY;
+                if ((oy === 'auto' || oy === 'scroll') && e.scrollHeight > e.clientHeight + 20 && e.closest('[role="dialog"]')) best = e;
+              }
+              if (best) { best.scrollTop = best.scrollHeight; best.dispatchEvent(new Event('scroll')); }
+              window.scrollTo(0, document.body.scrollHeight);
+            })();
+        """
+
         fun sessionCookies(): String? = try {
             CookieManager.getInstance().getCookie(WEB_BASE)
         } catch (e: Exception) {
@@ -547,6 +562,10 @@ class InstagramStoryService(
     }
 
     // --- full profile: details, posts, reels, tagged, followers, following ---------------------------
+    //
+    // Instagram answers direct calls for these with 404s. So, like the Reposts tab, the real page is opened in
+    // the hidden browser and the replies that the page itself asks for are read (the page's own headers and
+    // tokens are all in place, and we never click anything).
 
     private fun requireSession() {
         val cookies = sessionCookies()
@@ -555,7 +574,56 @@ class InstagramStoryService(
         }
     }
 
-    /** One request for the profile screens, with the error handling they all share. Returns the reply text. */
+    private fun profilePageUrl(username: String, suffix: String = ""): String = "$WEB_BASE/${enc(username)}/$suffix"
+
+    /** What the hidden page received, in a few words, for error messages. */
+    private fun seenSummary(replies: List<IgPageCapture.Captured>, note: String?): String {
+        val seen = replies.take(6).joinToString("; ") {
+            it.url.substringBefore('?').substringAfter("instagram.com").take(40) + " -> HTTP ${it.status}"
+        }
+        return listOfNotNull(note, seen.takeIf { it.isNotBlank() }?.let { "The page received: $it" }).joinToString(". ").let {
+            if (it.isBlank()) "" else "($it)"
+        }
+    }
+
+    /** Reads each new reply once, keeping the account details and posts found so far. Safe to call from any thread. */
+    private class PostHarvest(private val owner: String?, private val username: String?) {
+        private var seen = 0
+        private val posts = LinkedHashMap<String, PostItem>()
+        var details: ProfileDetails? = null
+            private set
+
+        @Synchronized
+        fun feed(replies: List<IgPageCapture.Captured>): List<PostItem> {
+            while (seen < replies.size) {
+                val reply = replies[seen++]
+                if (reply.status !in 200..299) continue
+                if (username != null) {
+                    details = InstagramParser.betterDetails(details, InstagramParser.parseDetailsDeep(reply.body, username))
+                }
+                for (post in InstagramParser.parsePostsDeep(reply.body, owner)) posts.putIfAbsent(post.id, post)
+            }
+            return posts.values.toList()
+        }
+    }
+
+    /** Same idea for followers / following lists: only the replies of the list request count. */
+    private class PeopleHarvest(private val pathPart: String) {
+        private var seen = 0
+        private val people = LinkedHashMap<String, PersonRow>()
+
+        @Synchronized
+        fun feed(replies: List<IgPageCapture.Captured>): List<PersonRow> {
+            while (seen < replies.size) {
+                val reply = replies[seen++]
+                if (reply.status !in 200..299 || !reply.url.contains(pathPart, ignoreCase = true)) continue
+                for (person in InstagramParser.parsePeople(reply.body).people) people.putIfAbsent(person.id, person)
+            }
+            return people.values.toList()
+        }
+    }
+
+    /** One request for the profile screens, with the error handling they share. Returns the reply text. */
     private suspend fun profileRequest(url: String, method: String = "GET", body: String? = null): String {
         val headers = if (method == "GET") {
             mapOf("Accept" to "*/*", "X-IG-App-ID" to IG_APP_ID)
@@ -584,19 +652,39 @@ class InstagramStoryService(
         return text
     }
 
-    /** The whole profile header: photo, name, bio, links, counts. Falls back to what a plain lookup knows. */
-    suspend fun profileDetails(username: String): ProfileDetails = withContext(Dispatchers.IO) {
-        val cookies = sessionCookies()
-        if (cookies == null || !cookies.contains("sessionid=")) {
-            throw LoginRequiredException("Sign in to Instagram to view profiles.")
+    /**
+     * The profile header (photo, name, bio, links, counts) and the first posts, read from the real profile page.
+     * If the page gives nothing usable, falls back to the plain account lookups.
+     */
+    suspend fun profilePage(username: String): ProfilePageData = withContext(Dispatchers.IO) {
+        requireSession()
+        val harvest = PostHarvest(owner = username, username = username)
+        var settled = 0
+        val result = pageCapture.capture(profilePageUrl(username), timeoutMs = 30_000L) { replies, tick ->
+            val posts = harvest.feed(replies)
+            val ready = harvest.details?.followers != null
+            if (tick && ready) settled++
+            // The header is in; give the first posts a few seconds more to arrive
+            ready && (settled >= 3 || posts.size >= 12)
         }
+        val posts = harvest.feed(result.replies)
+        val details = harvest.details ?: directDetails(username, seenSummary(result.replies, result.pageNote))
+        ProfilePageData(details, posts)
+    }
+
+    /** The plain lookups (no page): less detail, but works when the page can't be read. */
+    private suspend fun directDetails(username: String, pageSummary: String): ProfileDetails {
+        val cookies = sessionCookies() ?: throw LoginRequiredException("Sign in to Instagram to view profiles.")
         val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
         val base = try {
             lookupProfile(username, cookies, csrf)
+        } catch (e: VerificationRequiredException) {
+            throw e
+        } catch (e: DownloadException) {
+            throw DownloadException((e.message ?: "Couldn't find @$username.") + (if (pageSummary.isNotBlank()) "\n\n$pageSummary" else ""))
         } catch (e: IOException) {
             throw DownloadException("Couldn't reach Instagram. Check your internet connection and try again.")
         }
-
         var rich: ProfileDetails? = null
         val urls = listOf(
             "$MOBILE_BASE/api/v1/users/${enc(base.id)}/info/",
@@ -615,10 +703,9 @@ class InstagramStoryService(
             rich = if (url.contains("web_profile_info")) InstagramParser.parseProfileDetailsWeb(reply) else InstagramParser.parseProfileDetails(reply)
             if (rich != null) break
         }
-
         val basic = InstagramParser.detailsFromBasic(base)
-        val found = rich ?: return@withContext basic
-        found.copy(
+        val found = rich ?: return basic
+        return found.copy(
             username = found.username.ifBlank { basic.username },
             fullName = found.fullName.ifBlank { basic.fullName },
             picUrl = found.picUrl ?: basic.picUrl,
@@ -644,43 +731,83 @@ class InstagramStoryService(
         }
     }
 
-    /** One page of a profile's Posts, Reels or Tagged grid. Pass the previous page's cursor to get the next one. */
-    suspend fun postsPage(userId: String, username: String, tab: PostsTab, cursor: String?): PostPage = withContext(Dispatchers.IO) {
+    /**
+     * A profile's Posts, Reels or Tagged grid: opens that page, keeps scrolling so Instagram's own page loads
+     * more, and hands over everything read so far through [onPartial] as it arrives. Stops at [limit], or when
+     * nothing new comes. Returns all posts read. Run it again with a bigger [limit] to go further.
+     */
+    suspend fun postsCapture(
+        username: String,
+        tab: PostsTab,
+        limit: Int,
+        expectPosts: Boolean,
+        onPartial: (List<PostItem>) -> Unit
+    ): List<PostItem> = withContext(Dispatchers.IO) {
         requireSession()
-        val cursorPart = if (cursor != null) "&max_id=${enc(cursor)}" else ""
-        when (tab) {
-            PostsTab.POSTS -> {
-                val reply = try {
-                    profileRequest("$MOBILE_BASE/api/v1/feed/user/${enc(userId)}/?count=18$cursorPart")
-                } catch (e: LoginRequiredException) {
-                    throw e
-                } catch (e: VerificationRequiredException) {
-                    throw e
-                } catch (e: DownloadException) {
-                    // The website's own route for the same list
-                    profileRequest("$WEB_BASE/api/v1/feed/user/${enc(username)}/username/?count=18$cursorPart")
-                }
-                InstagramParser.parsePostsFeed(reply)
-            }
-
-            PostsTab.REELS -> {
-                val body = "target_user_id=${enc(userId)}&page_size=12&include_feed_video=true$cursorPart"
-                InstagramParser.parseClipsFeed(profileRequest("$MOBILE_BASE/api/v1/clips/user/", "POST", body))
-            }
-
-            PostsTab.TAGGED -> {
-                InstagramParser.parsePostsFeed(profileRequest("$MOBILE_BASE/api/v1/usertags/${enc(userId)}/feed/?count=18$cursorPart"))
-            }
+        val suffix = when (tab) {
+            PostsTab.POSTS -> ""
+            PostsTab.REELS -> "reels/"
+            PostsTab.TAGGED -> "tagged/"
         }
+        val harvest = PostHarvest(owner = if (tab == PostsTab.TAGGED) null else username, username = null)
+        var lastCount = 0
+        var stalls = 0
+        val result = pageCapture.capture(profilePageUrl(username, suffix), timeoutMs = 90_000L, autoScroll = true) { replies, tick ->
+            val posts = harvest.feed(replies)
+            if (posts.size != lastCount) {
+                lastCount = posts.size
+                stalls = 0
+                onPartial(posts)
+            } else if (tick) {
+                stalls++
+            }
+            posts.size >= limit || (posts.isNotEmpty() && stalls >= 6) || (posts.isEmpty() && stalls >= 12)
+        }
+        val posts = harvest.feed(result.replies)
+        if (posts.isEmpty() && expectPosts) {
+            throw DownloadException("Instagram didn't send any ${suffix.trim('/').ifBlank { "posts" }} for @$username. ${seenSummary(result.replies, result.pageNote)}".trim())
+        }
+        posts
     }
 
-    /** One page (50) of someone's followers or following list. */
-    suspend fun peoplePage(userId: String, followers: Boolean, cursor: String?): PersonPage = withContext(Dispatchers.IO) {
+    /**
+     * Someone's followers or following list: opens the list the way a person would and keeps scrolling it so
+     * Instagram's own page loads the next batches. Hands over everything read so far through [onPartial].
+     * Stops at [limit], when nothing new comes, or when cancelled.
+     */
+    suspend fun peopleCapture(
+        username: String,
+        followers: Boolean,
+        limit: Int,
+        onPartial: (List<PersonRow>) -> Unit
+    ): List<PersonRow> = withContext(Dispatchers.IO) {
         requireSession()
-        val list = if (followers) "followers" else "following"
-        val cursorPart = if (cursor != null) "&max_id=${enc(cursor)}" else ""
-        InstagramParser.parsePeople(
-            profileRequest("$MOBILE_BASE/api/v1/friendships/${enc(userId)}/$list/?count=50&search_surface=follow_list_page$cursorPart")
-        )
+        val path = if (followers) "followers" else "following"
+        val harvest = PeopleHarvest("/$path/")
+        var lastCount = 0
+        var stalls = 0
+        val result = pageCapture.capture(
+            profilePageUrl(username, "$path/"),
+            timeoutMs = 900_000L,
+            autoScroll = true,
+            scrollScript = DIALOG_SCROLL
+        ) { replies, tick ->
+            val people = harvest.feed(replies)
+            if (people.size != lastCount) {
+                lastCount = people.size
+                stalls = 0
+                onPartial(people)
+            } else if (tick) {
+                stalls++
+            }
+            people.size >= limit || (people.isNotEmpty() && stalls >= 7) || (people.isEmpty() && stalls >= 16)
+        }
+        val people = harvest.feed(result.replies)
+        if (people.isEmpty()) {
+            throw DownloadException(
+                "Instagram didn't send the $path list. The account may be private, or Instagram may be limiting this account right now. ${seenSummary(result.replies, result.pageNote)}".trim()
+            )
+        }
+        people
     }
 }

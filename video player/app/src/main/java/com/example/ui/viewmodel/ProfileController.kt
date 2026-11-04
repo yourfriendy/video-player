@@ -15,7 +15,6 @@ import com.example.ui.model.StoryItemDownload
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +28,6 @@ enum class PeopleKind { FOLLOWERS, FOLLOWING }
 /** One grid of the profile (Posts, Reels, Reposts or Tagged) and how far it has loaded. */
 data class ProfileTabState(
     val items: List<PostItem> = emptyList(),
-    val cursor: String? = null,
     val loading: Boolean = false,
     /** The first page has come back (even if it was empty or failed). */
     val loaded: Boolean = false,
@@ -42,7 +40,6 @@ data class ProfileTabState(
 data class ProfilePeopleState(
     val kind: PeopleKind,
     val people: List<PersonRow> = emptyList(),
-    val cursor: String? = null,
     val loading: Boolean = false,
     val done: Boolean = false,
     val error: String? = null,
@@ -156,9 +153,16 @@ class ProfileController(
         }
         loadJob = scope.launch {
             try {
-                val details = service.profileDetails(name)
+                val page = service.profilePage(name)
+                val details = page.details
                 _state.update {
-                    it.copy(details = details, username = details.username.ifBlank { name }, loading = false)
+                    it.copy(
+                        details = details,
+                        username = details.username.ifBlank { name },
+                        loading = false,
+                        // The first posts arrive with the page. If none did, the Posts grid loads them itself below.
+                        posts = if (page.posts.isNotEmpty()) ProfileTabState(items = page.posts, loaded = true) else it.posts
+                    )
                 }
                 // None of these is essential, so they load alongside each other
                 launch {
@@ -176,7 +180,7 @@ class ProfileController(
                     _state.update { it.copy(hasStories = has) }
                     if (autoStories && has) viewStories()
                 }
-                loadTab(ProfileTab.POSTS)
+                if (page.posts.isEmpty()) loadTab(ProfileTab.POSTS)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: LoginRequiredException) {
@@ -249,6 +253,9 @@ class ProfileController(
     private fun loadTab(tab: ProfileTab) {
         val details = _state.value.details ?: return
         if (tabJobs[tab]?.isActive == true) return
+        val before = tabOf(_state.value, tab).items.size
+        // First visit: a screenful or two. Later: roughly double, so the end of a long grid is reachable
+        val limit = if (before == 0) 36 else maxOf(before + 48, before * 2)
         updateTab(tab) { it.copy(loading = true, error = null) }
         tabJobs[tab] = scope.launch {
             try {
@@ -262,15 +269,22 @@ class ProfileController(
                         ProfileTab.TAGGED -> PostsTab.TAGGED
                         else -> PostsTab.POSTS
                     }
-                    val cursor = tabOf(_state.value, tab).cursor
-                    val page = service.postsPage(details.id, details.username, kind, cursor)
+                    val all = service.postsCapture(
+                        username = details.username,
+                        tab = kind,
+                        limit = limit,
+                        expectPosts = (details.posts ?: 1L) > 0L && !details.isPrivate
+                    ) { partial ->
+                        // Shown as they arrive, so the grid fills in while the page is still scrolling
+                        updateTab(tab) { old -> if (partial.size > old.items.size) old.copy(items = partial) else old }
+                    }
                     updateTab(tab) { old ->
                         old.copy(
-                            items = (old.items + page.items).distinctBy { it.id },
-                            cursor = page.nextCursor,
+                            items = if (all.size >= old.items.size) all else old.items,
                             loading = false,
                             loaded = true,
-                            done = page.nextCursor == null || page.items.isEmpty()
+                            // Nothing new this time: that is the end of the grid
+                            done = all.size <= before
                         )
                     }
                 }
@@ -457,7 +471,7 @@ class ProfileController(
         if (_state.value.details == null) return
         peopleJob?.cancel()
         _state.update { it.copy(people = ProfilePeopleState(kind)) }
-        loadPeople()
+        loadPeople(limit = 60)
     }
 
     fun switchPeople(kind: PeopleKind) {
@@ -474,19 +488,19 @@ class ProfileController(
         _state.update { s -> s.copy(people = s.people?.copy(query = query)) }
     }
 
-    /** Called when the list scrolls near its end. */
+    /** Called when the list scrolls near its end: go roughly twice as far. */
     fun loadMorePeople() {
         val p = _state.value.people ?: return
         if (p.loading || p.done || p.error != null) return
-        loadPeople()
+        loadPeople(limit = maxOf(p.people.size + 60, p.people.size * 2))
     }
 
     fun retryPeople() {
         _state.update { s -> s.copy(people = s.people?.copy(error = null)) }
-        loadPeople()
+        loadPeople(limit = 60)
     }
 
-    /** Keeps fetching pages until the whole list is here (or the user taps Stop). */
+    /** Keeps going until the whole list is here (or the user taps Stop). */
     fun toggleLoadAllPeople() {
         val p = _state.value.people ?: return
         if (p.loadingAll) {
@@ -494,38 +508,37 @@ class ProfileController(
             _state.update { s -> s.copy(people = s.people?.copy(loadingAll = false, loading = false)) }
             return
         }
-        _state.update { s -> s.copy(people = s.people?.copy(loadingAll = true, error = null)) }
         peopleJob?.cancel()
-        loadPeople()
+        _state.update { s -> s.copy(people = s.people?.copy(loadingAll = true, error = null)) }
+        loadPeople(limit = 1_000_000)
     }
 
-    private fun loadPeople() {
+    private fun loadPeople(limit: Int) {
         val details = _state.value.details ?: return
+        val first = _state.value.people ?: return
         if (peopleJob?.isActive == true) return
+        val before = first.people.size
+        _state.update { s -> s.copy(people = s.people?.copy(loading = true, error = null)) }
         peopleJob = scope.launch {
             try {
-                while (true) {
-                    val current = _state.value.people ?: return@launch
-                    if (current.done) break
-                    _state.update { s -> s.copy(people = s.people?.copy(loading = true, error = null)) }
-                    val page = service.peoplePage(details.id, current.kind == PeopleKind.FOLLOWERS, current.cursor)
+                val all = service.peopleCapture(details.username, first.kind == PeopleKind.FOLLOWERS, limit) { partial ->
+                    // Shown as they arrive, so the list fills in while the page is still scrolling
                     _state.update { s ->
-                        s.copy(
-                            people = s.people?.let { old ->
-                                old.copy(
-                                    people = (old.people + page.people).distinctBy { it.id },
-                                    cursor = page.nextCursor,
-                                    done = page.nextCursor == null || page.people.isEmpty(),
-                                    loading = false
-                                )
-                            }
-                        )
+                        s.copy(people = s.people?.let { old -> if (partial.size > old.people.size) old.copy(people = partial) else old })
                     }
-                    val after = _state.value.people ?: return@launch
-                    if (!after.loadingAll || after.done) break
-                    delay(900) // gentle on Instagram, so a long list doesn't get the account throttled
                 }
-                _state.update { s -> s.copy(people = s.people?.copy(loading = false, loadingAll = false)) }
+                _state.update { s ->
+                    s.copy(
+                        people = s.people?.let { old ->
+                            old.copy(
+                                people = if (all.size >= old.people.size) all else old.people,
+                                loading = false,
+                                loadingAll = false,
+                                done = all.size <= before || limit >= 1_000_000
+                            )
+                        }
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: LoginRequiredException) {

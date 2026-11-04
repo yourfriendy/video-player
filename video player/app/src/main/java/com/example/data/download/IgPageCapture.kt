@@ -48,6 +48,8 @@ class IgPageCapture(context: Context, private val userAgent: String) {
         pageUrl: String,
         timeoutMs: Long = 25_000L,
         autoScroll: Boolean = false,
+        /** What to run every tick when [autoScroll] is on. The default scrolls the page itself. */
+        scrollScript: String = SCROLL_SCRIPT,
         /** Called on every reply (second argument false) and every 1.5 s tick (true). Return true to stop early. */
         enough: (List<Captured>, Boolean) -> Boolean
     ): CaptureResult = withContext(Dispatchers.Main) {
@@ -128,7 +130,7 @@ class IgPageCapture(context: Context, private val userAgent: String) {
                     while (isActive && !done.isCompleted) {
                         delay(1_500L)
                         // Scrolling makes Instagram's own page ask for the next batch, which we then read
-                        if (autoScroll) view.evaluateJavascript(SCROLL_SCRIPT, null)
+                        if (autoScroll) view.evaluateJavascript(scrollScript, null)
                         if (enough(captured.toList(), true)) done.complete(Unit)
                     }
                 }

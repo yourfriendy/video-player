@@ -682,7 +682,7 @@ private fun GridFooter(
                     Text("Collecting reposts. This can take a minute.", color = IgMuted, fontSize = 12.sp)
                 }
             }
-            tabState.error != null && details.isPrivate && tabState.items.isEmpty() -> MessageBlock(
+            details.isPrivate && tabState.items.isEmpty() && (tabState.error != null || tabState.loaded) -> MessageBlock(
                 icon = Icons.Default.Lock,
                 title = "This account is private",
                 body = "Follow this account on Instagram to see their photos and videos here.",
