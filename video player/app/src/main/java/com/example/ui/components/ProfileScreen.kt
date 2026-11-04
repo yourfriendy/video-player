@@ -414,9 +414,7 @@ private fun ProfileHeader(
             modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            if (state.hasStories) {
-                ProfileButton("Stories", Modifier.weight(1f), highlighted = true, onClick = controller::viewStories)
-            }
+            ProfileButton("Stories", Modifier.weight(1f), highlighted = state.hasStories, onClick = controller::viewStories)
             ProfileButton(if (saved) "Saved" else "Save person", Modifier.weight(1f), onClick = onToggleSave)
             ProfileButton("Instagram", Modifier.weight(1f)) {
                 openLink(context, "https://www.instagram.com/${details.username}/")
@@ -430,7 +428,7 @@ private fun AvatarWithRing(url: String?, hasStories: Boolean, loading: Boolean, 
     Box(
         modifier = Modifier
             .size(92.dp)
-            .bouncyClickable(pressedScale = 0.95f, enabled = hasStories, onClick = onClick),
+            .bouncyClickable(pressedScale = 0.95f, enabled = !loading, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Box(

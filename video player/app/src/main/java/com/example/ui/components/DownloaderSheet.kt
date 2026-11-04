@@ -1,5 +1,11 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import android.annotation.SuppressLint
 import android.webkit.CookieManager
 import android.webkit.WebView
@@ -611,7 +617,13 @@ internal fun timeAgo(takenAtSec: Long): String {
 }
 
 @Composable
-internal fun Avatar(url: String?, size: androidx.compose.ui.unit.Dp, modifier: Modifier = Modifier) {
+internal fun Avatar(
+    url: String?,
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+    /** Shown while the photo loads, or if there is none / it can't be loaded (a username works). */
+    initial: String? = null
+) {
     Box(
         modifier = modifier
             .size(size)
@@ -619,18 +631,24 @@ internal fun Avatar(url: String?, size: androidx.compose.ui.unit.Dp, modifier: M
             .background(Brush.linearGradient(listOf(Orange, Pink, Violet))),
         contentAlignment = Alignment.Center
     ) {
-        if (url != null) {
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(2.dp)
-                    .clip(CircleShape)
-            )
-        } else {
+        val letter = initial?.trim()?.removePrefix("@")?.take(1)?.uppercase().orEmpty()
+        if (url == null && letter.isEmpty()) {
             Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(size / 2))
+        } else {
+            if (letter.isNotEmpty()) {
+                Text(letter, color = Color.White, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+            }
+            if (url != null) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(2.dp)
+                        .clip(CircleShape)
+                )
+            }
         }
     }
 }
@@ -707,63 +725,106 @@ internal fun AccountStrip(
     }
 }
 
-/** The person you searched for: photo, name, @username, badges and followers. */
+/** The person you searched for: a big photo in a story ring, name, badges, stats and bio. */
 @Composable
-internal fun ProfileCard(profile: InstagramParser.ProfileInfo) {
-    val shape = RoundedCornerShape(18.dp)
-    Row(
+internal fun ProfileCard(profile: InstagramParser.ProfileInfo, onAvatarClick: (() -> Unit)? = null) {
+    val shape = RoundedCornerShape(24.dp)
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color(0x14FFFFFF))
+            .background(Brush.verticalGradient(listOf(Color(0x24FFFFFF), Color(0x0DFFFFFF))))
             .border(1.dp, GlassBorder, shape)
-            .padding(12.dp)
-            .testTag("story_profile_card"),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(16.dp)
+            .testTag("story_profile_card")
     ) {
-        Avatar(profile.picUrl, 64.dp)
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (profile.fullName.isNotBlank()) profile.fullName else "@${profile.username}",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "@${profile.username}",
-                color = Cyan,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            val facts = buildList {
-                if (profile.isVerified) add("Verified ✓")
-                if (profile.isPrivate) add("Private 🔒")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(92.dp)
+                    .then(if (onAvatarClick != null) Modifier.clip(CircleShape).clickable(onClick = onAvatarClick) else Modifier)
+                    .testTag("story_profile_avatar"),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(3.dp, Brush.sweepGradient(listOf(Orange, Pink, Violet, Pink, Orange)), CircleShape)
+                )
+                Avatar(profile.picUrl, 80.dp, initial = profile.username, modifier = Modifier.border(3.dp, Color(0xFF0B1226), CircleShape))
+                if (onAvatarClick != null) {
+                    Icon(
+                        Icons.Default.PlayArrow, contentDescription = "Watch story", tint = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(26.dp)
+                            .background(Brush.linearGradient(listOf(Orange, Pink, Violet)), CircleShape)
+                            .border(2.dp, Color(0xFF0B1226), CircleShape)
+                            .padding(3.dp)
+                    )
+                }
             }
-            if (facts.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(facts.joinToString("  ·  "), color = Muted, fontSize = 12.sp)
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (profile.fullName.isNotBlank()) profile.fullName else "@${profile.username}",
+                        color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (profile.isVerified) {
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Icon(Icons.Default.Verified, contentDescription = "Verified", tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
+                    }
+                }
+                Text("@${profile.username}", color = Cyan, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (profile.isPrivate) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clip(CircleShape).background(Color(0x1FFFFFFF)).padding(horizontal = 9.dp, vertical = 3.dp)
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Muted, modifier = Modifier.size(12.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Private account", color = Color(0xFFE2E8F0), fontSize = 11.sp)
+                    }
+                }
             }
-            val counts = listOfNotNull(
-                profile.posts?.let { "${formatCount(it)} posts" },
-                profile.followers?.let { "${formatCount(it)} followers" },
-                profile.following?.let { "${formatCount(it)} following" }
-            )
-            if (counts.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(counts.joinToString("  ·  "), color = Color(0xFFE2E8F0), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
+        val stats = listOf(
+            "Posts" to profile.posts,
+            "Followers" to profile.followers,
+            "Following" to profile.following
+        ).filter { it.second != null }
+        if (stats.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0x1A000000))
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                stats.forEach { (label, value) ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(formatCount(value ?: 0L), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(label, color = Muted, fontSize = 11.sp)
+                    }
+                }
             }
-            if (profile.bio.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(profile.bio, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
-            }
-            profile.externalUrl?.let {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(it.removePrefix("https://").removePrefix("http://").take(40), color = Cyan, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+        }
+        if (profile.bio.isNotBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(profile.bio, color = Color(0xFFE2E8F0), fontSize = 13.sp, lineHeight = 18.sp, maxLines = 6, overflow = TextOverflow.Ellipsis)
+        }
+        profile.externalUrl?.let {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(it.removePrefix("https://").removePrefix("http://").take(40), color = Cyan, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        if (onAvatarClick != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text("Tap the photo to watch their story", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -825,13 +886,18 @@ internal fun LinkField(
     testTag: String
 ) {
     val fieldShape = RoundedCornerShape(16.dp)
+    var focused by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
             .clip(fieldShape)
-            .background(Color(0x1FFFFFFF))
-            .border(1.dp, GlassBorder, fieldShape)
+            .background(if (focused) Color(0x2BFFFFFF) else Color(0x1FFFFFFF))
+            .border(
+                width = if (focused) 1.5.dp else 1.dp,
+                brush = if (focused) Brush.horizontalGradient(listOf(Orange, Pink, Violet)) else SolidColor(GlassBorder),
+                shape = fieldShape
+            )
             .padding(start = 14.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -846,6 +912,7 @@ internal fun LinkField(
             keyboardActions = KeyboardActions(onGo = { onGo() }),
             modifier = Modifier
                 .weight(1f)
+                .onFocusChanged { focused = it.isFocused }
                 .testTag(testTag),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {

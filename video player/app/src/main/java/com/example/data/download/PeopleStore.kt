@@ -11,7 +11,10 @@ data class SavedPerson(
     /** Story ids already seen/announced, so only NEW stories trigger an alert. */
     val seenIds: Set<String> = emptySet(),
     /** False until the first background check has recorded what was already there (no alert for old stories). */
-    val baselined: Boolean = false
+    val baselined: Boolean = false,
+    /** Last known profile photo and display name, so saved people show their DP without opening them first. */
+    val picUrl: String? = null,
+    val fullName: String = ""
 )
 
 /** Saved people, kept on the phone only. Shared by the app screens and the background alert worker. */
@@ -29,7 +32,9 @@ class PeopleStore(context: Context) {
                 username = name,
                 alerts = o.optBoolean("alerts", false),
                 seenIds = if (seen == null) emptySet() else (0 until seen.length()).map { seen.optString(it) }.toSet(),
-                baselined = o.optBoolean("baselined", false)
+                baselined = o.optBoolean("baselined", false),
+                picUrl = o.optString("pic").takeIf { it.startsWith("http") },
+                fullName = o.optString("name")
             )
         }
     } catch (e: Exception) {
@@ -45,6 +50,8 @@ class PeopleStore(context: Context) {
                     .put("u", p.username)
                     .put("alerts", p.alerts)
                     .put("baselined", p.baselined)
+                    .put("pic", p.picUrl ?: "")
+                    .put("name", p.fullName)
                     .put("seen", JSONArray(p.seenIds.toList().takeLast(200)))
             )
         }

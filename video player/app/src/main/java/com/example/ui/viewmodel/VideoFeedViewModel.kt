@@ -133,7 +133,8 @@ class VideoFeedViewModel(
     val profile = ProfileController(
         scope = viewModelScope,
         downloader = downloader,
-        onMediaSaved = { viewModelScope.launch { reloadLibrary(showLoading = false) } }
+        onMediaSaved = { viewModelScope.launch { reloadLibrary(showLoading = false) } },
+        onProfileLoaded = { rememberPerson(it.username, it.picUrl, it.fullName) }
     )
 
     private var shuffledVideoIds: List<Long> = emptyList()
@@ -476,12 +477,31 @@ class VideoFeedViewModel(
 
     private fun cleanName(raw: String): String = raw.trim().removePrefix("@").trim()
 
+    /** Keeps the newest photo and name of someone already saved (Instagram photo links expire, so this refreshes them). */
+    fun rememberPerson(username: String, picUrl: String?, fullName: String) {
+        val name = cleanName(username)
+        if (picUrl.isNullOrBlank() && fullName.isBlank()) return
+        val existing = peopleStore.all().firstOrNull { it.username.equals(name, ignoreCase = true) } ?: return
+        val newPic = picUrl?.takeIf { it.isNotBlank() } ?: existing.picUrl
+        val newName = fullName.ifBlank { existing.fullName }
+        if (newPic == existing.picUrl && newName == existing.fullName) return
+        peopleStore.update(name) { it.copy(picUrl = newPic, fullName = newName) }
+        refreshPeople()
+    }
+
     fun savePerson(username: String) {
         val name = cleanName(username)
         if (InstagramParser.parseStoryTarget(name) !is InstagramParser.StoryTarget.User) return
         val all = peopleStore.all()
         if (all.none { it.username.equals(name, ignoreCase = true) }) {
-            peopleStore.saveAll(all + com.example.data.download.SavedPerson(name))
+            val open = profile.state.value.details?.takeIf { it.username.equals(name, ignoreCase = true) }
+            peopleStore.saveAll(
+                all + com.example.data.download.SavedPerson(
+                    username = name,
+                    picUrl = open?.picUrl,
+                    fullName = open?.fullName.orEmpty()
+                )
+            )
         }
         refreshPeople()
     }
@@ -722,6 +742,7 @@ class VideoFeedViewModel(
             try {
                 _uiState.update { it.copy(storyState = StoryUiState.Loading, storyDownloads = emptyMap()) }
                 val result = downloader.stories.load(target)
+                result.profile?.let { rememberPerson(it.username, it.picUrl, it.fullName) }
                 _uiState.update {
                     it.copy(
                         storyState = StoryUiState.Loaded(result.owner, result.items, result.profile),

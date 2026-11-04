@@ -1,5 +1,12 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -160,6 +167,10 @@ fun DownloaderScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Slate950)
+            .drawBehind {
+                drawRect(Brush.radialGradient(listOf(Violet.copy(alpha = 0.26f), Color.Transparent), center = Offset(size.width * 0.95f, 0f), radius = size.width * 0.95f))
+                drawRect(Brush.radialGradient(listOf(Pink.copy(alpha = 0.16f), Color.Transparent), center = Offset(0f, size.height * 0.05f), radius = size.width * 0.8f))
+            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
@@ -174,10 +185,15 @@ fun DownloaderScreen(
             IconButton(onClick = onBack, modifier = Modifier.testTag("downloader_back")) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
-            Column {
-                Text("Downloader", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Downloader", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
                 Text("Watch first, save only what you want", color = Muted, fontSize = 12.sp)
             }
+            Image(
+                painter = painterResource(R.drawable.ic_offscroll_logo),
+                contentDescription = null,
+                modifier = Modifier.padding(end = 10.dp).size(38.dp).clip(RoundedCornerShape(11.dp))
+            )
         }
 
         // ---- Tabs ----
@@ -205,12 +221,25 @@ fun DownloaderScreen(
                         .clickable { viewModel.setDownloaderTab(tab) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (tab == DownloaderTab.STORIES) "People" else tab.label,
-                        color = if (selected) Color.White else Muted,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = when (tab) {
+                                DownloaderTab.STORIES -> Icons.Default.Group
+                                DownloaderTab.REELS -> Icons.Default.Movie
+                                DownloaderTab.ANY -> Icons.Default.Link
+                            },
+                            contentDescription = null,
+                            tint = if (selected) Color.White else Muted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (tab == DownloaderTab.STORIES) "People" else tab.label,
+                            color = if (selected) Color.White else Muted,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -300,17 +329,29 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
 
         // ---- Saved people ----
         if (uiState.people.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Your people", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Spacer(modifier = Modifier.height(18.dp))
+            Text("Your people", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Tap a photo to watch their story", color = Muted, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(uiState.people, key = { it.username }) { person ->
-                    PersonChip(person, onClick = { viewModel.openPerson(person.username) })
+                    PersonStory(person, onClick = { viewModel.openPerson(person.username, autoStories = true) })
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(18.dp))
+        val searchShape = RoundedCornerShape(22.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(searchShape)
+                .background(Color(0x12FFFFFF))
+                .border(1.dp, GlassBorder, searchShape)
+                .padding(14.dp)
+        ) {
+        Text("Find someone", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(10.dp))
         LinkField(
             value = uiState.storyInput,
             placeholder = "Username or story link, like @x_user",
@@ -334,6 +375,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
                 if (signedIn) viewModel.findStories() else viewModel.openIgLogin()
             }
         )
+        }
 
         // ---- Results ----
         val stories = uiState.storyState
@@ -341,7 +383,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
         if (stories is StoryUiState.Loaded) {
             Spacer(modifier = Modifier.height(16.dp))
             stories.profile?.let {
-                ProfileCard(it)
+                ProfileCard(it, onAvatarClick = { viewModel.openPerson(it.username, autoStories = true) })
                 LaunchedEffect(it.id) { viewModel.loadHighlights(it.id) }
             }
             if (uiState.highlights.isNotEmpty()) {
@@ -721,33 +763,41 @@ private fun RepostCard(
     }
 }
 
+/** One saved person in the tray: their photo in a story ring, with the name underneath. */
 @Composable
-private fun PersonChip(person: SavedPerson, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
-    Row(
+private fun PersonStory(person: SavedPerson, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(shape)
-            .background(Color(0x1AFFFFFF))
-            .border(1.dp, if (person.alerts) Cyan.copy(alpha = 0.6f) else GlassBorder, shape)
+            .width(76.dp)
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 2.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(Orange, Pink, Violet))),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(person.username.take(1).uppercase(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(2.5.dp, Brush.sweepGradient(listOf(Orange, Pink, Violet, Pink, Orange)), CircleShape)
+            )
+            Avatar(person.picUrl, 62.dp, initial = person.username, modifier = Modifier.border(3.dp, Slate950, CircleShape))
+            if (person.alerts) {
+                Icon(
+                    Icons.Default.Notifications, contentDescription = "Alerts on", tint = Slate950,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(22.dp)
+                        .background(Cyan, CircleShape)
+                        .border(2.dp, Slate950, CircleShape)
+                        .padding(3.dp)
+                )
+            }
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("@${person.username}", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (person.alerts) {
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(Icons.Default.Notifications, contentDescription = "Alerts on", tint = Cyan, modifier = Modifier.size(14.dp))
-        }
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            person.username, color = Color(0xFFE2E8F0), fontSize = 12.sp, fontWeight = FontWeight.Medium,
+            maxLines = 1, overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -841,11 +891,19 @@ private fun MediaTile(
                 modifier = Modifier.align(Alignment.Center).size(34.dp).background(Color(0x66000000), CircleShape)
             )
         }
-        Text(
-            text = item.author?.let { "@$it" } ?: exactClock(item.takenAtSec).ifBlank { timeAgo(item.takenAtSec) },
-            color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)
-        )
+        ) {
+            if (item.authorPic != null || item.author != null) {
+                Avatar(item.authorPic, 20.dp, initial = item.author)
+                Spacer(modifier = Modifier.width(5.dp))
+            }
+            Text(
+                text = item.author?.let { "@$it" } ?: exactClock(item.takenAtSec).ifBlank { timeAgo(item.takenAtSec) },
+                color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+        }
         IconButton(onClick = onSave, modifier = Modifier.align(Alignment.TopEnd).size(34.dp)) {
             Icon(
                 imageVector = if (download is StoryItemDownload.Done) Icons.Default.CheckCircle else Icons.Default.Download,
@@ -915,12 +973,18 @@ private fun MediaViewerDialog(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                    current.authorPic?.let { Avatar(it, 30.dp); Spacer(modifier = Modifier.width(8.dp)) }
-                    Text(
-                        text = current.author?.let { "@$it" } ?: "Story",
-                        color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
+                    val ownerProfile = (uiState.storyState as? StoryUiState.Loaded)?.profile
+                    val shownName = current.author ?: ownerProfile?.username
+                    Avatar(current.authorPic ?: ownerProfile?.picUrl, 34.dp, initial = shownName)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = shownName?.let { "@$it" } ?: "Story",
+                            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                        if (current.takenAtSec > 0) Text(timeAgo(current.takenAtSec), color = Color(0xCCFFFFFF), fontSize = 11.sp)
+                    }
                     IconButton(onClick = { if (!done) viewModel.saveMediaItem(current) }) {
                         Icon(
                             if (done) Icons.Default.CheckCircle else Icons.Default.Download,

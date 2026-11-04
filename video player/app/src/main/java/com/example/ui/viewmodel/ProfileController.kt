@@ -84,7 +84,9 @@ data class ProfileUiState(
 class ProfileController(
     private val scope: CoroutineScope,
     private val downloader: InstagramDownloader,
-    private val onMediaSaved: () -> Unit
+    private val onMediaSaved: () -> Unit,
+    /** Called whenever a profile's header arrives, so the app can remember the name and photo of saved people. */
+    private val onProfileLoaded: (ProfileDetails) -> Unit = {}
 ) {
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
@@ -155,6 +157,7 @@ class ProfileController(
             try {
                 val page = service.profilePage(name)
                 val details = page.details
+                onProfileLoaded(details)
                 _state.update {
                     it.copy(
                         details = details,
@@ -178,7 +181,7 @@ class ProfileController(
                 launch {
                     val has = service.hasStories(details.id)
                     _state.update { it.copy(hasStories = has) }
-                    if (autoStories && has) viewStories()
+                    if (autoStories) viewStories()
                 }
                 if (page.posts.isEmpty()) loadTab(ProfileTab.POSTS)
             } catch (e: CancellationException) {
@@ -312,7 +315,11 @@ class ProfileController(
     fun viewStories() {
         val name = _state.value.details?.username ?: return
         openViewerFrom("Stories") {
-            service.load(InstagramParser.StoryTarget.User(name)).items
+            // The ring is only a hint (its pre-check can fail even when stories exist), so a tap always asks for real
+            val items = service.load(InstagramParser.StoryTarget.User(name)).items
+            if (items.isEmpty()) throw NoStoriesException("@$name has no active story right now.")
+            _state.update { it.copy(hasStories = true) }
+            items
         }
     }
 
