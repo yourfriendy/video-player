@@ -1,5 +1,17 @@
 package com.example.ui.components
 
+import com.example.ui.theme.bouncyClickable
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.LinearEasing
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -143,13 +155,11 @@ fun SearchScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(listOf(Color(0xFF160B38), Color(0xFF0B0A16), Color(0xFF05060B)))
-            )
             // Swallow touches so nothing behind this page can be scrolled or tapped
             .pointerInput(Unit) { detectTapGestures { } }
             .testTag("search_screen")
     ) {
+        AuroraBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -170,69 +180,106 @@ fun SearchScreen(
                         tint = Color.White
                     )
                 }
-                val shape = RoundedCornerShape(18.dp)
-                Row(
+                val shape = RoundedCornerShape(20.dp)
+                // While typing, a bright arc travels around the edge of the bar
+                val spin = rememberInfiniteTransition(label = "search_edge")
+                val angle by spin.animateFloat(
+                    initialValue = 0f, targetValue = 360f,
+                    animationSpec = infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart),
+                    label = "search_edge_angle"
+                )
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp)
+                        .height(56.dp)
                         .clip(shape)
-                        .background(Color(0x1FFFFFFF))
-                        .border(
-                            width = if (isFocused) 1.5.dp else 1.dp,
-                            brush = if (isFocused) {
-                                Brush.horizontalGradient(listOf(Cyan, Violet))
-                            } else {
-                                SolidColor(GlassBorder)
-                            },
-                            shape = shape
-                        )
-                        .padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .border(1.dp, GlassBorder, shape)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = if (isFocused) Cyan else Muted,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    BasicTextField(
-                        value = draft,
-                        onValueChange = { viewModel.setSearchDraft(it) },
-                        singleLine = true,
-                        textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
-                        cursorBrush = SolidColor(Cyan),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester)
-                            .onFocusChanged { isFocused = it.isFocused }
-                            .testTag("search_input"),
-                        decorationBox = { inner ->
-                            Box(contentAlignment = Alignment.CenterStart) {
-                                if (draft.isEmpty()) {
-                                    Text(
-                                        text = "Search your videos…",
-                                        color = Color(0xFF64748B),
-                                        fontSize = 16.sp
-                                    )
+                    if (isFocused) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .drawBehind {
+                                    val big = size.width * 1.3f
+                                    rotate(angle) {
+                                        drawRect(
+                                            brush = Brush.sweepGradient(
+                                                listOf(Cyan, Violet, Color(0x225EEAD4), Color(0x225EEAD4), Cyan)
+                                            ),
+                                            topLeft = Offset(size.width / 2f - big / 2f, size.height / 2f - big / 2f),
+                                            size = androidx.compose.ui.geometry.Size(big, big)
+                                        )
+                                    }
                                 }
-                                inner()
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(if (isFocused) 1.5.dp else 0.dp)
+                            .clip(RoundedCornerShape(19.dp))
+                            .background(if (isFocused) Color(0xFF0B1020) else Color(0x1FFFFFFF))
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = if (isFocused) Cyan else Muted,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        BasicTextField(
+                            value = draft,
+                            onValueChange = { viewModel.setSearchDraft(it) },
+                            singleLine = true,
+                            textStyle = TextStyle(color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium),
+                            cursorBrush = SolidColor(Cyan),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester)
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .testTag("search_input"),
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (draft.isEmpty()) {
+                                        Text(
+                                            text = "Search your videos…",
+                                            color = Color(0xFF64748B),
+                                            fontSize = 17.sp
+                                        )
+                                    }
+                                    inner()
+                                }
                             }
-                        }
-                    )
-                    if (draft.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.setSearchDraft("") },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear text",
-                                tint = Muted,
-                                modifier = Modifier.size(18.dp)
+                        )
+                        // How many videos match right now
+                        if (hasQuery && !uiState.isSearchRunning) {
+                            Text(
+                                text = "${uiState.searchResults.size}",
+                                color = Cyan,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                style = TextStyle(fontFeatureSettings = "tnum"),
+                                modifier = Modifier
+                                    .background(Cyan.copy(alpha = 0.16f), CircleShape)
+                                    .padding(horizontal = 9.dp, vertical = 3.dp)
                             )
+                        }
+                        if (draft.isNotEmpty()) {
+                            IconButton(
+                                onClick = { viewModel.setSearchDraft("") },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear text",
+                                    tint = Muted,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -301,7 +348,8 @@ fun SearchScreen(
                             video = video,
                             tokens = tokens,
                             progress = progress,
-                            onClick = { viewModel.openSearchResult(video) }
+                            onClick = { viewModel.openSearchResult(video) },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
@@ -558,7 +606,7 @@ private fun SuggestionsList(
 
         if (continueWatching.isNotEmpty()) {
             item(key = "continue") {
-                PosterSection("Continue watching", continueWatching, onPlay)
+                ContinueSection(continueWatching, uiState.watchHistoryMap, onPlay)
             }
         }
 
@@ -652,6 +700,96 @@ private fun PosterSection(title: String, videos: List<LocalVideo>, onPlay: (Loca
 }
 
 @Composable
+private fun ContinueSection(
+    videos: List<LocalVideo>,
+    history: Map<String, com.example.data.local.entity.WatchHistory>,
+    onPlay: (LocalVideo) -> Unit
+) {
+    Column {
+        SectionTitle("Continue watching", Modifier.padding(horizontal = 16.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(videos, key = { it.id }) { video ->
+                val saved = history[video.uri.toString()]?.lastPositionMs ?: 0L
+                val ratio = if (video.durationMs > 0) (saved.toFloat() / video.durationMs).coerceIn(0f, 1f) else 0f
+                val minutesLeft = ((video.durationMs - saved) / 60_000L).coerceAtLeast(1L)
+                ContinueCard(video = video, ratio = ratio, minutesLeft = minutesLeft, onClick = { onPlay(video) })
+            }
+        }
+    }
+}
+
+/** Landscape, so you recognise the scene; the bar and "min left" say where you stopped. */
+@Composable
+private fun ContinueCard(video: LocalVideo, ratio: Float, minutesLeft: Long, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier = Modifier
+            .width(224.dp)
+            .height(126.dp)
+            .clip(shape)
+            .background(Slate800)
+            .border(1.dp, GlassBorderSubtle, shape)
+            .bouncyClickable(pressedScale = 0.97f, onClick = onClick)
+    ) {
+        VideoThumbnail(video = video, modifier = Modifier.fillMaxSize())
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xE6000000)))
+        )
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(40.dp)
+                .background(Color(0x66000000), CircleShape)
+                .border(1.dp, Color(0x55FFFFFF), CircleShape)
+                .padding(7.dp)
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+        ) {
+            Text(
+                text = video.displayName.substringBeforeLast('.'),
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "$minutesLeft min left",
+                color = Color(0xFFCBD5E1),
+                fontSize = 11.sp,
+                style = TextStyle(fontFeatureSettings = "tnum")
+            )
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(Color(0x40FFFFFF))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(ratio)
+                    .fillMaxHeight()
+                    .background(Brush.horizontalGradient(listOf(Cyan, Violet)))
+            )
+        }
+    }
+}
+
+@Composable
 private fun PosterCard(video: LocalVideo, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Box(
@@ -703,25 +841,26 @@ private fun SearchResultRow(
     video: LocalVideo,
     tokens: List<String>,
     progress: Float,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(18.dp)
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color(0x14FFFFFF))
+            .background(Brush.verticalGradient(listOf(Color(0x1CFFFFFF), Color(0x0DFFFFFF))))
             .border(1.dp, GlassBorderSubtle, shape)
-            .clickable(onClick = onClick)
+            .bouncyClickable(pressedScale = 0.975f, onClick = onClick)
             .padding(8.dp)
             .testTag("search_result_${video.id}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .width(132.dp)
-                .height(76.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .width(138.dp)
+                .height(80.dp)
+                .clip(RoundedCornerShape(13.dp))
                 .background(Slate800)
         ) {
             VideoThumbnail(video = video, modifier = Modifier.fillMaxSize())
@@ -729,8 +868,21 @@ private fun SearchResultRow(
                 text = video.formattedDuration,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(5.dp)
+                    .padding(6.dp)
             )
+            if (video.isFavorite) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = "Favorite",
+                    tint = FrostedRose,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(6.dp)
+                        .size(22.dp)
+                        .background(Color(0x99000000), CircleShape)
+                        .padding(4.dp)
+                )
+            }
             if (progress > 0.02f) {
                 Box(
                     modifier = Modifier
@@ -746,17 +898,18 @@ private fun SearchResultRow(
             Text(
                 text = highlightedTitle(video.displayName.substringBeforeLast('.', video.displayName), tokens),
                 color = Color.White,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
+                lineHeight = 19.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(5.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Folder,
                     contentDescription = null,
-                    tint = Muted,
+                    tint = Cyan.copy(alpha = 0.8f),
                     modifier = Modifier.size(12.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -768,26 +921,27 @@ private fun SearchResultRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
-                text = "${video.formattedSize} · ${video.formattedResolution} · ${video.formattedDateAdded}",
-                color = Color(0xFF64748B),
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (video.isFavorite) {
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = "Favorite",
-                tint = FrostedRose,
-                modifier = Modifier
-                    .padding(end = 6.dp)
-                    .size(18.dp)
-            )
+            Spacer(modifier = Modifier.height(5.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                ResultTag(video.formattedSize)
+                if (video.formattedResolution.isNotBlank()) ResultTag(video.formattedResolution)
+            }
         }
     }
+}
+
+@Composable
+private fun ResultTag(text: String) {
+    Text(
+        text = text,
+        color = Color(0xFFCBD5E1),
+        fontSize = 10.5.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        modifier = Modifier
+            .background(Color(0x1AFFFFFF), RoundedCornerShape(6.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    )
 }
 
 @Composable

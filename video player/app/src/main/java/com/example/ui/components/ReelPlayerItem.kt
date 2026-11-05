@@ -693,13 +693,13 @@ private fun VlcSeekHudOverlay(
     Box(
         modifier = Modifier
             .background(
-                color = ComposeColor(0xF00F101A),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                color = ComposeColor(0xE60B0F1A),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
             )
             .border(
                 1.5.dp,
                 brush = Brush.linearGradient(
-                    listOf(ComposeColor(0x808B5CF6), ComposeColor(0x40EC4899))
+                    listOf(ComposeColor(0x995EEAD4), ComposeColor(0x558B5CF6))
                 ),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
             )
@@ -727,7 +727,8 @@ private fun VlcSeekHudOverlay(
             Text(
                 text = "${formatVlcTime(targetPosMs)} / ${formatVlcTime(totalDurationMs)}",
                 style = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    fontFeatureSettings = "tnum"
                 ),
                 color = ComposeColor(0xFFCBD5E1)
             )
@@ -750,7 +751,7 @@ private fun VlcSeekHudOverlay(
                         }
                         .background(
                             brush = Brush.horizontalGradient(
-                                listOf(ComposeColor(0xFF8B5CF6), ComposeColor(0xFFEC4899))
+                                listOf(ComposeColor(0xFF5EEAD4), ComposeColor(0xFF8B5CF6))
                             ),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
                         )
