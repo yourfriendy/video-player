@@ -48,7 +48,8 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
 
     private suspend fun runChecks() {
         val store = PeopleStore(applicationContext)
-        val people = store.all().filter { it.alerts }
+        val only = inputData.getString(KEY_ONLY)
+        val people = store.all().filter { it.alerts && (only == null || it.username.equals(only, ignoreCase = true)) }
         if (people.isEmpty()) {
             status("nothing to check, no person has alerts on")
             return
@@ -156,6 +157,7 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
 
     companion object {
         const val EXTRA_OPEN_PERSON = "open_person"
+        const val KEY_ONLY = "only"
         private const val CHANNEL_ID = "story_alerts"
         private const val REPOST_PREFIX = "r:"
         private const val REPOST_MARK = "r:baseline"
@@ -285,17 +287,20 @@ object StoryAlertScheduler {
     }
 
     /** The "Check now" button: one extra check straight away (the 5-minute chain carries on as usual). */
-    fun checkNow(context: Context) {
+    fun checkNow(context: Context, only: String? = null) {
         try {
+            // A targeted check (Instagram just told us about this person) never replaces a running "check everyone"
+            val name = if (only == null) NOW_WORK_NAME else "$NOW_WORK_NAME-${only.lowercase()}"
             WorkManager.getInstance(context.applicationContext)
-                .enqueueUniqueWork(NOW_WORK_NAME, ExistingWorkPolicy.REPLACE, request(0L))
+                .enqueueUniqueWork(name, ExistingWorkPolicy.REPLACE, request(0L, only))
         } catch (_: Exception) {
             // WorkManager unavailable
         }
     }
 
-    private fun request(delayMinutes: Long) = OneTimeWorkRequestBuilder<StoryAlertWorker>()
+    private fun request(delayMinutes: Long, only: String? = null) = OneTimeWorkRequestBuilder<StoryAlertWorker>()
         .setInitialDelay(delayMinutes, TimeUnit.MINUTES)
+        .setInputData(androidx.work.Data.Builder().apply { if (only != null) putString(StoryAlertWorker.KEY_ONLY, only) }.build())
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
         .build()
 }

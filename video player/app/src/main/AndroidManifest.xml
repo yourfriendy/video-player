@@ -97,6 +97,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_file_paths" />
         </provider>
+            <!-- Instant story alerts: reacts to Instagram's own notifications (only Instagram's are looked at) -->
+        <service
+            android:name=".data.download.InstagramNotificationListener"
+            android:exported="true"
+            android:label="OffScroll instant alerts"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>
