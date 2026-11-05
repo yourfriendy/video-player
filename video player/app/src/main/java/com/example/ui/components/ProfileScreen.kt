@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import kotlin.math.roundToInt
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Switch
@@ -564,6 +568,47 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
+            // ---- Check timer: 1 to 60 minutes, set by the user ----
+            var minutes by remember { mutableIntStateOf(com.example.data.download.StoryAlertSettings.intervalMinutes(context)) }
+            fun applyMinutes(value: Int) {
+                minutes = value
+                com.example.data.download.StoryAlertSettings.setIntervalMinutes(context, value)
+                com.example.data.download.StoryAlertScheduler.sync(context, restart = true)
+            }
+            Text(
+                text = "Check every $minutes min",
+                color = IgText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+            Slider(
+                value = minutes.toFloat(),
+                onValueChange = { minutes = it.roundToInt() },
+                onValueChangeFinished = { applyMinutes(minutes) },
+                valueRange = com.example.data.download.StoryAlertSettings.MIN_MINUTES.toFloat()..com.example.data.download.StoryAlertSettings.MAX_MINUTES.toFloat(),
+                steps = com.example.data.download.StoryAlertSettings.MAX_MINUTES - com.example.data.download.StoryAlertSettings.MIN_MINUTES - 1,
+                colors = SliderDefaults.colors(thumbColor = IgBlue, activeTrackColor = IgBlue, inactiveTrackColor = IgDivider),
+                modifier = Modifier.testTag("alert_timer_slider")
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                listOf(1, 2, 5, 10, 30).forEach { preset ->
+                    Text(
+                        text = "$preset min",
+                        color = if (minutes == preset) IgBlue else IgMuted,
+                        fontSize = 13.sp,
+                        fontWeight = if (minutes == preset) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.clickable { applyMinutes(preset) }
+                    )
+                }
+            }
+            Text(
+                text = if (minutes <= com.example.data.download.StoryAlertSettings.LIVE_MAX_MINUTES) {
+                    "Live mode: a small ongoing notification stays on so Android doesn't pause the checks, and a new story or repost alerts you right after the check that finds it. Shorter timers use more battery and send Instagram more requests; if Instagram asks you to verify, use a longer one."
+                } else {
+                    "Normal mode: Android may run a check a little late while the phone is idle. Choose 10 min or less for live mode."
+                },
+                color = IgMuted, fontSize = 11.sp, lineHeight = 15.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
             Text(
                 text = status?.let { (at, line) ->
                     "Last check " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(at)) + ": " + line

@@ -24,6 +24,8 @@
     <!-- "Any link" downloads: keep a long download alive (and show its progress) while the app is in the background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Live story alerts (timers of 10 minutes or less) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission
@@ -97,7 +99,17 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_file_paths" />
         </provider>
-            <!-- Instant story alerts: reacts to Instagram's own notifications (only Instagram's are looked at) -->
+            <!-- Live story alerts: a short timer (1-10 min) keeps a small ongoing notification so Android doesn't pause the checks -->
+        <service
+            android:name=".data.download.StoryWatchService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Checks the Instagram people the user chose for new stories and reposts on a timer the user sets" />
+        </service>
+
+        <!-- Instant story alerts: reacts to Instagram's own notifications (only Instagram's are looked at) -->
         <service
             android:name=".data.download.InstagramNotificationListener"
             android:exported="true"
