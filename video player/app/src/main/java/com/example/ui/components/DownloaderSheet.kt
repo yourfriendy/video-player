@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Link
+import com.example.ui.theme.bouncyClickable
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.setValue
@@ -885,12 +888,12 @@ internal fun LinkField(
     onGo: () -> Unit,
     testTag: String
 ) {
-    val fieldShape = RoundedCornerShape(16.dp)
+    val fieldShape = RoundedCornerShape(18.dp)
     var focused by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(58.dp)
             .clip(fieldShape)
             .background(if (focused) Color(0x2BFFFFFF) else Color(0x1FFFFFFF))
             .border(
@@ -901,6 +904,11 @@ internal fun LinkField(
             .padding(start = 14.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(
+            Icons.Default.Link, contentDescription = null,
+            tint = if (focused) Cyan else Muted, modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
         BasicTextField(
             value = value,
             onValueChange = onChange,
@@ -955,26 +963,27 @@ internal fun GradientButton(
     enabled: Boolean = true,
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Download
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(18.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(56.dp)
+            .then(if (enabled) Modifier.shadow(12.dp, shape, ambientColor = Pink, spotColor = Pink) else Modifier)
             .clip(shape)
             .background(
                 if (enabled) Brush.horizontalGradient(listOf(Orange, Pink, Violet))
                 else SolidColor(Color(0x33FFFFFF))
             )
-            .clickable(enabled = enabled, onClick = onClick),
+            .bouncyClickable(pressedScale = 0.97f, enabled = enabled, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(8.dp))
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp))
+        Spacer(modifier = Modifier.width(9.dp))
         Text(
             text = text,
             color = Color.White.copy(alpha = if (enabled) 1f else 0.5f),
-            fontSize = 15.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
     }
@@ -982,14 +991,14 @@ internal fun GradientButton(
 
 @Composable
 internal fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(18.dp)
     Box(
         modifier = modifier
-            .height(52.dp)
+            .height(54.dp)
             .clip(shape)
             .background(Color(0x1AFFFFFF))
             .border(1.dp, GlassBorder, shape)
-            .clickable(onClick = onClick),
+            .bouncyClickable(pressedScale = 0.97f, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(text = text, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -1002,14 +1011,14 @@ internal fun MessageCard(
     tint: Color,
     text: String
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(18.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(tint.copy(alpha = 0.10f))
-            .border(1.dp, tint.copy(alpha = 0.35f), shape)
-            .padding(12.dp),
+            .background(tint.copy(alpha = 0.12f))
+            .border(1.dp, tint.copy(alpha = 0.40f), shape)
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
@@ -1020,7 +1029,7 @@ internal fun MessageCard(
 
 @Composable
 internal fun BusyCard(label: String, progress: Float?, onCancel: (() -> Unit)?) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1052,25 +1061,6 @@ internal fun BusyCard(label: String, progress: Float?, onCancel: (() -> Unit)?) 
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        if (progress != null) {
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(CircleShape),
-                color = Cyan,
-                trackColor = Color(0x33FFFFFF)
-            )
-        } else {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(CircleShape),
-                color = Cyan,
-                trackColor = Color(0x33FFFFFF)
-            )
-        }
+        GradientProgress(progress)
     }
 }

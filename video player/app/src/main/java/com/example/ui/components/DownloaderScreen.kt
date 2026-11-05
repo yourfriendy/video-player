@@ -1,5 +1,10 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.AnimatedVisibility
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Group
@@ -163,86 +168,73 @@ fun DownloaderScreen(
         if (uiState.downloaderTab == DownloaderTab.STORIES) viewModel.verifyIgAccount()
     }
 
+    var showAlerts by remember { mutableStateOf(false) }
+    BackHandler(enabled = showAlerts) { showAlerts = false }
+
+    Box(modifier = modifier.fillMaxSize().testTag("downloader_screen")) {
+    AuroraBackground()
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .background(Slate950)
-            .drawBehind {
-                drawRect(Brush.radialGradient(listOf(Violet.copy(alpha = 0.26f), Color.Transparent), center = Offset(size.width * 0.95f, 0f), radius = size.width * 0.95f))
-                drawRect(Brush.radialGradient(listOf(Pink.copy(alpha = 0.16f), Color.Transparent), center = Offset(0f, size.height * 0.05f), radius = size.width * 0.8f))
-            }
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
-            .testTag("downloader_screen")
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack, modifier = Modifier.testTag("downloader_back")) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Downloader", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Watch first, save only what you want", color = Muted, fontSize = 12.sp)
+                Text("Save & watch", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Stories, reels and videos in one place", color = Muted, fontSize = 12.sp)
             }
-            Image(
-                painter = painterResource(R.drawable.ic_offscroll_logo),
-                contentDescription = null,
-                modifier = Modifier.padding(end = 10.dp).size(38.dp).clip(RoundedCornerShape(11.dp))
-            )
-        }
-
-        // ---- Tabs ----
-        val tabShape = RoundedCornerShape(14.dp)
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .fillMaxWidth()
-                .clip(tabShape)
-                .background(Color(0x14FFFFFF))
-                .border(1.dp, GlassBorder, tabShape)
-                .padding(4.dp)
-        ) {
-            listOf(DownloaderTab.STORIES, DownloaderTab.REELS, DownloaderTab.ANY).forEach { tab ->
-                val selected = tab == uiState.downloaderTab
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(11.dp))
-                        .background(
-                            if (selected) Brush.horizontalGradient(listOf(Orange, Pink, Violet))
-                            else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
-                        )
-                        .clickable { viewModel.setDownloaderTab(tab) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = when (tab) {
-                                DownloaderTab.STORIES -> Icons.Default.Group
-                                DownloaderTab.REELS -> Icons.Default.Movie
-                                DownloaderTab.ANY -> Icons.Default.Link
-                            },
-                            contentDescription = null,
-                            tint = if (selected) Color.White else Muted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (tab == DownloaderTab.STORIES) "People" else tab.label,
-                            color = if (selected) Color.White else Muted,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+            val anyAlerts = uiState.people.any { it.alerts }
+            Box(
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x1FFFFFFF))
+                    .border(1.dp, GlassBorder, CircleShape)
+                    .clickable { showAlerts = true }
+                    .testTag("downloader_alerts_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (anyAlerts) Icons.Default.Notifications else Icons.Default.NotificationsOff,
+                    contentDescription = "Alerts",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+                if (anyAlerts) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .size(10.dp)
+                            .background(DlCyan, CircleShape)
+                            .border(1.5.dp, Slate950, CircleShape)
+                    )
                 }
             }
         }
+
+        // ---- Use cases: named after what you do ----
+        UseCaseTabs(
+            selected = uiState.downloaderTab,
+            icons = mapOf(
+                DownloaderTab.STORIES to Icons.Default.Visibility,
+                DownloaderTab.REELS to Icons.Default.Movie,
+                DownloaderTab.ANY to Icons.Default.Download
+            ),
+            onSelect = { viewModel.setDownloaderTab(it) },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
 
         Column(
             modifier = Modifier
@@ -261,10 +253,37 @@ fun DownloaderScreen(
                 },
                 label = "offscroll_downloader_motion"
             ) { tab ->
-                when (tab) {
-                    DownloaderTab.STORIES -> PeoplePage(uiState, viewModel)
-                    DownloaderTab.REELS -> ReelsContent(uiState, viewModel)
-                    DownloaderTab.ANY -> UniversalContent(viewModel)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    when (tab) {
+                        DownloaderTab.STORIES -> {
+                            HeroCard(
+                                icon = Icons.Default.Visibility,
+                                title = "Watch stories",
+                                subtitle = "See anyone's stories and reposts first. Nobody is told you looked, and you save only what you like.",
+                                accent = listOf(DlPink, DlViolet)
+                            )
+                            PeoplePage(uiState, viewModel, onOpenAlerts = { showAlerts = true })
+                        }
+                        DownloaderTab.REELS -> {
+                            HeroCard(
+                                icon = Icons.Default.Movie,
+                                title = "Save a reel",
+                                subtitle = "Paste an Instagram reel link, or share the reel straight to OffScroll.",
+                                accent = listOf(DlOrange, DlPink)
+                            )
+                            StepsRow(listOf("Copy the link", "Paste it here", "Save or play"))
+                            ReelsContent(uiState, viewModel)
+                        }
+                        DownloaderTab.ANY -> {
+                            HeroCard(
+                                icon = Icons.Default.Download,
+                                title = "Save any video",
+                                subtitle = "YouTube, TikTok, Facebook, X, Reddit and 1000+ more sites. Pick the quality you want.",
+                                accent = listOf(DlViolet, DlCyan)
+                            )
+                            UniversalContent(viewModel)
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -276,6 +295,25 @@ fun DownloaderScreen(
             )
         }
     }
+
+    // ---- Alerts: its own screen, in the app's look ----
+    AnimatedVisibility(
+        visible = showAlerts,
+        enter = slideInHorizontally(tween(280)) { it } + fadeIn(tween(200)),
+        exit = slideOutHorizontally(tween(220)) { it } + fadeOut(tween(160))
+    ) {
+        AlertsScreen(
+            people = uiState.people,
+            onSetAlerts = { name, on -> viewModel.setPersonAlerts(name, on) },
+            onOpenPerson = { name ->
+                showAlerts = false
+                viewModel.setDownloaderTab(DownloaderTab.STORIES)
+                viewModel.openPerson(name)
+            },
+            onBack = { showAlerts = false }
+        )
+    }
+    }
 }
 
 // ----------------------------------------------------------------------------------------------
@@ -283,7 +321,7 @@ fun DownloaderScreen(
 // ----------------------------------------------------------------------------------------------
 
 @Composable
-private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel) {
+private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel, onOpenAlerts: () -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -421,60 +459,19 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
                     )
                 }
                 if (saved?.alerts == true) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        "You'll get a notification about every 5 minutes at most when @$owner posts a new story or reposts a reel. " +
-                            "It works even when OffScroll is closed (but not after \"Force stop\"). Nobody is told you looked.",
-                        color = Muted, fontSize = 11.sp, lineHeight = 15.sp
-                    )
-                    var alertStatus by remember { mutableStateOf(com.example.data.download.StoryAlertStatus.read(context)) }
-                    LaunchedEffect(Unit) {
-                        while (true) {
-                            alertStatus = com.example.data.download.StoryAlertStatus.read(context)
-                            kotlinx.coroutines.delay(3_000L)
-                        }
-                    }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        alertStatus?.let { (at, line) ->
-                            "Last check " + SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(at)) + ": " + line
-                        } ?: "No check has run yet.",
-                        color = Muted, fontSize = 11.sp, lineHeight = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Pill(text = "Test alert", icon = Icons.Default.Notifications, onClick = {
-                            val ok = com.example.data.download.StoryAlertWorker.sendTest(context)
-                            Toast.makeText(
-                                context,
-                                if (ok) "Test alert sent" else "Notifications are off for OffScroll in phone settings",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        })
-                        Pill(text = "Check now", icon = Icons.Default.Search, onClick = {
-                            com.example.data.download.StoryAlertScheduler.checkNow(context)
-                            Toast.makeText(context, "Checking now. The result shows above in a minute.", Toast.LENGTH_SHORT).show()
-                        })
-                    }
-                    if (!batteryExempt) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Pill(
-                            text = "Keep alerts reliable",
-                            icon = Icons.Default.Notifications,
-                            onClick = {
-                                try {
-                                    batteryLauncher.launch(
-                                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
-                                    )
-                                } catch (e: Exception) {
-                                    batteryLauncher.launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                                }
-                            }
-                        )
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(onClick = onOpenAlerts)
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, tint = DlCyan, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Your phone may pause background checks to save battery. Tap to let OffScroll check while closed.",
-                            color = Muted, fontSize = 11.sp, lineHeight = 15.sp,
-                            modifier = Modifier.padding(top = 4.dp)
+                            "Alerts are on for @$owner. Timer, instant alerts and tests are in Alerts ›",
+                            color = DlCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -529,6 +526,10 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
         onSavePerson = { viewModel.savePerson(it) },
         onRemovePerson = { viewModel.removePerson(it) },
         onSetAlerts = { name, on -> viewModel.setPersonAlerts(name, on) },
+        onOpenAlertSettings = {
+            viewModel.profile.close()
+            onOpenAlerts()
+        },
         onSignIn = { viewModel.openIgLogin() }
     )
 }

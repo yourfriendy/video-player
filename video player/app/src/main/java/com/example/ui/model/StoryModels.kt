@@ -10,11 +10,12 @@ enum class StoryKind(val label: String) {
 }
 
 enum class DownloaderTab(val label: String) {
-    REELS("Reels"),
-    STORIES("Stories"),
+    // Named after what you DO there
+    REELS("Save reels"),
+    STORIES("Watch stories"),
 
     /** YouTube, Facebook, Snapchat, TikTok and other apps (see UniversalContent). */
-    ANY("Any link")
+    ANY("Save videos")
 }
 
 /** What the Stories tab is currently showing. */

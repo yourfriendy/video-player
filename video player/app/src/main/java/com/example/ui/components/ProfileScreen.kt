@@ -161,6 +161,7 @@ fun ProfileOverlay(
     onSavePerson: (String) -> Unit,
     onRemovePerson: (String) -> Unit,
     onSetAlerts: (String, Boolean) -> Unit,
+    onOpenAlertSettings: () -> Unit,
     onSignIn: () -> Unit
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
@@ -187,15 +188,17 @@ fun ProfileOverlay(
             dismissOnClickOutside = false
         )
     ) {
-        ProfileContent(
-            state = state,
-            controller = controller,
-            saved = saved,
-            onToggleSave = { if (saved) onRemovePerson(shownName) else onSavePerson(shownName) },
-            alertsOn = alertsOn,
-            onSetAlerts = { on -> onSetAlerts(shownName, on) },
-            onSignIn = onSignIn
-        )
+        androidx.compose.runtime.CompositionLocalProvider(LocalOpenAlertSettings provides onOpenAlertSettings) {
+            ProfileContent(
+                state = state,
+                controller = controller,
+                saved = saved,
+                onToggleSave = { if (saved) onRemovePerson(shownName) else onSavePerson(shownName) },
+                alertsOn = alertsOn,
+                onSetAlerts = { on -> onSetAlerts(shownName, on) },
+                onSignIn = onSignIn
+            )
+        }
     }
 
     state.people?.let { people -> PeopleDialog(state, people, controller) }
@@ -455,6 +458,9 @@ private fun ProfileHeader(
  * Handles the Android 13+ permission, tells you when the phone has notifications switched off, and shows what
  * the last background check did, so "why didn't I get an alert?" has a visible answer.
  */
+/** Lets the compact alerts row open the full Alerts screen without threading a callback through every layer. */
+private val LocalOpenAlertSettings = androidx.compose.runtime.staticCompositionLocalOf<() -> Unit> { {} }
+
 @Composable
 private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
     val context = LocalContext.current
@@ -518,7 +524,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Story alerts", color = IgText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = if (on) "Notifies you about @$username's new stories and reposts, checked about every 5 minutes. Nobody is told you looked."
+                    text = if (on) "Notifies you about @$username's new stories and reposts. Nobody is told you looked."
                     else "Get a notification when @$username posts a new story or reposts a reel.",
                     color = IgMuted, fontSize = 12.sp, lineHeight = 16.sp
                 )
@@ -530,114 +536,14 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
                 colors = SwitchDefaults.colors(checkedTrackColor = IgBlue)
             )
         }
-        if (on) {
-            var status by remember { mutableStateOf(com.example.data.download.StoryAlertStatus.read(context)) }
-            var instant by remember { mutableStateOf(com.example.data.download.InstagramNotificationListener.isEnabled(context)) }
-            LaunchedEffect(Unit) {
-                while (true) {
-                    status = com.example.data.download.StoryAlertStatus.read(context)
-                    instant = com.example.data.download.InstagramNotificationListener.isEnabled(context)
-                    kotlinx.coroutines.delay(3_000L)
-                }
-            }
-            Text(
-                text = if (instant) {
-                    "Instant alerts are on. Turn on the bell for @$username in the Instagram app (Stories, Reels) and OffScroll checks the moment Instagram's own notification arrives."
-                } else {
-                    "Want it instant instead of every 5 minutes? Let OffScroll see Instagram's notifications: turn on the bell for @$username in the Instagram app, and OffScroll checks the moment that notification arrives. Only Instagram's are read."
-                },
-                color = IgMuted, fontSize = 12.sp, lineHeight = 16.sp,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-            if (!instant) {
-                Text(
-                    "Allow instant alerts", color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .padding(top = 6.dp)
-                        .clickable {
-                            try {
-                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Open Settings > Notifications > Notification access and allow OffScroll", Toast.LENGTH_LONG).show()
-                            }
-                        }
-                )
-                Text(
-                    "If Android says \"Restricted setting\": Settings > Apps > OffScroll > ⋮ > Allow restricted settings, then try again.",
-                    color = IgMuted, fontSize = 11.sp, lineHeight = 15.sp,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-            // ---- Check timer: 1 to 60 minutes, set by the user ----
-            var minutes by remember { mutableIntStateOf(com.example.data.download.StoryAlertSettings.intervalMinutes(context)) }
-            fun applyMinutes(value: Int) {
-                minutes = value
-                com.example.data.download.StoryAlertSettings.setIntervalMinutes(context, value)
-                com.example.data.download.StoryAlertScheduler.sync(context, restart = true)
-            }
-            Text(
-                text = "Check every $minutes min",
-                color = IgText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 12.dp)
-            )
-            Slider(
-                value = minutes.toFloat(),
-                onValueChange = { minutes = it.roundToInt() },
-                onValueChangeFinished = { applyMinutes(minutes) },
-                valueRange = com.example.data.download.StoryAlertSettings.MIN_MINUTES.toFloat()..com.example.data.download.StoryAlertSettings.MAX_MINUTES.toFloat(),
-                steps = com.example.data.download.StoryAlertSettings.MAX_MINUTES - com.example.data.download.StoryAlertSettings.MIN_MINUTES - 1,
-                colors = SliderDefaults.colors(thumbColor = IgBlue, activeTrackColor = IgBlue, inactiveTrackColor = IgDivider),
-                modifier = Modifier.testTag("alert_timer_slider")
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                listOf(1, 2, 5, 10, 30).forEach { preset ->
-                    Text(
-                        text = "$preset min",
-                        color = if (minutes == preset) IgBlue else IgMuted,
-                        fontSize = 13.sp,
-                        fontWeight = if (minutes == preset) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.clickable { applyMinutes(preset) }
-                    )
-                }
-            }
-            Text(
-                text = if (minutes <= com.example.data.download.StoryAlertSettings.LIVE_MAX_MINUTES) {
-                    "Live mode: a small ongoing notification stays on so Android doesn't pause the checks, and a new story or repost alerts you right after the check that finds it. Shorter timers use more battery and send Instagram more requests; if Instagram asks you to verify, use a longer one."
-                } else {
-                    "Normal mode: Android may run a check a little late while the phone is idle. Choose 10 min or less for live mode."
-                },
-                color = IgMuted, fontSize = 11.sp, lineHeight = 15.sp,
-                modifier = Modifier.padding(top = 6.dp)
-            )
-            Text(
-                text = status?.let { (at, line) ->
-                    "Last check " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(at)) + ": " + line
-                } ?: "No check has run yet. The first one only notes what is already posted.",
-                color = IgMuted, fontSize = 11.sp, lineHeight = 15.sp,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-            Row(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                Text(
-                    "Send test", color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable {
-                        val ok = com.example.data.download.StoryAlertWorker.sendTest(context)
-                        Toast.makeText(
-                            context,
-                            if (ok) "Test alert sent" else "Notifications are off for OffScroll in phone settings",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        if (!ok) openNotificationSettings()
-                    }
-                )
-                Text(
-                    "Check now", color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable {
-                        com.example.data.download.StoryAlertScheduler.checkNow(context)
-                        Toast.makeText(context, "Checking now. The result shows here in a minute.", Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
-        }
+        val openAlertSettings = LocalOpenAlertSettings.current
+        Text(
+            text = if (on) "Timer, instant alerts and tests: Alert settings ›" else "Alert settings ›",
+            color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .clickable { openAlertSettings() }
+        )
     }
 }
 
