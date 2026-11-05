@@ -175,7 +175,7 @@ private fun EngineInstallCard(status: EngineStatus, onInstall: () -> Unit, onOpe
                 text = if (status.needsPermission) {
                     "Allow installs from OffScroll on the screen that just opened, come back, and tap Install again."
                 } else {
-                    "Tap Install in the Android installer, then come back here."
+                    "Tap Install in the Android installer, then come back here. If Play Protect says it hasn't seen this app before, tap More details, then Install anyway (OffScroll isn't on the Play Store)."
                 }
             )
 

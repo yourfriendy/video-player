@@ -97,6 +97,10 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 3. Open it and allow *"Install from this source"* if Android asks.
 4. Launch OffScroll and grant access to your videos.
 
+### 🛡️ "Play Protect wants to scan this app" or "can't install"
+
+OffScroll isn't on the Play Store, so Android treats it as an app from an unknown developer. Tap **More details > Install anyway** (or **Scan app**, then install). Every build is signed with the same key (its SHA-256 is in each release's notes). On some phones, mainly in Brazil, Indonesia, Singapore and Thailand since September 2026, installs from unregistered developers can be blocked: see [docs/VERIFY-WITH-GOOGLE.md](docs/VERIFY-WITH-GOOGLE.md) for how the developer registers the app with Google so that stops.
+
 ### 🧩 Optional: OffScroll Engine (YouTube, TikTok, Facebook… about 50 MB)
 
 OffScroll itself is small (about 10 MB) and handles Instagram reels, stories and your own videos. Saving from **YouTube, Facebook, Snapchat, TikTok, X, Reddit, Vimeo and 1000+ more sites** needs yt-dlp, Python and ffmpeg, which live in a separate, optional app so everyone else doesn't have to carry them:

@@ -71,6 +71,16 @@ jobs:
             echo "KEY_PASSWORD=$PASS"
             echo "KEY_ALIAS=upload"
           } >> "$GITHUB_ENV"
+          # Print the certificate fingerprint: it is what you register with Google (and what users can compare)
+          FP=$(keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload 2>/dev/null | grep -m1 "SHA256:" | sed 's/.*SHA256: *//')
+          echo "CERT_SHA256=$FP" >> "$GITHUB_ENV"
+          {
+            echo "### Signing certificate"
+            echo
+            echo "SHA-256: \`$FP\`"
+            echo
+            echo "Register this fingerprint with the package name in the Android Developer Console (see docs/VERIFY-WITH-GOOGLE.md)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Unit tests, then build the release APK (R8-optimised)
         working-directory: video player
@@ -125,6 +135,8 @@ jobs:
           - Commit: \`${SHORT_SHA}\`
           - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
           - Release build: optimised with R8 for smooth scrolling. Android may ask you to allow installs from your browser or file manager.
+          - Signing certificate SHA-256: \`${CERT_SHA256}\` (package \`com.aistudio.offscroll.vfeed\`; the engine is \`com.aistudio.offscroll.engine\`)
+          - Not from the Play Store? Play Protect may offer to scan the app first: tap More details, then Install anyway (or Scan app, then install). Every build is signed with the same key.
           NOTES
           sed -i 's/^          //' release-notes.md
 

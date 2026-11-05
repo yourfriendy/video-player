@@ -71,6 +71,16 @@ jobs:
             echo "KEY_PASSWORD=$PASS"
             echo "KEY_ALIAS=upload"
           } >> "$GITHUB_ENV"
+          # Print the certificate fingerprint: it is what you register with Google (and what users can compare)
+          FP=$(keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload 2>/dev/null | grep -m1 "SHA256:" | sed 's/.*SHA256: *//')
+          echo "CERT_SHA256=$FP" >> "$GITHUB_ENV"
+          {
+            echo "### Signing certificate"
+            echo
+            echo "SHA-256: \`$FP\`"
+            echo
+            echo "Register this fingerprint with the package name in the Android Developer Console (see docs/VERIFY-WITH-GOOGLE.md)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build the engine APK
         working-directory: video player

@@ -1,0 +1,58 @@
+name: Sign Google registration APK
+
+# Google's Android Developer Console asks you to prove you own the signing key by signing a dummy APK it gives you.
+# The key only exists as a GitHub secret, so this workflow signs that APK for you.
+#   1. In the console, download the dummy APK it provides
+#   2. Put it somewhere with a direct link (for example attach it to any GitHub issue or release)
+#   3. Run this workflow with that link; download the "signed-registration-apk" artifact and upload it to the console
+on:
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: "Direct link to the dummy APK from the Android Developer Console"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sign:
+    name: Sign the console's dummy APK with the release key
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::The ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD secrets are missing, so there is no real key to prove ownership of."
+            exit 1
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "::add-mask::$KS_PASS"
+
+      - name: Download the dummy APK
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/challenge.apk" "$APK_URL"
+          ls -l "$RUNNER_TEMP/challenge.apk"
+
+      - name: Sign it
+        env:
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          mkdir -p out
+          "$APKSIGNER" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias upload \
+            --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --out out/signed-registration.apk "$RUNNER_TEMP/challenge.apk"
+          "$APKSIGNER" verify --print-certs out/signed-registration.apk | head -5
+
+      - name: Upload the signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-registration-apk
+          path: out/signed-registration.apk

@@ -53,7 +53,7 @@ private const val PERMISSION_HINT =
     "Android opened a screen asking you to allow OffScroll to install apps. Switch it on, come back here and tap Install."
 
 private const val INSTALL_HINT =
-    "Android will ask you to confirm. Your videos and settings are kept."
+    "Android will ask you to confirm. Your videos and settings are kept. If Play Protect asks about an app it hasn't seen, tap More details, then Install anyway (OffScroll isn't on the Play Store)."
 
 // ------------------------------------------------------------------------------------------------
 // Pop-up, shown over any screen when a new build is found at launch
