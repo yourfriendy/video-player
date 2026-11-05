@@ -178,7 +178,7 @@ gradle :app:assembleDebug
 
 ### 🤖 Automatic APK builds
 
-Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds an **R8-optimised, release-signed** `OffScroll.apk` plus the optional `OffScroll-Engine.apk`, and replaces the **`latest`** release with both, so the newest build is always one tap away from the repo's front page.
+Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds an **R8-optimised, release-signed** `OffScroll.apk` and replaces the **`latest`** release with it, so the newest build is always one tap away from the repo's front page. That run then starts [`build-engine.yml`](.github/workflows/build-engine.yml) as a separate run for the big optional `OffScroll-Engine.apk`, so the app is published minutes sooner; the engine is attached to the same release when it finishes (the previous engine stays attached in the meantime).
 
 ## 📁 Project layout
 

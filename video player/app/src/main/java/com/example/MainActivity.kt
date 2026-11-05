@@ -53,6 +53,21 @@ class MainActivity : ComponentActivity() {
     // The "Any link" downloader tab; also receives links shared from YouTube, Facebook, TikTok...
     private val universalViewModel: UniversalDownloadViewModel by viewModels()
 
+    // Android 13+ keeps every notification (story alerts, "Saved", download progress) off until this is allowed
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    private fun askForNotificationsOnce() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
+        val prefs = getSharedPreferences("offscroll_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("asked_notifications", false)) return
+        prefs.edit().putBoolean("asked_notifications", true).apply()
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     private val requiredPermission: String
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Manifest.permission.READ_MEDIA_VIDEO
@@ -174,6 +189,9 @@ class MainActivity : ComponentActivity() {
         viewModel.resumePlayback()
         // Looks for a newer build on GitHub (skips the network if it checked in the last 15 minutes)
         updateViewModel.checkOnLaunch()
+        // After the video permission is settled (two system dialogs at once would clash), ask about notifications
+        if (hasMediaPermission()) askForNotificationsOnce()
+        com.example.data.download.StoryAlertScheduler.catchUp(this)
     }
 
     fun enterSystemPiP() {

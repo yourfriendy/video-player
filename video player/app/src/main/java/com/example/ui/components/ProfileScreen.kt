@@ -1,5 +1,17 @@
 package com.example.ui.components
 
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.Notifications
+import androidx.core.content.ContextCompat
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.provider.Settings
+import android.os.Build
+import android.content.pm.PackageManager
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -144,6 +156,7 @@ fun ProfileOverlay(
     savedPeople: List<SavedPerson>,
     onSavePerson: (String) -> Unit,
     onRemovePerson: (String) -> Unit,
+    onSetAlerts: (String, Boolean) -> Unit,
     onSignIn: () -> Unit
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
@@ -160,6 +173,7 @@ fun ProfileOverlay(
 
     val shownName = state.details?.username ?: state.username
     val saved = savedPeople.any { it.username.equals(shownName, ignoreCase = true) }
+    val alertsOn = savedPeople.firstOrNull { it.username.equals(shownName, ignoreCase = true) }?.alerts == true
 
     Dialog(
         onDismissRequest = controller::back,
@@ -174,6 +188,8 @@ fun ProfileOverlay(
             controller = controller,
             saved = saved,
             onToggleSave = { if (saved) onRemovePerson(shownName) else onSavePerson(shownName) },
+            alertsOn = alertsOn,
+            onSetAlerts = { on -> onSetAlerts(shownName, on) },
             onSignIn = onSignIn
         )
     }
@@ -192,6 +208,8 @@ private fun ProfileContent(
     controller: ProfileController,
     saved: Boolean,
     onToggleSave: () -> Unit,
+    alertsOn: Boolean,
+    onSetAlerts: (Boolean) -> Unit,
     onSignIn: () -> Unit
 ) {
     val context = LocalContext.current
@@ -270,7 +288,7 @@ private fun ProfileContent(
                 onAction = controller::retry
             )
             state.details == null -> ProfileSkeleton()
-            else -> ProfileGrid(state, controller, saved, onToggleSave)
+            else -> ProfileGrid(state, controller, saved, onToggleSave, alertsOn, onSetAlerts)
         }
     }
 }
@@ -280,7 +298,9 @@ private fun ProfileGrid(
     state: ProfileUiState,
     controller: ProfileController,
     saved: Boolean,
-    onToggleSave: () -> Unit
+    onToggleSave: () -> Unit,
+    alertsOn: Boolean,
+    onSetAlerts: (Boolean) -> Unit
 ) {
     val details = state.details ?: return
     val gridState = rememberLazyGridState()
@@ -312,7 +332,7 @@ private fun ProfileGrid(
         modifier = Modifier.fillMaxSize().navigationBarsPadding()
     ) {
         item(key = "header", span = { GridItemSpan(maxLineSpan) }) {
-            ProfileHeader(details, state, controller, saved, onToggleSave)
+            ProfileHeader(details, state, controller, saved, onToggleSave, alertsOn, onSetAlerts)
         }
         if (state.highlights.isNotEmpty()) {
             item(key = "highlights", span = { GridItemSpan(maxLineSpan) }) {
@@ -344,7 +364,9 @@ private fun ProfileHeader(
     state: ProfileUiState,
     controller: ProfileController,
     saved: Boolean,
-    onToggleSave: () -> Unit
+    onToggleSave: () -> Unit,
+    alertsOn: Boolean,
+    onSetAlerts: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     Column(
@@ -418,6 +440,127 @@ private fun ProfileHeader(
             ProfileButton(if (saved) "Saved" else "Save person", Modifier.weight(1f), onClick = onToggleSave)
             ProfileButton("Instagram", Modifier.weight(1f)) {
                 openLink(context, "https://www.instagram.com/${details.username}/")
+            }
+        }
+        AlertsRow(username = details.username, on = alertsOn, onSet = onSetAlerts)
+    }
+}
+
+/**
+ * On/off switch for new-story and repost notifications about this person. Turning it on also saves them.
+ * Handles the Android 13+ permission, tells you when the phone has notifications switched off, and shows what
+ * the last background check did, so "why didn't I get an alert?" has a visible answer.
+ */
+@Composable
+private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    var waitingForPermission by remember { mutableStateOf(false) }
+
+    fun openNotificationSettings() {
+        try {
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (e: Exception) {
+            // No settings screen to open
+        }
+    }
+
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (waitingForPermission) {
+            waitingForPermission = false
+            onSet(true) // still switch it on: the alert is saved, and works as soon as notifications are allowed
+        }
+        if (!granted) {
+            Toast.makeText(context, "Notifications are off for OffScroll, so alerts can't be shown. Opening settings…", Toast.LENGTH_LONG).show()
+            openNotificationSettings()
+        }
+    }
+
+    fun turnOn() {
+        val needsAsk = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (needsAsk) {
+            waitingForPermission = true
+            permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onSet(true)
+            if (com.example.data.download.StoryAlertWorker.notificationsBlocked(context)) {
+                Toast.makeText(context, "Notifications are muted for OffScroll in phone settings. Opening settings…", Toast.LENGTH_LONG).show()
+                openNotificationSettings()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(IgButton)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .testTag("profile_alerts_row")
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = if (on) Icons.Default.Notifications else Icons.Default.NotificationsOff,
+                contentDescription = null,
+                tint = if (on) IgBlue else IgMuted,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Story alerts", color = IgText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = if (on) "Notifies you about @$username's new stories and reposts, checked about every 5 minutes. Nobody is told you looked."
+                    else "Get a notification when @$username posts a new story or reposts a reel.",
+                    color = IgMuted, fontSize = 12.sp, lineHeight = 16.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Switch(
+                checked = on,
+                onCheckedChange = { if (it) turnOn() else onSet(false) },
+                colors = SwitchDefaults.colors(checkedTrackColor = IgBlue)
+            )
+        }
+        if (on) {
+            var status by remember { mutableStateOf(com.example.data.download.StoryAlertStatus.read(context)) }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    status = com.example.data.download.StoryAlertStatus.read(context)
+                    kotlinx.coroutines.delay(3_000L)
+                }
+            }
+            Text(
+                text = status?.let { (at, line) ->
+                    "Last check " + java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(at)) + ": " + line
+                } ?: "No check has run yet. The first one only notes what is already posted.",
+                color = IgMuted, fontSize = 11.sp, lineHeight = 15.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Row(modifier = Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                Text(
+                    "Send test", color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        val ok = com.example.data.download.StoryAlertWorker.sendTest(context)
+                        Toast.makeText(
+                            context,
+                            if (ok) "Test alert sent" else "Notifications are off for OffScroll in phone settings",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        if (!ok) openNotificationSettings()
+                    }
+                )
+                Text(
+                    "Check now", color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        com.example.data.download.StoryAlertScheduler.checkNow(context)
+                        Toast.makeText(context, "Checking now. The result shows here in a minute.", Toast.LENGTH_SHORT).show()
+                    }
+                )
             }
         }
     }

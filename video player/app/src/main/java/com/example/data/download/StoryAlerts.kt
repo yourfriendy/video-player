@@ -1,5 +1,6 @@
 package com.example.data.download
 
+import com.example.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -60,6 +61,8 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
         status("checking " + people.size + " person(s)...")
 
         var storiesOk = 0
+        var failed = 0
+        var lastError = ""
         var repostsRead = 0
         var note = ""
         val downloader = withContext(Dispatchers.Main) { InstagramDownloader(applicationContext) }
@@ -77,8 +80,12 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
                     note = ". Instagram sign-in expired"
                     notify("Instagram sign-in expired", "Open OffScroll and sign in again to keep getting story alerts.", "relogin".hashCode(), null)
                     break
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    // Instagram hiccup: try again at the next run
+                    // Instagram hiccup: try again at the next run, but say so in the status line
+                    failed++
+                    lastError = (e.message ?: e.javaClass.simpleName).lineSequence().firstOrNull().orEmpty().take(90)
                 }
                 try {
                     delay(2_000L)
@@ -95,6 +102,7 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
         status(
             "checked " + people.size + " person(s): stories read for " + storiesOk + ", reposts found " + repostsRead +
                 ", alerts sent " + sent + note +
+                (if (failed > 0) ". Couldn't read " + failed + " (" + lastError + "), will retry" else "") +
                 (if (blocked) ". NOTIFICATIONS ARE OFF for OffScroll in phone settings, so nothing can be shown" else "")
         )
     }
@@ -191,7 +199,8 @@ class StoryAlertWorker(context: Context, params: WorkerParameters) : CoroutineWo
                 context, id, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(context.applicationInfo.icon)
+                .setSmallIcon(R.drawable.ic_stat_offscroll)
+                .setColor(0xFFEC4899.toInt())
                 .setContentTitle(title)
                 .setContentText(text)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -258,6 +267,20 @@ object StoryAlertScheduler {
                 .enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request(INTERVAL_MINUTES))
         } catch (_: Exception) {
             // WorkManager unavailable: alerts simply stay off
+        }
+    }
+
+    /**
+     * Phones pause background work while idle, so a check can be late. When OffScroll comes to the front and the
+     * last check is more than a few minutes old, run one straight away instead of waiting for the next slot.
+     */
+    fun catchUp(context: Context) {
+        try {
+            if (PeopleStore(context).all().none { it.alerts }) return
+            val last = StoryAlertStatus.read(context)?.first ?: 0L
+            if (System.currentTimeMillis() - last > (INTERVAL_MINUTES + 1) * 60_000L) checkNow(context)
+        } catch (_: Exception) {
+            // WorkManager unavailable
         }
     }
 

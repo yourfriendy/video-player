@@ -528,6 +528,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel)
         savedPeople = uiState.people,
         onSavePerson = { viewModel.savePerson(it) },
         onRemovePerson = { viewModel.removePerson(it) },
+        onSetAlerts = { name, on -> viewModel.setPersonAlerts(name, on) },
         onSignIn = { viewModel.openIgLogin() }
     )
 }

@@ -1,0 +1,116 @@
+name: Build Engine APK
+
+# The big one (about 50 MB: yt-dlp + Python + ffmpeg). It is started by build-apk.yml AFTER the small app
+# is published, so the app never waits for it. On main it attaches OffScroll-Engine.apk to the "latest"
+# release; on other branches the APK is only a run artifact.
+on:
+  workflow_dispatch:
+  # GitHub can only start a workflow by hand/API once its file is on the default branch, so on feature branches
+  # (before the first merge) pushes that touch the engine build it directly instead.
+  push:
+    branches-ignore: [main]
+    paths:
+      - "video player/engine/**"
+      - "video player/gradle/**"
+      - "video player/*.gradle.kts"
+      - ".github/workflows/build-engine.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: Build OffScroll-Engine.apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Accept Android SDK licenses (SDK is preinstalled on the runner)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      # Must be the SAME key as the app (build-apk.yml): the engine only talks to apps signed like it
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          KS="$RUNNER_TEMP/release.jks"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "Using the repository's signing key (same as the app)"
+            echo "$KS_B64" | base64 -d > "$KS"
+            PASS="$KS_PASS"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_* secrets found: this engine is signed with a throw-away key and will NOT work with the app (different signatures). Add the secrets."
+            PASS="offscroll-ci"
+            keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" \
+              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=OffScroll,O=OffScroll,C=US"
+          fi
+          {
+            echo "KEYSTORE_PATH=$KS"
+            echo "STORE_PASSWORD=$PASS"
+            echo "KEY_PASSWORD=$PASS"
+            echo "KEY_ALIAS=upload"
+          } >> "$GITHUB_ENV"
+
+      - name: Build the engine APK
+        working-directory: video player
+        run: |
+          set -o pipefail
+          gradle :engine:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: Surface build errors as annotations
+        if: failure()
+        run: |
+          if [ -f build.log ]; then
+            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Engine build errors::${ERR}"
+          else
+            echo "::error title=Engine build errors::no build.log (failed before the Gradle step)"
+          fi
+
+      - name: Name the APK
+        run: |
+          cp "video player/engine/build/outputs/apk/release/engine-release.apk" OffScroll-Engine.apk
+          ls -l OffScroll-Engine.apk
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OffScroll-Engine-apk
+          path: OffScroll-Engine.apk
+
+      - name: Branch build (public release left untouched)
+        if: github.ref != 'refs/heads/main'
+        run: echo "::notice title=Engine built::Download it from this run's Artifacts (OffScroll-Engine-apk). The public latest release is only updated from main."
+
+      - name: Attach to the latest release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The app workflow publishes the release first; wait a little in case this run started very early
+          for i in 1 2 3 4 5 6; do
+            gh release view latest > /dev/null 2>&1 && break
+            echo "latest release not there yet, waiting..."; sleep 20
+          done
+          gh release upload latest OffScroll-Engine.apk --clobber

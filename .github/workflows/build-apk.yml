@@ -1,5 +1,9 @@
 name: Build APK
 
+# Fast path: this workflow builds and publishes ONLY the small OffScroll.apk (about 10 MB), then triggers
+# build-engine.yml as a separate run for the big OffScroll-Engine.apk (about 50 MB), so the app is
+# available minutes sooner instead of waiting for both.
+
 on:
   # Every push to ANY branch builds an APK (attached to the run as the "OffScroll-apk" artifact).
   # Only pushes to main publish the public "latest" release. Docs-only pushes don't build.
@@ -12,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # lets this workflow start the engine build (gh workflow run)
 
 concurrency:
   # One build per branch, so a feature-branch build never cancels (or replaces) a main build
@@ -20,7 +25,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build & publish APKs
+    name: Build & publish OffScroll.apk
     runs-on: ubuntu-24.04
     timeout-minutes: 40
 
@@ -42,12 +47,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.3.1"
-
-      - name: Run unit tests (Instagram parsing, update checker, any-link downloader and engine messages)
-        working-directory: video player
-        run: |
-          set -o pipefail
-          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --tests "com.example.data.universal.*" --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Prepare signing key
         env:
@@ -73,11 +72,11 @@ jobs:
             echo "KEY_ALIAS=upload"
           } >> "$GITHUB_ENV"
 
-      - name: Build release APKs (OffScroll, R8-optimised, and the optional OffScroll Engine)
+      - name: Unit tests, then build the release APK (R8-optimised)
         working-directory: video player
         run: |
           set -o pipefail
-          gradle :app:assembleRelease :engine:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --tests "com.example.data.universal.*" :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Surface build errors as annotations
         if: failure()
@@ -89,19 +88,16 @@ jobs:
             echo "::error title=Build errors::no build.log (failed before the Gradle step)"
           fi
 
-      - name: Name the APKs
+      - name: Name the APK
         run: |
           cp "video player/app/build/outputs/apk/release/app-release.apk" OffScroll.apk
-          cp "video player/engine/build/outputs/apk/release/engine-release.apk" OffScroll-Engine.apk
-          ls -l OffScroll.apk OffScroll-Engine.apk
+          ls -l OffScroll.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: OffScroll-apk
-          path: |
-            OffScroll.apk
-            OffScroll-Engine.apk
+          path: OffScroll.apk
 
       - name: Branch build (public release left untouched)
         if: github.ref != 'refs/heads/main'
@@ -122,7 +118,8 @@ jobs:
 
           Want to save from YouTube, Facebook, TikTok, Snapchat, X and 1000+ more sites? Also install
           **OffScroll-Engine.apk** (about 50 MB), or tap "Download and install engine" on the Any link tab
-          inside OffScroll. It is optional: OffScroll itself stays small without it.
+          inside OffScroll. It is optional: OffScroll itself stays small without it. A fresh engine build
+          is attached a few minutes after the app (the previous one stays attached until then).
 
           - Build number: ${GITHUB_RUN_NUMBER}
           - Commit: \`${SHORT_SHA}\`
@@ -131,9 +128,29 @@ jobs:
           NOTES
           sed -i 's/^          //' release-notes.md
 
+          # The release is recreated on every build, so keep the engine that is already attached
+          # (the engine workflow replaces it with a fresh one a few minutes later)
+          mkdir -p keep
+          gh release download latest -p OffScroll-Engine.apk -D keep 2>/dev/null || true
+          ASSETS="OffScroll.apk"
+          [ -f keep/OffScroll-Engine.apk ] && ASSETS="$ASSETS keep/OffScroll-Engine.apk"
+
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest OffScroll.apk OffScroll-Engine.apk \
+          gh release create latest $ASSETS \
             --title "OffScroll – latest build" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA" \
             --latest
+
+      - name: Start the engine build (separate run, so this one is already done)
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh workflow run build-engine.yml --ref "$GITHUB_REF_NAME"; then
+            echo "::notice title=Engine build started::OffScroll-Engine.apk is building in its own run."
+          else
+            # Happens on a branch before build-engine.yml has been merged to main: the engine workflow's own
+            # push trigger covers that case, so this must not fail the app build
+            echo "::warning title=Engine build not started from here::Couldn't dispatch build-engine.yml (normal on a new branch). It also starts by itself on pushes that touch the engine."
+          fi
