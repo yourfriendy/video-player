@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInHorizontally
@@ -1061,17 +1062,47 @@ private fun MediaViewerDialog(
 }
 
 @Composable
-internal fun ViewerVideo(url: String) {
+internal fun ViewerVideo(
+    url: String,
+    /** False holds the video (press-and-hold on a story, or the details panel is open). */
+    playing: Boolean = true,
+    /** Stories play once and move on; posts and reels loop. */
+    loop: Boolean = true,
+    /** 0f..1f while playing, for a story's progress bar. */
+    onProgress: ((Float) -> Unit)? = null,
+    onEnded: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val player = remember(url) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(url))
-            repeatMode = Player.REPEAT_MODE_ONE
+            repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             playWhenReady = true
             prepare()
         }
     }
     DisposableEffect(player) { onDispose { player.release() } }
+    LaunchedEffect(player, playing) { player.playWhenReady = playing }
+    val endedCallback by rememberUpdatedState(onEnded)
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) endedCallback?.invoke()
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+    if (onProgress != null) {
+        val progressCallback by rememberUpdatedState(onProgress)
+        LaunchedEffect(player) {
+            while (true) {
+                val duration = player.duration
+                if (duration > 0) progressCallback((player.currentPosition.toFloat() / duration).coerceIn(0f, 1f))
+                kotlinx.coroutines.delay(40)
+            }
+        }
+    }
     // Pause when the app leaves the screen (home, recents, another app); carry on when it comes back
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(player, lifecycleOwner) {

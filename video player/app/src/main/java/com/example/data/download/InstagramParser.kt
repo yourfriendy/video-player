@@ -152,8 +152,53 @@ object InstagramParser {
         /** The short note the reposter typed when they tapped Repost (NOT the reel's own caption). */
         val repostNote: String? = null,
         /** What Instagram sent about the repost itself, for troubleshooting ("Copy details"). */
-        val debug: String? = null
+        val debug: String? = null,
+        /** Everything else Instagram says about this item (type, size, tags, place, music, links, stickers). */
+        val extras: MediaExtras = MediaExtras()
     )
+
+    /** The extra facts shown in the viewer's details panel. Every field is optional: Instagram only sends what exists. */
+    data class MediaExtras(
+        /** Instagram's own label: clips (reel), feed, carousel_container, igtv, story. */
+        val productType: String? = null,
+        /** 1 photo, 2 video, 8 carousel. */
+        val mediaType: Int? = null,
+        val width: Int? = null,
+        val height: Int? = null,
+        val hasAudio: Boolean? = null,
+        val hashtags: List<String> = emptyList(),
+        val location: String? = null,
+        /** "Song title, Artist". */
+        val music: String? = null,
+        /** The name of the original sound of a reel, when it isn't a song. */
+        val originalAudio: String? = null,
+        /** People tagged on the picture/video (not @mentions in the text). */
+        val taggedUsers: List<ProfileInfo> = emptyList(),
+        val coauthors: List<String> = emptyList(),
+        val links: List<String> = emptyList(),
+        val altText: String? = null,
+        val paidPartnership: Boolean = false,
+        /** Story stickers: Poll, Question, Slider, Quiz, Countdown, Shared post, ... */
+        val stickers: List<String> = emptyList(),
+        val canReply: Boolean? = null,
+        val canReshare: Boolean? = null
+    ) {
+        /** Fills what this item lacks from its post (a carousel slide doesn't repeat the post's place, music or co-authors). */
+        fun withParent(parent: MediaExtras): MediaExtras = copy(
+            productType = productType ?: parent.productType,
+            mediaType = mediaType ?: parent.mediaType,
+            location = location ?: parent.location,
+            music = music ?: parent.music,
+            originalAudio = originalAudio ?: parent.originalAudio,
+            coauthors = coauthors.ifEmpty { parent.coauthors },
+            hashtags = (hashtags + parent.hashtags).distinct(),
+            links = (links + parent.links).distinct(),
+            taggedUsers = (taggedUsers + parent.taggedUsers).distinctBy { it.username },
+            paidPartnership = paidPartnership || parent.paidPartnership,
+            canReply = canReply ?: parent.canReply,
+            canReshare = canReshare ?: parent.canReshare
+        )
+    }
 
     data class HighlightInfo(val id: String, val title: String, val coverUrl: String?)
 
@@ -364,8 +409,120 @@ object InstagramParser {
             repostedAtSec = scanRepostTime(item, 0),
             expiresAtSec = item.optLong("expiring_at", -1L).takeIf { it > 0 },
             mentions = mentionsOf(item),
-            needsResolve = needsResolve
+            needsResolve = needsResolve,
+            extras = extrasOf(item)
         )
+    }
+
+    private fun objects(array: org.json.JSONArray?): List<org.json.JSONObject> =
+        if (array == null) emptyList() else (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+
+    private val HASHTAG = Regex("#([\\p{L}\\p{N}_]+)")
+    private val URL_IN_TEXT = Regex("(https?://\\S+)")
+
+    /**
+     * Reads the details Instagram sends next to a story, post or reel: what kind it is, size, audio, tags, place,
+     * music, links and stickers. Handles both the app API names (usertags, clips_metadata, ...) and the web names
+     * (edge_media_to_tagged_user, dimensions, ...). Anything missing is simply left out.
+     */
+    private fun extrasOf(item: org.json.JSONObject): MediaExtras {
+        val hashtags = LinkedHashSet<String>()
+        objects(item.optJSONArray("story_hashtags")).forEach { h ->
+            h.optJSONObject("hashtag")?.let { text(it, "name") }?.takeIf { it.isNotBlank() }?.let { hashtags.add(it) }
+        }
+        captionOf(item)?.let { caption -> HASHTAG.findAll(caption).forEach { hashtags.add(it.groupValues[1]) } }
+
+        // Place: a post has "location", a story has "story_locations"
+        val location = (item.optJSONObject("location")
+            ?: objects(item.optJSONArray("story_locations")).firstOrNull()?.optJSONObject("location"))
+            ?.let { place ->
+                val name = text(place, "name").ifBlank { text(place, "short_name") }
+                val city = text(place, "city")
+                if (name.isNotBlank() && city.isNotBlank() && !name.contains(city, ignoreCase = true)) "$name, $city" else name
+            }?.takeIf { it.isNotBlank() }
+
+        // Music: reels (clips_metadata), stories (story_music_stickers), older replies (music_metadata), web (clips_music_attribution_info)
+        fun song(asset: org.json.JSONObject?): String? {
+            if (asset == null) return null
+            val title = text(asset, "title")
+            val artist = text(asset, "display_artist").ifBlank { text(asset, "artist_name") }
+            return listOf(title, artist).filter { it.isNotBlank() }.joinToString(", ").takeIf { it.isNotBlank() }
+        }
+        val clips = item.optJSONObject("clips_metadata")
+        val music = song(clips?.optJSONObject("music_info")?.optJSONObject("music_asset_info"))
+            ?: song(objects(item.optJSONArray("story_music_stickers")).firstOrNull()?.optJSONObject("music_asset_info"))
+            ?: song(item.optJSONObject("music_metadata")?.optJSONObject("music_info")?.optJSONObject("music_asset_info"))
+            ?: item.optJSONObject("clips_music_attribution_info")?.let { info ->
+                listOf(text(info, "song_name"), text(info, "artist_name")).filter { it.isNotBlank() }.joinToString(", ").takeIf { it.isNotBlank() }
+            }
+        val originalAudio = clips?.optJSONObject("original_sound_info")?.let { sound ->
+            val title = text(sound, "original_audio_title")
+            val by = sound.optJSONObject("ig_artist")?.let { text(it, "username") }.orEmpty()
+            listOf(title, by.takeIf { it.isNotBlank() }?.let { "by @$it" }).filterNotNull().filter { it.isNotBlank() }.joinToString(" ").takeIf { it.isNotBlank() }
+        }
+
+        val tagged = (objects(item.optJSONObject("usertags")?.optJSONArray("in")).mapNotNull { it.optJSONObject("user")?.let { u -> profileFrom(u) } } +
+            objects(item.optJSONObject("edge_media_to_tagged_user")?.optJSONArray("edges")).mapNotNull {
+                it.optJSONObject("node")?.optJSONObject("user")?.let { u -> profileFrom(u) }
+            }).distinctBy { it.username }
+
+        val coauthors = (objects(item.optJSONArray("coauthor_producers")) + objects(item.optJSONArray("invited_coauthor_producers")))
+            .map { text(it, "username") }.filter { it.isNotBlank() }.distinct()
+
+        val links = LinkedHashSet<String>()
+        objects(item.optJSONArray("story_link_stickers")).forEach { sticker ->
+            sticker.optJSONObject("story_link")?.let { text(it, "url") }?.takeIf { it.startsWith("http") }?.let { links.add(it) }
+        }
+        captionOf(item)?.let { caption -> URL_IN_TEXT.findAll(caption).forEach { links.add(it.value.trimEnd('.', ',', ')', '!', '?')) } }
+
+        val stickers = ArrayList<String>()
+        fun sticker(key: String, label: String) {
+            val n = item.optJSONArray(key)?.length() ?: 0
+            if (n > 0) stickers.add(if (n > 1) "$label ×$n" else label)
+        }
+        sticker("story_polls", "Poll")
+        sticker("story_sliders", "Slider")
+        sticker("story_questions", "Question")
+        sticker("story_quizs", "Quiz")
+        sticker("story_countdowns", "Countdown")
+        sticker("story_chats", "Chat")
+        sticker("story_feed_media", "Shared post")
+        sticker("story_link_stickers", "Link")
+        sticker("story_music_stickers", "Music")
+        sticker("story_locations", "Location")
+        sticker("story_hashtags", "Hashtag")
+        sticker("reel_mentions", "Mention")
+
+        val dimensions = item.optJSONObject("dimensions")
+        val width = item.optInt("original_width", 0).takeIf { it > 0 } ?: dimensions?.optInt("width", 0)?.takeIf { it > 0 }
+        val height = item.optInt("original_height", 0).takeIf { it > 0 } ?: dimensions?.optInt("height", 0)?.takeIf { it > 0 }
+
+        return MediaExtras(
+            productType = text(item, "product_type").ifBlank { null },
+            mediaType = item.optInt("media_type", 0).takeIf { it > 0 },
+            width = width,
+            height = height,
+            hasAudio = if (item.has("has_audio")) item.optBoolean("has_audio") else null,
+            hashtags = hashtags.toList(),
+            location = location,
+            music = music,
+            originalAudio = originalAudio,
+            taggedUsers = tagged,
+            coauthors = coauthors,
+            links = links.toList(),
+            altText = text(item, "accessibility_caption").ifBlank { null },
+            paidPartnership = item.optBoolean("is_paid_partnership", false) || (item.optJSONArray("sponsor_tags")?.length() ?: 0) > 0,
+            stickers = stickers,
+            canReply = if (item.has("can_reply")) item.optBoolean("can_reply") else null,
+            canReshare = if (item.has("can_reshare")) item.optBoolean("can_reshare") else null
+        )
+    }
+
+    /** Test hook: the details of one item given as JSON. */
+    fun parseExtras(json: String): MediaExtras = try {
+        extrasOf(org.json.JSONObject(json))
+    } catch (e: Exception) {
+        MediaExtras()
     }
 
     private fun captionOf(item: org.json.JSONObject): String? {
@@ -884,6 +1041,7 @@ object InstagramParser {
         val plays = m.optLong("play_count", -1L).takeIf { it >= 0 } ?: m.optLong("view_count", -1L).takeIf { it >= 0 }
         val taken = m.optLong("taken_at", 0L)
 
+        val postExtras = extrasOf(m)
         val slides = ArrayList<StoryItem>()
         val carousel = m.optJSONArray("carousel_media")
         if (carousel != null && carousel.length() > 0) {
@@ -903,7 +1061,8 @@ object InstagramParser {
                 takenAtSec = if (it.takenAtSec > 0) it.takenAtSec else taken,
                 likes = likes ?: it.likes,
                 comments = comments ?: it.comments,
-                plays = plays ?: it.plays
+                plays = plays ?: it.plays,
+                extras = it.extras.withParent(postExtras)
             )
         }
         val product = text(m, "product_type")
@@ -1027,6 +1186,7 @@ object InstagramParser {
             ?.optLong("count", -1L)?.takeIf { it >= 0 }
         val plays = n.optLong("video_view_count", -1L).takeIf { it >= 0 }
         val taken = n.optLong("taken_at_timestamp", 0L)
+        val postExtras = extrasOf(n)
 
         fun slide(node: org.json.JSONObject): StoryItem? {
             val display = text(node, "display_url")
@@ -1046,7 +1206,8 @@ object InstagramParser {
                 comments = comments,
                 plays = plays,
                 // A video whose address wasn't in the list reply has to be looked up before it can play or save
-                needsResolve = video && !videoUrl.startsWith("http")
+                needsResolve = video && !videoUrl.startsWith("http"),
+                extras = extrasOf(node).withParent(postExtras)
             )
         }
 

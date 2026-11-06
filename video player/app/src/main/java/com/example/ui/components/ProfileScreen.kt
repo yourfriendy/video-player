@@ -572,7 +572,7 @@ private fun AvatarWithRing(url: String?, hasStories: Boolean, loading: Boolean, 
 }
 
 @Composable
-private fun ProfileAvatar(url: String?, modifier: Modifier = Modifier) {
+internal fun ProfileAvatar(url: String?, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.clip(CircleShape).background(IgButton),
         contentAlignment = Alignment.Center
@@ -1182,176 +1182,6 @@ private fun PersonItem(person: PersonRow, onClick: () -> Unit) {
 // Viewer: a post's slides, stories, highlights
 // ------------------------------------------------------------------------------------------------
 
-@Composable
-private fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiState, controller: ProfileController) {
-    val items = viewer.items
-    if (items.isEmpty()) {
-        LaunchedEffect(Unit) { controller.closeViewer() }
-        return
-    }
-    val context = LocalContext.current
-
-    Dialog(
-        onDismissRequest = controller::closeViewer,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        val pager = rememberPagerState(
-            initialPage = viewer.startIndex.coerceIn(0, items.lastIndex),
-            pageCount = { items.size }
-        )
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-                val item = items[page]
-                val isCurrent = pager.currentPage == page
-                when {
-                    item.needsResolve -> {
-                        // A reel that only came as a picture: look the real video up, then it plays
-                        if (isCurrent) LaunchedEffect(item.id) { controller.resolveNow(item) }
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            AsyncImage(
-                                model = item.thumbnailUrl ?: item.mediaUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            CircularProgressIndicator(color = Color.White)
-                        }
-                    }
-                    item.isVideo && isCurrent -> ViewerVideo(item.mediaUrl)
-                    else -> AsyncImage(
-                        model = if (item.isVideo) (item.thumbnailUrl ?: item.mediaUrl) else item.mediaUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-
-            val current = items[pager.currentPage.coerceIn(0, items.lastIndex)]
-            val status = state.saves[current.id]
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
-            ) {
-                if (items.size > 1) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxWidth()) {
-                        items.take(40).forEachIndexed { i, _ ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(3.dp)
-                                    .clip(CircleShape)
-                                    .background(if (i <= pager.currentPage) Color.White else Color(0x55FFFFFF))
-                            )
-                        }
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
-                ) {
-                    Text(
-                        text = if (items.size > 1) "${viewer.title}  ${pager.currentPage + 1}/${items.size}" else viewer.title,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (items.size > 1) {
-                        Text(
-                            text = "Save all",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0x44FFFFFF))
-                                .clickable { controller.saveAll(items) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                    IconButton(onClick = { if (status !is StoryItemDownload.Done) controller.save(current) }) {
-                        when (status) {
-                            is StoryItemDownload.Downloading -> CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            is StoryItemDownload.Done -> Icon(Icons.Default.CheckCircle, contentDescription = "Saved", tint = Color(0xFF22D3EE))
-                            else -> Icon(Icons.Default.Download, contentDescription = "Save", tint = Color.White)
-                        }
-                    }
-                    IconButton(onClick = controller::closeViewer) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                    }
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xDD000000))))
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                current.caption?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = Color.White, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
-                }
-                val counts = listOfNotNull(
-                    current.likes?.let { "${compactCount(it)} likes" },
-                    current.comments?.let { "${compactCount(it)} comments" },
-                    current.plays?.let { "${compactCount(it)} plays" }
-                ).joinToString("  ·  ")
-                if (counts.isNotBlank()) Text(counts, color = IgMuted, fontSize = 12.sp)
-                if (current.takenAtSec > 0) {
-                    Text(
-                        text = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(current.takenAtSec * 1000)),
-                        color = IgMuted,
-                        fontSize = 12.sp
-                    )
-                }
-                if (current.mentions.isNotEmpty()) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-                        itemsIndexed(current.mentions, key = { _, who -> who.username }) { _, who ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(18.dp))
-                                    .background(Color(0x33FFFFFF))
-                                    .clickable { controller.open(who.username) }
-                                    .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
-                            ) {
-                                ProfileAvatar(who.picUrl, Modifier.size(24.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("@${who.username}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-                current.code?.let { code ->
-                    Text(
-                        text = "Open on Instagram",
-                        color = IgLink,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .clickable { openLink(context, "https://www.instagram.com/p/$code/") }
-                    )
-                }
-            }
-        }
-    }
-}
-
 // ------------------------------------------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------------------------------------------
@@ -1380,7 +1210,7 @@ private fun linkify(bio: String): AnnotatedString = buildAnnotatedString {
 }
 
 /** 1,234 → "1,234", 12,345 → "12.3K", 1,200,000 → "1.2M" (the way Instagram abbreviates counts). */
-private fun compactCount(n: Long?): String {
+internal fun compactCount(n: Long?): String {
     if (n == null) return "–"
     fun short(value: Double, suffix: String): String {
         val text = String.format(Locale.US, "%.1f", value)
@@ -1396,7 +1226,7 @@ private fun compactCount(n: Long?): String {
 private fun prettyUrl(url: String): String =
     url.removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('/')
 
-private fun openLink(context: android.content.Context, url: String) {
+internal fun openLink(context: android.content.Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
