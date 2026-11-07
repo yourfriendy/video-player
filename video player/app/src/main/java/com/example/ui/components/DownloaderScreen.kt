@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.animation.slideOutHorizontally
@@ -554,11 +555,18 @@ private fun ResultsSection(
                 OutlineButton(text = "Load reposts", onClick = { viewModel.findReposts() }, modifier = Modifier.fillMaxWidth())
             }
         }
-        is StoryUiState.Loading -> BusyCard(
-            label = if (kind == StoryKind.STORIES) "Looking for stories…" else "Opening their Reposts tab…",
-            progress = null,
-            onCancel = null
-        )
+        is StoryUiState.Loading -> GlassCard {
+            FetchingLoader(
+                steps = if (kind == StoryKind.STORIES) {
+                    listOf("Contacting Instagram…", "Fetching info…", "Looking for stories…", "Reading the story reel…", "Almost there…")
+                } else {
+                    listOf("Opening their Reposts tab…", "Fetching info…", "Collecting reposts…", "Reading each reel…", "This can take a minute…")
+                },
+                icon = if (kind == StoryKind.STORIES) Icons.Default.Group else Icons.Default.Repeat
+            )
+            // Placeholders where the thumbnails will appear
+            PostGridSkeleton(columns = 3, rows = 1, modifier = Modifier.padding(top = 2.dp))
+        }
         is StoryUiState.NeedsLogin -> {
             MessageCard(Icons.Default.Lock, Orange, state.message)
             Spacer(modifier = Modifier.height(10.dp))
@@ -927,138 +935,26 @@ private fun MediaViewerDialog(
     viewModel: VideoFeedViewModel,
     onClose: () -> Unit
 ) {
-    val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val source = if (kind == StoryKind.STORIES) uiState.storyState else uiState.repostsState
-    val items = (source as? StoryUiState.Loaded)?.items.orEmpty()
-    if (items.isEmpty()) {
-        LaunchedEffect(Unit) { onClose() }
-        return
-    }
-    Dialog(
-        onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        val pager = rememberPagerState(initialPage = startIndex.coerceIn(0, items.lastIndex), pageCount = { items.size })
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
-                val item = items[page]
-                val isCurrent = pager.currentPage == page
-                when {
-                    item.needsResolve -> {
-                        // A reel preview: look the real video up now, then it plays
-                        if (isCurrent) LaunchedEffect(item.id) { viewModel.resolveRepostNow(item) }
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            AsyncImage(item.thumbnailUrl ?: item.mediaUrl, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
-                            CircularProgressIndicator(color = Cyan)
-                        }
-                    }
-                    item.isVideo && isCurrent -> ViewerVideo(item.mediaUrl)
-                    else -> AsyncImage(
-                        model = if (item.isVideo) (item.thumbnailUrl ?: item.mediaUrl) else item.mediaUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-
-            val current = items[pager.currentPage.coerceIn(0, items.lastIndex)]
-            val done = uiState.storyDownloads[current.id] is StoryItemDownload.Done
-
-            Column(modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 10.dp, vertical = 8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxWidth()) {
-                    items.take(40).forEachIndexed { i, _ ->
-                        Box(
-                            modifier = Modifier.weight(1f).height(3.dp).clip(CircleShape)
-                                .background(if (i <= pager.currentPage) Color.White else Color(0x55FFFFFF))
-                        )
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                    val ownerProfile = (uiState.storyState as? StoryUiState.Loaded)?.profile
-                    val shownName = current.author ?: ownerProfile?.username
-                    Avatar(current.authorPic ?: ownerProfile?.picUrl, 34.dp, initial = shownName)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = shownName?.let { "@$it" } ?: "Story",
-                            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
-                        if (current.takenAtSec > 0) Text(timeAgo(current.takenAtSec), color = Color(0xCCFFFFFF), fontSize = 11.sp)
-                    }
-                    IconButton(onClick = { if (!done) viewModel.saveMediaItem(current) }) {
-                        Icon(
-                            if (done) Icons.Default.CheckCircle else Icons.Default.Download,
-                            contentDescription = if (done) "Saved" else "Save",
-                            tint = if (done) Cyan else Color.White
-                        )
-                    }
-                    IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White) }
-                }
-            }
-
-            // ---- details ----
-            Column(
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xDD000000))))
-                    .navigationBarsPadding().padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (kind == StoryKind.REPOSTS) {
-                    RepostNoteText(current, maxLines = 5)
-                    RepostTimeText(current)
-                    current.caption?.let {
-                        Text("Original caption: $it", color = Muted, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    }
-                } else {
-                    Text("Posted ${exactTime(current.takenAtSec)}  (${timeAgo(current.takenAtSec)})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    current.expiresAtSec?.let { Text("Disappears ${exactTime(it)}", color = Muted, fontSize = 12.sp) }
-                }
-                val counts = countsLine(current)
-                if (counts.isNotBlank()) Text(counts, color = Muted, fontSize = 12.sp)
-                if (current.mentions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Mentioned in this story", color = Muted, fontSize = 11.sp)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(current.mentions, key = { it.username }) { who ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.clip(RoundedCornerShape(18.dp)).background(Color(0x33FFFFFF))
-                                    .clickable { onClose(); viewModel.openPerson(who.username) }
-                                    .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
-                            ) {
-                                Avatar(who.picUrl, 26.dp)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("@${who.username}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-                if (kind == StoryKind.REPOSTS) {
-                    Text(
-                        "Copy details", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 4.dp).clickable {
-                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(current.debug ?: "no extra data"))
-                            Toast.makeText(context, "Copied. Paste it to the developer.", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                }
-                current.code?.let { code ->
-                    Text(
-                        "Open on Instagram", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 4.dp).clickable {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/reel/$code/")))
-                            } catch (_: Exception) {
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    }
+    val loaded = source as? StoryUiState.Loaded
+    InstaViewer(
+        ViewerHost(
+            title = if (kind == StoryKind.STORIES) "Stories" else "Reposts",
+            items = loaded?.items.orEmpty(),
+            startIndex = startIndex,
+            timed = kind == StoryKind.STORIES,
+            inStories = kind == StoryKind.STORIES,
+            reposts = kind == StoryKind.REPOSTS,
+            fallbackOwner = loaded?.profile?.username.orEmpty(),
+            fallbackOwnerPic = loaded?.profile?.picUrl,
+            saveStatus = { uiState.storyDownloads[it] },
+            onSave = { viewModel.saveMediaItem(it) },
+            onSaveAll = { if (kind == StoryKind.STORIES) viewModel.downloadAllStories() else viewModel.saveAllReposts() },
+            onOpenUser = { onClose(); viewModel.openPerson(it) },
+            onResolve = { viewModel.resolveRepostNow(it) },
+            onClose = onClose
+        )
+    )
 }
 
 @Composable

@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Videocam
@@ -161,10 +162,17 @@ internal fun postedClock(epochSec: Long, nowMillis: Long = System.currentTimeMil
 }
 
 /** The labels of an item's tag: ["STORY", "VIDEO"], ["REEL"], ["PHOTO"], ["CAROUSEL 2/5"]. */
-internal fun typeTags(item: InstagramParser.StoryItem, inStories: Boolean, slideIndex: Int, slideCount: Int): List<String> {
+internal fun typeTags(
+    item: InstagramParser.StoryItem,
+    inStories: Boolean,
+    slideIndex: Int,
+    slideCount: Int,
+    reposts: Boolean = false
+): List<String> {
     val product = item.extras.productType
     val media = if (item.isVideo) "VIDEO" else "PHOTO"
     return when {
+        reposts || item.repostedAtSec != null -> listOf("REPOST", if (product == "clips") "REEL" else media)
         inStories || product == "story" -> listOf("STORY", media)
         product == "clips" -> listOf("REEL")
         slideCount > 1 || product == "carousel_container" -> listOf("CAROUSEL ${slideIndex + 1}/${slideCount.coerceAtLeast(1)}", media)
@@ -197,27 +205,68 @@ private fun fullCount(n: Long): String = String.format(Locale.US, "%,d", n)
 // The viewer
 // ------------------------------------------------------------------------------------------------
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Everything the viewer needs from whoever opened it (the profile, or the Downloader's stories and reposts). */
+internal class ViewerHost(
+    val title: String,
+    val items: List<InstagramParser.StoryItem>,
+    val startIndex: Int = 0,
+    /** Stories and highlights run on a timer; posts and reels are browsed by hand. */
+    val timed: Boolean,
+    val inStories: Boolean,
+    val reposts: Boolean = false,
+    /** Whose name and photo to show when an item doesn't carry its own author. */
+    val fallbackOwner: String,
+    val fallbackOwnerPic: String?,
+    val saveStatus: (String) -> StoryItemDownload?,
+    val onSave: (InstagramParser.StoryItem) -> Unit,
+    val onSaveAll: (List<InstagramParser.StoryItem>) -> Unit,
+    val onOpenUser: (String) -> Unit,
+    val onResolve: (InstagramParser.StoryItem) -> Unit,
+    val onClose: () -> Unit
+)
+
 @Composable
 internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiState, controller: ProfileController) {
-    val items = viewer.items
+    val timed = viewer.title == "Stories" || state.highlights.any { it.title.ifBlank { "Highlight" } == viewer.title }
+    InstaViewer(
+        ViewerHost(
+            title = viewer.title,
+            items = viewer.items,
+            startIndex = viewer.startIndex,
+            timed = timed,
+            inStories = timed && viewer.title == "Stories",
+            fallbackOwner = state.details?.username ?: state.username,
+            fallbackOwnerPic = state.details?.picUrl,
+            saveStatus = { state.saves[it] },
+            onSave = controller::save,
+            onSaveAll = controller::saveAll,
+            onOpenUser = controller::open,
+            onResolve = controller::resolveNow,
+            onClose = controller::closeViewer
+        )
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun InstaViewer(host: ViewerHost) {
+    val items = host.items
     if (items.isEmpty()) {
-        LaunchedEffect(Unit) { controller.closeViewer() }
+        LaunchedEffect(Unit) { host.onClose() }
         return
     }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // Stories and highlights run on a timer; posts and reels are browsed by hand
-    val timed = viewer.title == "Stories" || state.highlights.any { it.title.ifBlank { "Highlight" } == viewer.title }
-    val inStories = timed && viewer.title == "Stories"
+    val timed = host.timed
+    val inStories = host.inStories
     var detailsOpen by remember { mutableStateOf(false) }
 
     Dialog(
-        onDismissRequest = { if (detailsOpen) detailsOpen = false else controller.closeViewer() },
+        onDismissRequest = { if (detailsOpen) detailsOpen = false else host.onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         val pager = rememberPagerState(
-            initialPage = viewer.startIndex.coerceIn(0, items.lastIndex),
+            initialPage = host.startIndex.coerceIn(0, items.lastIndex),
             pageCount = { items.size }
         )
         val page = pager.currentPage.coerceIn(0, items.lastIndex)
@@ -231,7 +280,7 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
 
         fun next() {
             scope.launch {
-                if (page < items.lastIndex) pager.animateScrollToPage(page + 1) else controller.closeViewer()
+                if (page < items.lastIndex) pager.animateScrollToPage(page + 1) else host.onClose()
             }
         }
         fun previous() {
@@ -291,7 +340,7 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                 when {
                     item.needsResolve -> {
                         // A reel that only came as a picture: look the real video up, then it plays
-                        if (isCurrent) LaunchedEffect(item.id) { controller.resolveNow(item) }
+                        if (isCurrent) LaunchedEffect(item.id) { host.onResolve(item) }
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             AsyncImage(
                                 model = item.thumbnailUrl ?: item.mediaUrl,
@@ -299,7 +348,11 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
                             )
-                            CircularProgressIndicator(color = Color.White)
+                            Box(modifier = Modifier.fillMaxSize().background(Color(0x99000000)))
+                            FetchingLoader(
+                                steps = listOf("Fetching info…", "Finding the video…", "Getting it ready to play…"),
+                                icon = Icons.Default.Videocam
+                            )
                         }
                     }
                     item.isVideo && isCurrent -> ViewerVideo(
@@ -327,9 +380,9 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                     .background(Brush.verticalGradient(listOf(Color(0x99000000), Color.Transparent)))
             )
 
-            val status = state.saves[current.id]
-            val owner = current.author ?: state.details?.username ?: state.username
-            val ownerPic = current.authorPic ?: state.details?.picUrl
+            val status = host.saveStatus(current.id)
+            val owner = current.author ?: host.fallbackOwner
+            val ownerPic = current.authorPic ?: host.fallbackOwnerPic
             val nowSec by produceState(System.currentTimeMillis() / 1000, page) {
                 while (true) {
                     value = System.currentTimeMillis() / 1000
@@ -356,24 +409,27 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = owner.takeIf { it.isNotBlank() }?.let { "@$it" } ?: viewer.title,
+                                text = owner.takeIf { it.isNotBlank() }?.let { "@$it" } ?: host.title,
                                 color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            typeTags(current, inStories, page, items.size).forEach { label ->
+                            typeTags(current, inStories, page, items.size, host.reposts).forEach { label ->
                                 TypeTag(label)
                                 Spacer(modifier = Modifier.width(4.dp))
                             }
                         }
-                        if (current.takenAtSec > 0) {
+                        // A repost shows when it was reposted; everything else shows when it was posted
+                        val stamp = current.repostedAtSec ?: current.takenAtSec
+                        if (stamp > 0) {
                             Text(
-                                text = postedClock(current.takenAtSec) + "  ·  " + elapsedText(nowSec - current.takenAtSec) + " ago",
+                                text = (if (current.repostedAtSec != null) "Reposted " else "") + postedClock(stamp) +
+                                    "  ·  " + elapsedText(nowSec - stamp) + " ago",
                                 color = Color(0xE6FFFFFF), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
-                    IconButton(onClick = { if (status !is StoryItemDownload.Done) controller.save(current) }) {
+                    IconButton(onClick = { if (status !is StoryItemDownload.Done) host.onSave(current) }) {
                         when (status) {
                             is StoryItemDownload.Downloading -> CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                             is StoryItemDownload.Done -> Icon(Icons.Default.CheckCircle, contentDescription = "Saved", tint = VCyan)
@@ -383,7 +439,7 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                     IconButton(onClick = { detailsOpen = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Details", tint = Color.White)
                     }
-                    IconButton(onClick = controller::closeViewer) {
+                    IconButton(onClick = host.onClose) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                     }
                 }
@@ -399,6 +455,9 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                current.repostNote?.takeIf { it.isNotBlank() }?.let {
+                    Text("Reposted with: $it", color = Color(0xFFA7F3D0), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
+                }
                 current.caption?.takeIf { it.isNotBlank() }?.let {
                     Text(it, color = Color.White, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
                 }
@@ -416,7 +475,7 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(18.dp))
                                     .background(Color(0x33FFFFFF))
-                                    .clickable { controller.open(who.username) }
+                                    .clickable { host.onOpenUser(who.username) }
                                     .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
                             ) {
                                 ProfileAvatar(who.picUrl, Modifier.size(24.dp))
@@ -445,14 +504,15 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
             ) {
                 DetailsPanel(
                     item = current,
-                    viewerTitle = viewer.title,
+                    viewerTitle = host.title,
                     inStories = inStories,
+                    reposts = host.reposts,
                     slideIndex = page,
                     slideCount = items.size,
                     owner = owner,
                     nowSec = nowSec,
                     allItems = items,
-                    controller = controller,
+                    host = host,
                     onClose = { detailsOpen = false }
                 )
             }
@@ -483,6 +543,7 @@ private fun StorySegmentBars(count: Int, current: Int, timed: Boolean, progress:
 private fun TypeTag(label: String) {
     val colors = when {
         label.startsWith("STORY") -> listOf(Color(0xFFF59E0B), Color(0xFFEC4899))
+        label == "REPOST" -> listOf(Color(0xFF10B981), Color(0xFF22D3EE))
         label.startsWith("REEL") -> listOf(Color(0xFFEC4899), Color(0xFF8B5CF6))
         label.startsWith("CAROUSEL") -> listOf(Color(0xFF8B5CF6), Color(0xFF22D3EE))
         label == "VIDEO" -> listOf(Color(0xFF0EA5E9), Color(0xFF22D3EE))
@@ -522,12 +583,13 @@ private fun DetailsPanel(
     item: InstagramParser.StoryItem,
     viewerTitle: String,
     inStories: Boolean,
+    reposts: Boolean,
     slideIndex: Int,
     slideCount: Int,
     owner: String,
     nowSec: Long,
     allItems: List<InstagramParser.StoryItem>,
-    controller: ProfileController,
+    host: ViewerHost,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
@@ -543,7 +605,7 @@ private fun DetailsPanel(
             Toast.makeText(context, "Couldn't open that link", Toast.LENGTH_SHORT).show()
         }
     }
-    fun person(username: String) = DetailChip("@$username") { onClose(); controller.open(username) }
+    fun person(username: String) = DetailChip("@$username") { onClose(); host.onOpenUser(username) }
 
     val extras = item.extras
     val postLink = item.code?.let { "https://www.instagram.com/${if (extras.productType == "clips") "reel" else "p"}/$it/" }
@@ -564,14 +626,26 @@ private fun DetailsPanel(
                     )
                 )
             }
-            item.repostedAtSec?.let { add(DetailRow.Line("Reposted", postedClock(it) + "  (" + elapsedText(nowSec - it) + " ago)")) }
             if (item.takenAtSec > 0) add(DetailRow.Line("Unix time", item.takenAtSec.toString()))
         }
         if (when_.isNotEmpty()) add(DetailSection("When", Icons.Default.Schedule, when_))
 
+        // ---- Repost ----
+        if (reposts || item.repostedAtSec != null) {
+            val repost = buildList<DetailRow> {
+                item.repostedAtSec?.let { at ->
+                    add(DetailRow.Line("Reposted at", SimpleDateFormat("EEEE, dd MMM yyyy  HH:mm:ss", Locale.getDefault()).format(Date(at * 1000))))
+                    add(DetailRow.Line("Reposted", elapsedText(nowSec - at) + " ago"))
+                }
+                if (owner.isNotBlank()) add(DetailRow.Chips("Original post by", listOf(person(owner))))
+                item.repostNote?.takeIf { it.isNotBlank() }?.let { add(DetailRow.Block("Repost note", it)) }
+            }
+            if (repost.isNotEmpty()) add(DetailSection("Repost", Icons.Default.Repeat, repost))
+        }
+
         // ---- Type and media ----
         val type = buildList<DetailRow> {
-            add(DetailRow.Line("Type", typeTags(item, inStories, slideIndex, slideCount).joinToString(" · ")))
+            add(DetailRow.Line("Type", typeTags(item, inStories, slideIndex, slideCount, reposts).joinToString(" · ")))
             add(DetailRow.Line("Shown in", viewerTitle))
             if (slideCount > 1) add(DetailRow.Line("Item", "${slideIndex + 1} of $slideCount"))
             item.durationSec?.takeIf { it > 0 }?.let { add(DetailRow.Line("Duration", durationText(it))) }
@@ -614,7 +688,6 @@ private fun DetailsPanel(
                 add(DetailRow.Chips("Links", extras.links.map { url -> DetailChip(url.removePrefix("https://").removePrefix("http://").take(34)) { open(url) } }))
             }
             extras.altText?.let { add(DetailRow.Block("Picture description (alt text)", it)) }
-            item.repostNote?.takeIf { it.isNotBlank() }?.let { add(DetailRow.Block("Repost note", it)) }
         }
         if (text.isNotEmpty()) add(DetailSection("Text and links", Icons.Default.Tag, text))
 
@@ -748,8 +821,9 @@ private fun DetailsPanel(
                 }
                 ActionPill("Copy video link", Icons.Default.Link) { copy("Media link", item.mediaUrl) }
                 ActionPill("Copy all details", Icons.Default.ContentCopy) { copy("Details", everything()) }
-                ActionPill("Save this", Icons.Default.Download) { controller.save(item); onClose() }
-                if (allItems.size > 1) ActionPill("Save all ${allItems.size}", Icons.Default.Download) { controller.saveAll(allItems); onClose() }
+                item.debug?.let { raw -> ActionPill("Copy raw data", Icons.Default.ContentCopy) { copy("Raw data", raw) } }
+                ActionPill("Save this", Icons.Default.Download) { host.onSave(item); onClose() }
+                if (allItems.size > 1) ActionPill("Save all ${allItems.size}", Icons.Default.Download) { host.onSaveAll(allItems); onClose() }
             }
             Spacer(modifier = Modifier.navigationBarsPadding().height(28.dp))
         }

@@ -202,6 +202,18 @@ fun ProfileOverlay(
     }
 
     state.people?.let { people -> PeopleDialog(state, people, controller) }
+    if (state.viewerLoading && state.viewer == null) {
+        val who = state.details?.username ?: state.username
+        Dialog(
+            onDismissRequest = { /* the lookup can't be cancelled; it finishes in a few seconds */ },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false)
+        ) {
+            FullScreenFetching(
+                steps = listOf("Fetching info…", "Looking for @$who's stories…", "Reading the story reel…", "Loading the first story…"),
+                avatar = { size -> ProfileAvatar(state.details?.picUrl, Modifier.size(size)) }
+            )
+        }
+    }
     state.viewer?.let { viewer -> ProfileViewerDialog(viewer, state, controller) }
 }
 
@@ -798,10 +810,27 @@ private fun GridFooter(
     ) {
         when {
             tabState.loading || !tabState.loaded && tabState.error == null -> {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(26.dp))
-                if (tab == ProfileTab.REPOSTS) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Collecting reposts. This can take a minute.", color = IgMuted, fontSize = 12.sp)
+                if (tabState.items.isEmpty()) {
+                    // Nothing yet: shimmering tiles where the grid will be, and a status that keeps changing
+                    PostGridSkeleton(columns = 3, rows = 2)
+                    FetchingLoader(
+                        steps = when (tab) {
+                            ProfileTab.POSTS -> listOf("Fetching posts…", "Reading captions…", "Loading thumbnails…")
+                            ProfileTab.REELS -> listOf("Fetching reels…", "Reading play counts…", "Loading covers…")
+                            ProfileTab.REPOSTS -> listOf("Opening the Reposts tab…", "Fetching info…", "Collecting reposts…", "Reading each reel…", "This can take a minute…")
+                            ProfileTab.TAGGED -> listOf("Fetching tagged posts…", "Reading who tagged them…")
+                        },
+                        icon = when (tab) {
+                            ProfileTab.POSTS -> Icons.Default.GridOn
+                            ProfileTab.REELS -> Icons.Default.Movie
+                            ProfileTab.REPOSTS -> Icons.Default.Repeat
+                            ProfileTab.TAGGED -> Icons.Default.AccountBox
+                        },
+                        mutedColor = IgMuted
+                    )
+                } else {
+                    // More is coming in below what you already see
+                    FetchingLoader(steps = listOf("Loading more…", "Fetching info…"), compact = true, mutedColor = IgMuted)
                 }
             }
             details.isPrivate && tabState.items.isEmpty() && (tabState.error != null || tabState.loaded) -> MessageBlock(
