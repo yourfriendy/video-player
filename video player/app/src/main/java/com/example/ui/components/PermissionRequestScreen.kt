@@ -57,6 +57,8 @@ import com.example.ui.theme.Slate950
 fun PermissionRequestScreen(
     onRequestPermission: () -> Unit,
     onLoadDemoClips: () -> Unit,
+    /** Shown when given: the Downloader (stories, reels, any video) needs no permission. */
+    onOpenDownloader: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -79,9 +81,9 @@ fun PermissionRequestScreen(
             Box(
                 modifier = Modifier
                     .size(130.dp)
-                    .clip(RoundedCornerShape(32.dp))
+                    .clip(RoundedCornerShape(28.dp))
                     .background(Color(0x338B5CF6))
-                    .border(1.dp, GlassBorder, RoundedCornerShape(32.dp)),
+                    .border(1.dp, GlassBorder, RoundedCornerShape(28.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -90,7 +92,7 @@ fun PermissionRequestScreen(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(118.dp)
-                        .clip(RoundedCornerShape(26.dp))
+                        .clip(RoundedCornerShape(28.dp))
                 )
             }
 
@@ -163,7 +165,7 @@ fun PermissionRequestScreen(
                     .testTag("grant_permission_button")
             ) {
                 Text(
-                    text = "Grant Video Access",
+                    text = "Allow video access",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -188,6 +190,25 @@ fun PermissionRequestScreen(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+
+            if (onOpenDownloader != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                androidx.compose.material3.TextButton(
+                    onClick = onOpenDownloader,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("welcome_open_downloader")
+                ) {
+                    Text(
+                        text = "Just save stories, reels and videos (no permission needed)",
+                        color = Color(0xFF5EEAD4),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }

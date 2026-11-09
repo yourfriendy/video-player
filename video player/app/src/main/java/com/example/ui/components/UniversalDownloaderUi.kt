@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import com.example.ui.viewmodel.EngineStatus
 import com.example.data.universal.engine.EngineManager
 import androidx.lifecycle.LifecycleEventObserver
@@ -74,9 +75,9 @@ import com.example.ui.viewmodel.UniversalState
 import com.example.ui.viewmodel.VideoFeedViewModel
 import kotlin.math.roundToInt
 
-private val UCyan = Color(0xFF5EEAD4)
-private val UMuted = Color(0xFF94A3B8)
-private val URose = Color(0xFFFB7185)
+private val UCyan = Ds.Palette.Cyan
+private val UMuted = Ds.Palette.Muted
+private val URose = Ds.Palette.Bad
 private val UBorder = Color(0x26FFFFFF)
 
 /** Sites worth naming. yt-dlp handles roughly a thousand more. */
@@ -409,7 +410,7 @@ private fun ReadyCard(
                 modifier = Modifier
                     .width(112.dp)
                     .height(68.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color(0x22FFFFFF))
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -462,7 +463,7 @@ private fun ReadyCard(
 
 @Composable
 private fun QualityRow(option: QualityOption, selected: Boolean, isBest: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -492,16 +493,16 @@ private fun QualityRow(option: QualityOption, selected: Boolean, isBest: Boolean
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = option.label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(text = option.label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 if (isBest) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "BEST",
                         color = Color(0xFF020617),
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(UCyan)
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )

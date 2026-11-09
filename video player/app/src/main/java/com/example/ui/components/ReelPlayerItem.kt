@@ -739,7 +739,7 @@ private fun VlcSeekHudOverlay(
                     .size(width = 160.dp, height = 5.dp)
                     .background(
                         color = ComposeColor(0x40FFFFFF),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                     )
             ) {
                 Box(
@@ -753,7 +753,7 @@ private fun VlcSeekHudOverlay(
                             brush = Brush.horizontalGradient(
                                 listOf(ComposeColor(0xFF5EEAD4), ComposeColor(0xFF8B5CF6))
                             ),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp)
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                         )
                 )
             }

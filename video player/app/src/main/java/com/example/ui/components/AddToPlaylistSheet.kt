@@ -177,9 +177,9 @@ fun AddToPlaylistSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(GlassBackground)
-                        .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
+                        .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
                         .clickable { isCreatingNew = true }
                         .padding(horizontal = 14.dp, vertical = 12.dp)
                         .testTag("open_create_playlist_input"),
@@ -265,7 +265,7 @@ fun AddToPlaylistSheet(
                             val isSelected = emoji == selectedEmoji
                             Box(
                                 modifier = Modifier
-                                    .size(34.dp)
+                                    .size(44.dp)
                                     .clip(CircleShape)
                                     .background(if (isSelected) Color(0xFF7C3AED) else Color(0x22FFFFFF))
                                     .border(1.dp, if (isSelected) Color(0xFFA78BFA) else Color.Transparent, CircleShape)
@@ -310,7 +310,7 @@ fun AddToPlaylistSheet(
                                 containerColor = Color(0xFF8B5CF6),
                                 contentColor = Color.White
                             ),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.testTag("confirm_create_playlist_button")
                         ) {
                             Text("Create & Add", fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -396,12 +396,12 @@ private fun PlaylistItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(if (isSelected) Color(0x228B5CF6) else GlassBackground)
             .border(
                 1.dp,
                 if (isSelected) Color(0x668B5CF6) else GlassBorder,
-                RoundedCornerShape(14.dp)
+                RoundedCornerShape(16.dp)
             )
             .clickable(onClick = onToggle)
             .padding(horizontal = 14.dp, vertical = 12.dp)
@@ -416,7 +416,7 @@ private fun PlaylistItemRow(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color(0x33334155)),
                 contentAlignment = Alignment.Center
             ) {
@@ -433,7 +433,7 @@ private fun PlaylistItemRow(
                     text = playlist.name,
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

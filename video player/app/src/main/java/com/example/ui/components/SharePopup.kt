@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -85,7 +86,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val SheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-private val Muted = Color(0xFF94A3B8)
+private val Muted = Ds.Palette.Muted
 
 /**
  * The whole pop-up: a dimmed see-through backdrop and a card that springs up from the bottom.
@@ -252,7 +253,7 @@ private fun PopupCard(
                     Text(
                         text = text,
                         color = Color.White,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -262,7 +263,7 @@ private fun PopupCard(
             }
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(44.dp)
                     .bouncyClickable(pressedScale = 0.88f, onClick = onHide)
                     .clip(CircleShape)
                     .background(Color(0x1FFFFFFF)),
@@ -326,7 +327,7 @@ private fun ChooseBody(
             Box(
                 modifier = Modifier
                     .size(width = 112.dp, height = 72.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(Brush.linearGradient(listOf(Color(0xFF312E81), Color(0xFF831843))))
             ) {
                 if (!info.thumbnail.isNullOrBlank()) {
@@ -351,12 +352,12 @@ private fun ChooseBody(
                     Text(
                         text = duration,
                         color = Color.White,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(4.dp)
-                            .background(Color(0xAA000000), RoundedCornerShape(6.dp))
+                            .background(Color(0xAA000000), RoundedCornerShape(8.dp))
                             .padding(horizontal = 5.dp, vertical = 1.dp)
                     )
                 }
@@ -580,9 +581,9 @@ private fun QualityChip(option: QualityOption, selected: Boolean, onClick: () ->
     Column(
         modifier = Modifier
             .bouncyClickable(pressedScale = 0.94f, onClick = onClick)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(background)
-            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
             .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {
         Text(
@@ -625,7 +626,7 @@ private fun GradientButton(
         Text(
             text = text,
             color = Color.White,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
@@ -650,7 +651,7 @@ private fun GlassButton(
         Text(
             text = text,
             color = Color(0xFFE2E8F0),
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
         )

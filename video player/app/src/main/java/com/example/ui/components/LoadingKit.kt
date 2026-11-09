@@ -71,15 +71,35 @@ import kotlinx.coroutines.delay
 
 private val RingColors = listOf(Color(0xFFF59E0B), Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFF22D3EE), Color(0xFFF59E0B))
 
+/**
+ * A looping 0..1-style value for decorative motion. With animations off (or on a low-memory phone) it just holds
+ * [still], so the screen draws a calm, static version instead.
+ */
+@Composable
+internal fun rememberLoop(
+    motion: Boolean,
+    from: Float,
+    to: Float,
+    millis: Int,
+    easing: androidx.compose.animation.core.Easing = LinearEasing,
+    mode: RepeatMode = RepeatMode.Restart,
+    still: Float = from
+): androidx.compose.runtime.State<Float> =
+    if (motion) {
+        rememberInfiniteTransition(label = "loop").animateFloat(
+            initialValue = from, targetValue = to,
+            animationSpec = infiniteRepeatable(tween(millis, easing = easing), mode),
+            label = "loop_value"
+        )
+    } else {
+        remember(still) { androidx.compose.runtime.mutableFloatStateOf(still) }
+    }
+
 /** A soft highlight sweeping across, for placeholder shapes. */
 @Composable
 internal fun shimmerBrush(): Brush {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val shift by transition.animateFloat(
-        initialValue = -400f, targetValue = 1200f,
-        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
-        label = "shimmer_shift"
-    )
+    val motion = com.example.ui.theme.rememberMotionEnabled()
+    val shift by rememberLoop(motion, -400f, 1200f, 1500, still = 300f)
     return Brush.linearGradient(
         colors = listOf(Color(0x14FFFFFF), Color(0x38FFFFFF), Color(0x14FFFFFF)),
         start = Offset(shift, 0f),
@@ -88,7 +108,7 @@ internal fun shimmerBrush(): Brush {
 }
 
 @Composable
-internal fun ShimmerBox(modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(10.dp)) {
+internal fun ShimmerBox(modifier: Modifier = Modifier, shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(12.dp)) {
     Box(modifier = modifier.clip(shape).background(shimmerBrush()))
 }
 
@@ -101,7 +121,7 @@ internal fun PostGridSkeleton(columns: Int = 3, rows: Int = 2, modifier: Modifie
                 repeat(columns) {
                     ShimmerBox(
                         modifier = Modifier.weight(1f).aspectRatio(0.8f),
-                        shape = RoundedCornerShape(2.dp)
+                        shape = RoundedCornerShape(4.dp)
                     )
                 }
             }
@@ -112,12 +132,8 @@ internal fun PostGridSkeleton(columns: Int = 3, rows: Int = 2, modifier: Modifie
 /** Three dots that bounce one after another. */
 @Composable
 internal fun BouncingDots(modifier: Modifier = Modifier, color: Color = Color.White) {
-    val transition = rememberInfiniteTransition(label = "dots")
-    val phase by transition.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart),
-        label = "dots_phase"
-    )
+    val motion = com.example.ui.theme.rememberMotionEnabled()
+    val phase by rememberLoop(motion, 0f, 1f, 1200, still = 0.9f)
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(3) { index ->
             // Each dot hops a little after the one before it
@@ -153,17 +169,9 @@ internal fun FetchingLoader(
     mutedColor: Color = Color(0xFF94A3B8)
 ) {
     val size = if (compact) 64.dp else 92.dp
-    val transition = rememberInfiniteTransition(label = "fetching")
-    val angle by transition.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Restart),
-        label = "ring_angle"
-    )
-    val breathe by transition.animateFloat(
-        initialValue = 0.94f, targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "ring_breathe"
-    )
+    val motion = com.example.ui.theme.rememberMotionEnabled()
+    val angle by rememberLoop(motion, 0f, 360f, 1800, still = 40f)
+    val breathe by rememberLoop(motion, 0.94f, 1.0f, 1100, FastOutSlowInEasing, RepeatMode.Reverse, still = 1f)
     var stepIndex by remember { mutableIntStateOf(0) }
     LaunchedEffect(steps) {
         stepIndex = 0
@@ -253,7 +261,7 @@ internal fun FullScreenFetching(
                 Spacer(modifier = Modifier.width(1.dp).height(6.dp))
                 Text(
                     "Cancel", color = Color(0xFFFB7185), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onCancel).padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onCancel).padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }

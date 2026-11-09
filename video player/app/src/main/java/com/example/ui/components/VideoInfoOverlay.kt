@@ -138,8 +138,8 @@ fun VideoInfoOverlay(
                     contentDescription = "HD",
                     tint = Color(0xFFC4B5FD),
                     modifier = Modifier
-                        .background(Color(0x33A78BFA), RoundedCornerShape(6.dp))
-                        .border(1.dp, Color(0x44A78BFA), RoundedCornerShape(6.dp))
+                        .background(Color(0x33A78BFA), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0x44A78BFA), RoundedCornerShape(8.dp))
                         .padding(horizontal = 5.dp, vertical = 2.dp)
                         .size(14.dp)
                 )
@@ -242,7 +242,7 @@ fun VideoInfoOverlay(
                 var bubbleWidthPx by remember { mutableIntStateOf(0) }
                 Text(
                     text = formatTime(displayProgressMs),
-                    style = TimeStyle.copy(fontSize = 15.sp, fontWeight = FontWeight.ExtraBold),
+                    style = TimeStyle.copy(fontSize = 14.sp, fontWeight = FontWeight.ExtraBold),
                     color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopStart)

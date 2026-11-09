@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,9 +39,9 @@ import com.example.ui.theme.GlassBorder
 import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.UpdateState
 
-private val UpdateCyan = Color(0xFF5EEAD4)
-private val UpdateMuted = Color(0xFF94A3B8)
-private val UpdateWarn = Color(0xFFF59E0B)
+private val UpdateCyan = Ds.Palette.Cyan
+private val UpdateMuted = Ds.Palette.Muted
+private val UpdateWarn = Ds.Palette.Orange
 
 /** "Build 12 · built 2026-10-30 09:41 UTC · 5.1 MB" */
 private fun describe(release: ReleaseInfo): String = buildString {
@@ -163,7 +164,7 @@ private class UpdateButtonSpec(val label: String, val enabled: Boolean, val onCl
 fun AppUpdateCard(viewModel: AppUpdateViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val s = state
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
 
     val button = when (s) {
         is UpdateState.Checking -> UpdateButtonSpec("Checking…", false) {}
@@ -240,7 +241,7 @@ fun AppUpdateCard(viewModel: AppUpdateViewModel, modifier: Modifier = Modifier) 
                     .fillMaxWidth()
                     .height(48.dp)
                     .testTag("app_update_button"),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = UpdateCyan,
                     contentColor = Color(0xFF020617),

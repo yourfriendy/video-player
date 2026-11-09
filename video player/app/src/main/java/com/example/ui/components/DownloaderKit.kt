@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.animateColorAsState
@@ -63,15 +64,15 @@ import kotlin.math.roundToInt
  * use-case hero cards and a sliding tab bar. Screens compose these instead of styling everything by hand.
  */
 
-internal val DlCyan = Color(0xFF5EEAD4)
-internal val DlViolet = Color(0xFF8B5CF6)
-internal val DlPink = Color(0xFFEC4899)
-internal val DlOrange = Color(0xFFF59E0B)
-internal val DlMuted = Color(0xFF94A3B8)
-internal val DlSoftText = Color(0xFFE2E8F0)
-internal val DlGood = Color(0xFF34D399)
-internal val DlWarn = Color(0xFFFBBF24)
-internal val DlBad = Color(0xFFFB7185)
+internal val DlCyan = Ds.Palette.Cyan
+internal val DlViolet = Ds.Palette.Violet
+internal val DlPink = Ds.Palette.Pink
+internal val DlOrange = Ds.Palette.Orange
+internal val DlMuted = Ds.Palette.Muted
+internal val DlSoftText = Ds.Palette.SoftText
+internal val DlGood = Ds.Palette.Good
+internal val DlWarn = Ds.Palette.Warn
+internal val DlBad = Ds.Palette.Bad
 
 /** The signature orange → pink → violet. */
 internal val DlSunset = listOf(DlOrange, DlPink, DlViolet)
@@ -79,17 +80,9 @@ internal val DlSunset = listOf(DlOrange, DlPink, DlViolet)
 /** Deep navy with three soft colour glows that drift slowly (cheap: three gradients, no bitmaps). */
 @Composable
 internal fun AuroraBackground(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "aurora")
-    val a by transition.animateFloat(
-        initialValue = 0f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(15_000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "aurora_a"
-    )
-    val b by transition.animateFloat(
-        initialValue = 1f, targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(21_000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "aurora_b"
-    )
+    val motion = com.example.ui.theme.rememberMotionEnabled()
+    val a by rememberLoop(motion, 0f, 1f, 15_000, mode = RepeatMode.Reverse, still = 0.5f)
+    val b by rememberLoop(motion, 1f, 0f, 21_000, mode = RepeatMode.Reverse, still = 0.5f)
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -163,7 +156,7 @@ internal fun HeroCard(
     accent: List<Color> = DlSunset,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(28.dp)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -195,9 +188,9 @@ internal fun StepsRow(steps: List<String>, modifier: Modifier = Modifier) {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(Color(0x12FFFFFF))
-                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(18.dp))
+                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(20.dp))
                     .padding(vertical = 12.dp, horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -219,7 +212,7 @@ internal fun StepsRow(steps: List<String>, modifier: Modifier = Modifier) {
 @Composable
 internal fun SectionTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         if (subtitle != null) Text(subtitle, color = DlMuted, fontSize = 12.sp, lineHeight = 16.sp)
     }
 }
@@ -256,7 +249,7 @@ internal fun UseCaseTabs(
     modifier: Modifier = Modifier
 ) {
     val tabs = listOf(DownloaderTab.STORIES, DownloaderTab.REELS, DownloaderTab.ANY)
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(28.dp)
     val density = LocalDensity.current
     val innerPad = 5.dp
     var outerWidthPx by remember { mutableIntStateOf(0) }
@@ -282,7 +275,7 @@ internal fun UseCaseTabs(
                     .offset { IntOffset(offsetX.roundToInt(), 0) }
                     .width(with(density) { tabWidthPx.toDp() })
                     .height(60.dp)
-                    .clip(RoundedCornerShape(21.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(Brush.horizontalGradient(DlSunset))
             )
         }
@@ -294,14 +287,14 @@ internal fun UseCaseTabs(
                     modifier = Modifier
                         .weight(1f)
                         .height(60.dp)
-                        .clip(RoundedCornerShape(21.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .clickable { onSelect(tab) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(icons.getValue(tab), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
                     Text(
-                        text = tab.label, color = tint, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                        text = tab.label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                         maxLines = 1, modifier = Modifier.padding(top = 3.dp)
                     )
                 }

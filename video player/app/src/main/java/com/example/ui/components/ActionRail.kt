@@ -206,7 +206,7 @@ private fun FavoriteActionButton(
         Text(
             text = if (isFavorite) "Liked" else "Like",
             color = if (isFavorite) FrostedRoseLight else Color(0xCCFFFFFF),
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             style = androidx.compose.ui.text.TextStyle(
                 shadow = androidx.compose.ui.graphics.Shadow(
@@ -251,7 +251,7 @@ private fun DetailsActionButton(onClick: () -> Unit) {
         Text(
             text = "Details",
             color = Color(0xFFE9D5FF),
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             style = androidx.compose.ui.text.TextStyle(
                 shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, blurRadius = 4f)
@@ -304,7 +304,7 @@ private fun ActionRailItem(
         Text(
             text = label,
             color = Color(0xCCFFFFFF),
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             style = androidx.compose.ui.text.TextStyle(
                 shadow = androidx.compose.ui.graphics.Shadow(

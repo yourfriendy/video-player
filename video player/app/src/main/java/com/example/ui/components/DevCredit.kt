@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -45,11 +46,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.update.AppUpdateService
 
-private val Teal = Color(0xFF5EEAD4)
+private val Teal = Ds.Palette.Cyan
 private val Blue = Color(0xFF60A5FA)
-private val Violet = Color(0xFFA78BFA)
-private val Pink = Color(0xFFF472B6)
-private val Slate = Color(0xFF94A3B8)
+private val Violet = Ds.Palette.VioletSoft
+private val Pink = Ds.Palette.PinkSoft
+private val Slate = Ds.Palette.Muted
 
 /**
  * The "made by" card at the bottom of Settings: glowing gradient border, an avatar whose
@@ -58,7 +59,7 @@ private val Slate = Color(0xFF94A3B8)
 @Composable
 fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
-    val shape = RoundedCornerShape(26.dp)
+    val shape = RoundedCornerShape(28.dp)
 
     val spin = rememberInfiniteTransition(label = "dev_credit_spin")
     val ringAngle by spin.animateFloat(
@@ -112,7 +113,7 @@ fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier
                     text = "MY",
                     style = TextStyle(
                         brush = Brush.linearGradient(listOf(Teal, Violet)),
-                        fontSize = 27.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.sp
                     )

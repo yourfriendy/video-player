@@ -198,7 +198,7 @@ fun FeedTopBar(
                         Text(
                             text = "▼",
                             color = Color(0x99FFFFFF),
-                            fontSize = 9.sp
+                            fontSize = 11.sp
                         )
                     }
 
@@ -260,7 +260,7 @@ fun FeedTopBar(
                             Text(
                                 text = "FOLDERS",
                                 color = Color(0xFF94A3B8),
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
                             )

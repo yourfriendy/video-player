@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -80,13 +81,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Violet = Color(0xFFA78BFA)
-private val Teal = Color(0xFF5EEAD4)
+private val Violet = Ds.Palette.VioletSoft
+private val Teal = Ds.Palette.Cyan
 private val Sky = Color(0xFF60A5FA)
-private val Amber = Color(0xFFFBBF24)
-private val Rose = Color(0xFFFB7185)
+private val Amber = Ds.Palette.Warn
+private val Rose = Ds.Palette.Bad
 private val CardFill = Color(0x66020617)
-private val Muted = Color(0xFF94A3B8)
+private val Muted = Ds.Palette.Muted
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,7 +108,7 @@ fun MetadataBottomSheet(
                 modifier = Modifier
                     .padding(vertical = 10.dp)
                     .size(width = 40.dp, height = 4.dp)
-                    .background(Color(0x44FFFFFF), RoundedCornerShape(2.dp))
+                    .background(Color(0x44FFFFFF), RoundedCornerShape(4.dp))
             )
         },
         modifier = Modifier
@@ -220,7 +221,7 @@ private fun TopBar(onDismiss: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Text("Details", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Details", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text("Everything about this video, 100% on your phone", color = Muted, fontSize = 12.sp)
         }
         IconButton(
@@ -250,8 +251,8 @@ private fun HeroCard(name: String, extension: String, folder: String, onCopy: ()
             Box(
                 modifier = Modifier
                     .size(54.dp)
-                    .background(Brush.linearGradient(listOf(Color(0x66A78BFA), Color(0x335EEAD4))), RoundedCornerShape(18.dp))
-                    .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp)),
+                    .background(Brush.linearGradient(listOf(Color(0x66A78BFA), Color(0x335EEAD4))), RoundedCornerShape(20.dp))
+                    .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(20.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
@@ -261,7 +262,7 @@ private fun HeroCard(name: String, extension: String, folder: String, onCopy: ()
                 Text(
                     text = name,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -299,7 +300,7 @@ private fun Chip(text: String, color: Color) {
     Text(
         text = text,
         color = color,
-        fontSize = 10.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.6.sp,
         modifier = Modifier
@@ -311,7 +312,7 @@ private fun Chip(text: String, color: Color) {
 
 @Composable
 private fun StatTile(icon: ImageVector, value: String, label: String, accent: Color, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = modifier
             .clip(shape)
@@ -366,7 +367,7 @@ private fun StorageCard(fileBytes: Long) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(10.dp)
-                .clip(RoundedCornerShape(5.dp))
+                .clip(RoundedCornerShape(4.dp))
                 .background(Color(0x22FFFFFF))
         ) {
             Box(

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material.icons.filled.Visibility
@@ -134,11 +135,11 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
 
-private val Cyan = Color(0xFF5EEAD4)
-private val Violet = Color(0xFF8B5CF6)
-private val Pink = Color(0xFFEC4899)
-private val Orange = Color(0xFFF59E0B)
-private val Muted = Color(0xFF94A3B8)
+private val Cyan = Ds.Palette.Cyan
+private val Violet = Ds.Palette.Violet
+private val Pink = Ds.Palette.Pink
+private val Orange = Ds.Palette.Orange
+private val Muted = Ds.Palette.Muted
 
 /**
  * The downloader as a full page: saved people with one-tap access and new-story alerts, stories and
@@ -171,6 +172,21 @@ fun DownloaderScreen(
     }
 
     var showAlerts by remember { mutableStateOf(false) }
+
+    // Notifications ("Saved", progress, story alerts) are asked for here, where they make sense, once per install.
+    val notifyContext = LocalContext.current
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(notifyContext, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            val prefs = notifyContext.getSharedPreferences("offscroll_prefs", Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("asked_notifications", false)) {
+                prefs.edit().putBoolean("asked_notifications", true).apply()
+                askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
     BackHandler(enabled = showAlerts) { showAlerts = false }
 
     Box(modifier = modifier.fillMaxSize().testTag("downloader_screen")) {
@@ -192,7 +208,7 @@ fun DownloaderScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Save & watch", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Save & watch", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
                 Text("Stories, reels and videos in one place", color = Muted, fontSize = 12.sp)
             }
             val anyAlerts = uiState.people.any { it.alerts }
@@ -381,7 +397,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
         }
 
         Spacer(modifier = Modifier.height(18.dp))
-        val searchShape = RoundedCornerShape(22.dp)
+        val searchShape = RoundedCornerShape(24.dp)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -428,7 +444,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
             }
             if (uiState.highlights.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("Highlights", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("Highlights", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(uiState.highlights, key = { it.id }) { h ->
@@ -583,7 +599,7 @@ private fun ResultsSection(
             val total = uiState.repostsAll.size
             Text(
                 text = if (kind == StoryKind.REPOSTS) "${state.items.size} of $total reposts" else "${state.items.size} stories",
-                color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold
+                color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             if (state.items.isEmpty()) {
@@ -641,7 +657,7 @@ private fun RepostNoteText(item: InstagramParser.StoryItem, maxLines: Int) {
     val note = item.repostNote
     if (note != null) {
         Text("\u201C$note\u201D", color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
-        Text("Repost note", color = Muted, fontSize = 10.sp)
+        Text("Repost note", color = Muted, fontSize = 11.sp)
     } else {
         Text("No note added with this repost", color = Muted, fontSize = 12.sp)
     }
@@ -651,7 +667,7 @@ private fun RepostNoteText(item: InstagramParser.StoryItem, maxLines: Int) {
 private fun RepostTimeText(item: InstagramParser.StoryItem) {
     val t = item.repostedAtSec
     if (t != null) {
-        Text("Reposted  ${dateColonTime(t)}", color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Text("Reposted  ${dateColonTime(t)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Text(agoExact(t), color = Cyan, fontSize = 11.sp)
     } else {
         Text("Repost time not found yet (use Copy details)", color = Muted, fontSize = 11.sp)
@@ -748,7 +764,7 @@ private fun RepostCard(
             if (item.repostNote.isNullOrBlank() && originalCaption != null) {
                 // No note from the reposter: show a short piece of the reel's own caption instead (clearly labelled)
                 Text(originalCaption, color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Text("Original caption", color = Muted, fontSize = 10.sp)
+                Text("Original caption", color = Muted, fontSize = 11.sp)
             } else {
                 RepostNoteText(item, maxLines = 3)
             }
@@ -781,7 +797,7 @@ private fun PersonStory(person: SavedPerson, onClick: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(76.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 2.dp)
     ) {
@@ -819,7 +835,7 @@ private fun Pill(
     highlighted: Boolean = false,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
             .height(36.dp)
@@ -887,7 +903,7 @@ private fun MediaTile(
     ) {
         AsyncImage(
             model = item.thumbnailUrl ?: item.mediaUrl,
-            contentDescription = null,
+            contentDescription = if (item.isVideo) "Open video" else "Open photo",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
@@ -912,7 +928,7 @@ private fun MediaTile(
             }
             Text(
                 text = item.author?.let { "@$it" } ?: exactClock(item.takenAtSec).ifBlank { timeAgo(item.takenAtSec) },
-                color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis
+                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis
             )
         }
         IconButton(onClick = onSave, modifier = Modifier.align(Alignment.TopEnd).size(34.dp)) {

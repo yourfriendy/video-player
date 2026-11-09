@@ -195,13 +195,13 @@ fun SettingsScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().staggeredEntrance(6),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = GlassBackground)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, GlassBorder, RoundedCornerShape(18.dp))
+                            .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
@@ -262,13 +262,13 @@ fun SettingsScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().staggeredEntrance(7),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = GlassBackground)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, GlassBorder, RoundedCornerShape(18.dp))
+                            .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -283,7 +283,7 @@ fun SettingsScreen(
                             Text(
                                 text = "OffScroll",
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
@@ -342,7 +342,7 @@ fun GestureHelpCard(
                 Text(
                     text = title,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(2.dp))

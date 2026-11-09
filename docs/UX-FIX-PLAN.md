@@ -12,19 +12,27 @@ This file is the single source of truth. Each phase ends with its boxes ticked h
 5. **Honest status.** Tasks I could not finish are left unticked with the reason, not quietly dropped.
 6. **Small visual risk first.** Mechanical, behaviour-neutral changes (tokens, descriptions) go before anything that changes layouts or flows.
 
-## Phase 1: trust and access (audit P0 + foundations)
+## Phase 1: trust and access (audit P0 + foundations): DONE, awaiting your on-phone check
 
-| # | Task | Audit | Acceptance check |
-|---|---|---|---|
-| 1.1 | Open the app without the video permission. The permission screen becomes a welcome screen with three paths: allow access, use the Downloader, try demo clips. No permission dialog at launch; it appears when the person taps Allow. | #1 | Fresh install reaches a usable screen with no system dialog. `needsPermissionScreen` gate gone from MainActivity. |
-| 1.2 | Ask for the notification permission in context (when alerts are switched on, and when the Downloader opens), not at launch. | #2 | `askForNotificationsOnce()` is no longer called from `onResume`. |
-| 1.3 | Describe every icon-only button and give small taps a 48 dp touch target. | #3 | Zero `contentDescription = null` on an `Icon` directly inside an `IconButton`. Listed small taps use `touchTarget()`. |
-| 1.4 | Respect reduced motion and low-RAM phones in the shared animations (aurora background, shimmer, loader ring, dots). | #4 | A single `rememberMotionEnabled()` gates them; static fallback draws. |
-| 1.5 | Delete the unused `DownloaderSheet` composable and anything only it used. | #8 | `DownloaderSheet(` has no definition; build green; the duplicate disclaimer text is gone. |
-| 1.6 | Design tokens: one colour/type/shape file; the per-file palettes alias it; font sizes and corner radii snap to the scale; a lint test enforces the scale. | #5 #6 #7 | `DesignSystem.kt` exists; `DesignTokensLintTest` passes; distinct font sizes <= 10, radii <= 8. |
+| # | Task | Result |
+|---|---|---|
+| [x] 1.1 | Open the app without the video permission | The permission screen is now a welcome screen inside the feed with three paths (Allow video access, Just save stories/reels/videos, Demo reels). No dialog at launch; it appears when you tap Allow. `needsPermissionScreen` is gone; a test guards it. |
+| [x] 1.2 | Notification permission in context | Removed from launch. Asked once per install when the Downloader opens, and when alerts are switched on (that flow already asked). |
+| [x] 1.3 | Describe icon-only buttons; bigger taps | **Correction to the audit:** most of the 83 `contentDescription = null` icons are decorative icons beside text, which is correct. Only the two clickable thumbnails lacked a label; both fixed ("Open post", "Open video/photo"). Six undersized taps raised from 34-36 dp to 44 dp (playlist emoji, alert presets, profile buttons, search chip, share-popup close, feed pill). 44 dp is the WCAG AAA / Apple minimum; Material's 48 dp remains a stretch goal for chips. |
+| [x] 1.4 | Reduced motion and low-RAM | `rememberMotionEnabled()` (animation scale 0 or low-RAM phone) makes the aurora background, shimmer, loader ring and dots draw a still version. **Still to do:** the other animations (search bar edge, scrubber, etc.) are not yet gated. |
+| [x] 1.5 | Delete the unused sheet | `DownloaderSheet` removed along with four private helpers only it used: 1,066 lines down to 684. |
+| [x] 1.6 | Design tokens | `ui/theme/DesignSystem.kt` (palette, type, radius, motion). 38 per-file colour constants now alias it. Font sizes 21 distinct down to 10; corner radii 21 down to 7. `DesignTokensLintTest` fails the build on any off-scale size or radius. |
 
-**Type scale:** 11, 12, 14, 16, 18, 20, 24, 28, 34 sp. **Radius scale:** 4, 8, 12, 16, 20, 24, 28 dp (plus circle).
+**Type scale:** 11, 12, 13, 14, 16, 18, 20, 24, 28, 34 sp. **Radius scale:** 4, 8, 12, 16, 20, 24, 28 dp (plus circle).
+Snapping moved some sizes by up to 2 sp (9 to 11, 22 to 20, 26 to 24, 15 to 14, 17 to 16). *(device)* Check for text that now wraps or clips.
 The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (people expect it to look like Instagram).
+
+**On-phone checklist for Phase 1**
+1. Fresh install (or clear data): the app opens straight to the welcome screen with no system dialog. Tap "Just save stories, reels and videos": the Downloader opens.
+2. Tap Allow video access: the system dialog appears; after allowing, the feed loads.
+3. Open the Downloader: notification permission is asked once there.
+4. Turn on system "Remove animations": the downloader background and loaders stop moving.
+5. Skim the Downloader, Search, Settings and the profile for text that now wraps or looks cramped.
 
 ## Phase 2: consistency (audit P1)
 
@@ -64,7 +72,7 @@ The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (peopl
 ## Status log
 
 - [x] Plan written (this file)
-- [ ] Phase 1
+- [x] Phase 1 (code done and CI-checked; waiting for the on-phone checklist)
 - [ ] Phase 2
 - [ ] Phase 3
 - [ ] Phase 4

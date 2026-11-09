@@ -87,10 +87,22 @@ fun VideoFeedScreen(
     viewModel: VideoFeedViewModel,
     onEnterPiP: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    /** Asks for video access (only when the person taps Allow on the welcome screen). */
+    onRequestVideoAccess: () -> Unit = {},
     modifier: Modifier = Modifier,
     /** Space to keep clear at the bottom (floating nav bar + system inset when visible). */
     bottomOverlayPadding: Dp = 80.dp
 ) {
+    // First run (or access not given): a welcome screen with three ways in, never a locked app
+    if (!uiState.isPermissionGranted && !uiState.isDemoMode) {
+        PermissionRequestScreen(
+            onRequestPermission = onRequestVideoAccess,
+            onLoadDemoClips = { viewModel.loadDemoClips() },
+            onOpenDownloader = { viewModel.openDownloader() },
+            modifier = modifier
+        )
+        return
+    }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -518,7 +530,7 @@ private fun SearchActiveChip(
     val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
-            .height(36.dp)
+            .height(44.dp)
             .shadow(6.dp, shape)
             .clip(shape)
             .background(Brush.horizontalGradient(listOf(Color(0xE68B5CF6), Color(0xE66366F1))))

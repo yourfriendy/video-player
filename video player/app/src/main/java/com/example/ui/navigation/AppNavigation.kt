@@ -42,6 +42,7 @@ fun AppNavigation(
     viewModel: VideoFeedViewModel,
     updateViewModel: AppUpdateViewModel,
     onEnterPiP: () -> Unit,
+    onRequestVideoAccess: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -86,6 +87,7 @@ fun AppNavigation(
                 uiState = uiState,
                 viewModel = viewModel,
                 onEnterPiP = onEnterPiP,
+                onRequestVideoAccess = onRequestVideoAccess,
                 onOpenSettings = {
                     navController.navigate(NavRoute.Settings.name) { launchSingleTop = true }
                 },

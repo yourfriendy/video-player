@@ -178,7 +178,7 @@ fun SideGestureHud(state: SideGestureState, modifier: Modifier = Modifier) {
                     .align(if (isBrightness) Alignment.CenterStart else Alignment.CenterEnd)
                     .padding(horizontal = 26.dp)
                     .graphicsLayer { this.alpha = alpha }
-                    .background(Color(0xB3000000), RoundedCornerShape(26.dp))
+                    .background(Color(0xB3000000), RoundedCornerShape(28.dp))
                     .padding(horizontal = 14.dp, vertical = 16.dp)
             ) {
                 Icon(

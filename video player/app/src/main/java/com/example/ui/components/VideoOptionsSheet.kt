@@ -142,12 +142,12 @@ fun VideoOptionsSheet(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) Color(0xFF7C3AED) else GlassBackground)
                             .border(
                                 1.dp,
                                 if (isSelected) Color(0xFFA78BFA) else GlassBorder,
-                                RoundedCornerShape(10.dp)
+                                RoundedCornerShape(12.dp)
                             )
                             .clickable { onSelectSpeed(speed) },
                         contentAlignment = Alignment.Center
@@ -182,12 +182,12 @@ fun VideoOptionsSheet(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) Color(0xFF7C3AED) else GlassBackground)
                             .border(
                                 1.dp,
                                 if (isSelected) Color(0xFFA78BFA) else GlassBorder,
-                                RoundedCornerShape(10.dp)
+                                RoundedCornerShape(12.dp)
                             )
                             .clickable { onSelectDisplayMode(mode) },
                         contentAlignment = Alignment.Center

@@ -246,7 +246,7 @@ private fun VideoGridCard(
                 Text(
                     text = video.formattedDuration,
                     color = Color.White,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -256,7 +256,7 @@ private fun VideoGridCard(
             Text(
                 text = video.displayName,
                 color = Color(0xFFE2E8F0),
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -127,7 +127,7 @@ fun AllFeaturesSheet(
                 Column {
                     Text(
                         text = "All Features & Controls",
-                        fontSize = 19.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
@@ -194,7 +194,7 @@ fun AllFeaturesSheet(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "PiP",
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFC4B5FD),
                                 modifier = Modifier
@@ -294,12 +294,12 @@ fun AllFeaturesSheet(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) Color(0xFF7C3AED) else GlassBackground)
                             .border(
                                 1.dp,
                                 if (isSelected) Color(0xFFC4B5FD) else GlassBorder,
-                                RoundedCornerShape(10.dp)
+                                RoundedCornerShape(12.dp)
                             )
                             .clickable { onSelectSpeed(speed) }
                             .padding(vertical = 9.dp),
@@ -342,12 +342,12 @@ fun AllFeaturesSheet(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) Color(0xFF0284C7) else GlassBackground)
                             .border(
                                 1.dp,
                                 if (isSelected) Color(0xFF7DD3FC) else GlassBorder,
-                                RoundedCornerShape(10.dp)
+                                RoundedCornerShape(12.dp)
                             )
                             .clickable { onSelectDisplayMode(mode) }
                             .padding(vertical = 10.dp),

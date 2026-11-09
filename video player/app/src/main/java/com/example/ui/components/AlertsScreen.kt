@@ -147,7 +147,7 @@ internal fun AlertsScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 Column {
-                    Text("Alerts", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Alerts", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
                     Text("Be told the moment someone posts", color = DlMuted, fontSize = 12.sp)
                 }
             }
@@ -240,7 +240,7 @@ internal fun AlertsScreen(
                                 Row(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(14.dp))
+                                        .clip(RoundedCornerShape(16.dp))
                                         .clickable { onOpenPerson(person.username) },
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -249,7 +249,7 @@ internal fun AlertsScreen(
                                     Column {
                                         Text(
                                             if (person.fullName.isNotBlank()) person.fullName else "@${person.username}",
-                                            color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
+                                            color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1
                                         )
                                         Text(
                                             if (person.alerts) "@${person.username} · alerts on" else "@${person.username} · alerts off",
@@ -299,7 +299,7 @@ internal fun AlertsScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(36.dp)
+                                    .height(44.dp)
                                     .clip(RoundedCornerShape(50))
                                     .background(if (active) Brush.horizontalGradient(DlSunset) else Brush.horizontalGradient(listOf(Color(0x14FFFFFF), Color(0x14FFFFFF))))
                                     .clickable {

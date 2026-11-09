@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import com.example.ui.theme.bouncyClickable
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -106,10 +107,10 @@ import com.example.ui.theme.Slate800
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
 
-private val Violet = Color(0xFF8B5CF6)
+private val Violet = Ds.Palette.Violet
 private val Indigo = Color(0xFF6366F1)
-private val Cyan = Color(0xFF5EEAD4)
-private val Muted = Color(0xFF94A3B8)
+private val Cyan = Ds.Palette.Cyan
+private val Muted = Ds.Palette.Muted
 
 /**
  * Full-screen search page.
@@ -217,7 +218,7 @@ fun SearchScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(if (isFocused) 1.5.dp else 0.dp)
-                            .clip(RoundedCornerShape(19.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(if (isFocused) Color(0xFF0B1020) else Color(0x1FFFFFFF))
                             .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -233,7 +234,7 @@ fun SearchScreen(
                             value = draft,
                             onValueChange = { viewModel.setSearchDraft(it) },
                             singleLine = true,
-                            textStyle = TextStyle(color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium),
+                            textStyle = TextStyle(color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium),
                             cursorBrush = SolidColor(Cyan),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -248,7 +249,7 @@ fun SearchScreen(
                                         Text(
                                             text = "Search your videos…",
                                             color = Color(0xFF64748B),
-                                            fontSize = 17.sp
+                                            fontSize = 16.sp
                                         )
                                     }
                                     inner()
@@ -328,7 +329,7 @@ fun SearchScreen(
                                 text = "${uiState.searchResults.size} " +
                                     if (uiState.searchResults.size == 1) "result" else "results",
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.weight(1f))
@@ -455,7 +456,7 @@ private fun OptionChip(
     icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
             .height(36.dp)
@@ -636,7 +637,7 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .width(4.dp)
                 .height(16.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .clip(RoundedCornerShape(4.dp))
                 .background(Brush.verticalGradient(listOf(Cyan, Violet)))
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -646,10 +647,10 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun RecentChip(text: String, onClick: () -> Unit, onRemove: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
-            .height(36.dp)
+            .height(44.dp)
             .clip(shape)
             .background(Color(0x1AFFFFFF))
             .border(1.dp, GlassBorderSubtle, shape)
@@ -725,7 +726,7 @@ private fun ContinueSection(
 /** Landscape, so you recognise the scene; the bar and "min left" say where you stopped. */
 @Composable
 private fun ContinueCard(video: LocalVideo, ratio: Float, minutesLeft: Long, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
             .width(224.dp)
@@ -844,7 +845,7 @@ private fun SearchResultRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -860,7 +861,7 @@ private fun SearchResultRow(
             modifier = Modifier
                 .width(138.dp)
                 .height(80.dp)
-                .clip(RoundedCornerShape(13.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(Slate800)
         ) {
             VideoThumbnail(video = video, modifier = Modifier.fillMaxSize())
@@ -898,7 +899,7 @@ private fun SearchResultRow(
             Text(
                 text = highlightedTitle(video.displayName.substringBeforeLast('.', video.displayName), tokens),
                 color = Color.White,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 lineHeight = 19.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
@@ -935,11 +936,11 @@ private fun ResultTag(text: String) {
     Text(
         text = text,
         color = Color(0xFFCBD5E1),
-        fontSize = 10.5.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
         modifier = Modifier
-            .background(Color(0x1AFFFFFF), RoundedCornerShape(6.dp))
+            .background(Color(0x1AFFFFFF), RoundedCornerShape(8.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     )
 }
@@ -971,10 +972,10 @@ private fun DurationBadge(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         color = Color.White,
-        fontSize = 10.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = modifier
-            .background(Color(0xCC000000), RoundedCornerShape(6.dp))
+            .background(Color(0xCC000000), RoundedCornerShape(8.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     )
 }

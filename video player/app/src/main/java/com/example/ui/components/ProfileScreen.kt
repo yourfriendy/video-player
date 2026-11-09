@@ -520,7 +520,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 10.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(IgButton)
             .padding(horizontal = 12.dp, vertical = 10.dp)
             .testTag("profile_alerts_row")
@@ -611,7 +611,7 @@ private fun StatBlock(value: Long?, label: String, onClick: (() -> Unit)?) {
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
-        Text(compactCount(value), color = IgText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(compactCount(value), color = IgText, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Text(label, color = IgText, fontSize = 13.sp)
     }
 }
@@ -625,7 +625,7 @@ private fun ProfileButton(
 ) {
     Box(
         modifier = modifier
-            .height(34.dp)
+            .height(44.dp)
             .bouncyClickable(pressedScale = 0.96f, onClick = onClick)
             .clip(RoundedCornerShape(8.dp))
             .background(if (highlighted) IgBlue else IgButton),
@@ -756,7 +756,7 @@ private fun PostTile(post: PostItem, reelStyle: Boolean, modifier: Modifier = Mo
     ) {
         AsyncImage(
             model = post.thumbUrl,
-            contentDescription = null,
+            contentDescription = "Open post",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
@@ -888,7 +888,7 @@ private fun MessageBlock(
         ) {
             Icon(icon, contentDescription = null, tint = IgText, modifier = Modifier.size(28.dp))
         }
-        Text(title, color = IgText, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(title, color = IgText, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         if (body != null) {
             Text(body, color = IgMuted, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 19.sp)
         }
@@ -950,19 +950,19 @@ private fun ProfileSkeleton() {
             Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceEvenly) {
                 repeat(3) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.size(width = 36.dp, height = 16.dp).clip(RoundedCornerShape(6.dp)).background(grey))
+                        Box(modifier = Modifier.size(width = 36.dp, height = 16.dp).clip(RoundedCornerShape(8.dp)).background(grey))
                         Spacer(modifier = Modifier.height(6.dp))
-                        Box(modifier = Modifier.size(width = 54.dp, height = 12.dp).clip(RoundedCornerShape(6.dp)).background(grey))
+                        Box(modifier = Modifier.size(width = 54.dp, height = 12.dp).clip(RoundedCornerShape(8.dp)).background(grey))
                     }
                 }
             }
         }
         Spacer(modifier = Modifier.height(18.dp))
-        Box(modifier = Modifier.size(width = 140.dp, height = 14.dp).clip(RoundedCornerShape(6.dp)).background(grey))
+        Box(modifier = Modifier.size(width = 140.dp, height = 14.dp).clip(RoundedCornerShape(8.dp)).background(grey))
         Spacer(modifier = Modifier.height(10.dp))
-        Box(modifier = Modifier.fillMaxWidth(0.8f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(grey))
+        Box(modifier = Modifier.fillMaxWidth(0.8f).height(12.dp).clip(RoundedCornerShape(8.dp)).background(grey))
         Spacer(modifier = Modifier.height(8.dp))
-        Box(modifier = Modifier.fillMaxWidth(0.55f).height(12.dp).clip(RoundedCornerShape(6.dp)).background(grey))
+        Box(modifier = Modifier.fillMaxWidth(0.55f).height(12.dp).clip(RoundedCornerShape(8.dp)).background(grey))
         Spacer(modifier = Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(3) {
@@ -1051,13 +1051,13 @@ private fun PeopleDialog(state: ProfileUiState, people: ProfilePeopleState, cont
                 value = people.query,
                 onValueChange = controller::setPeopleQuery,
                 singleLine = true,
-                textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
+                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
                 cursorBrush = SolidColor(Color.White),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 10.dp)
                     .height(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(IgButton)
                     .padding(horizontal = 12.dp),
                 decorationBox = { inner ->
@@ -1065,7 +1065,7 @@ private fun PeopleDialog(state: ProfileUiState, people: ProfilePeopleState, cont
                         Icon(Icons.Default.Search, contentDescription = null, tint = IgMuted, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(modifier = Modifier.weight(1f)) {
-                            if (people.query.isEmpty()) Text("Search", color = IgMuted, fontSize = 15.sp)
+                            if (people.query.isEmpty()) Text("Search", color = IgMuted, fontSize = 14.sp)
                             inner()
                         }
                     }

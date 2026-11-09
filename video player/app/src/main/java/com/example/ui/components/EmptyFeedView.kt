@@ -96,7 +96,7 @@ fun EmptyFeedView(
                 },
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
+                    fontSize = 20.sp,
                     letterSpacing = (-0.3).sp
                 ),
                 color = Color.White,
@@ -125,9 +125,9 @@ fun EmptyFeedView(
                 Button(
                     onClick = onClearSearch,
                     colors = ButtonDefaults.buttonColors(containerColor = FrostedViolet),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
-                        .shadow(6.dp, RoundedCornerShape(14.dp))
+                        .shadow(6.dp, RoundedCornerShape(16.dp))
                         .testTag("empty_view_clear_search_button")
                 ) {
                     Text("Clear Search", color = Color.White, fontWeight = FontWeight.Bold)
@@ -136,9 +136,9 @@ fun EmptyFeedView(
                 Button(
                     onClick = onResetFilter,
                     colors = ButtonDefaults.buttonColors(containerColor = FrostedViolet),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
-                        .shadow(6.dp, RoundedCornerShape(14.dp))
+                        .shadow(6.dp, RoundedCornerShape(16.dp))
                         .testTag("empty_view_reset_filter_button")
                 ) {
                     Text("View All Videos", color = Color.White, fontWeight = FontWeight.Bold)
@@ -147,9 +147,9 @@ fun EmptyFeedView(
                 Button(
                     onClick = onRefresh,
                     colors = ButtonDefaults.buttonColors(containerColor = FrostedViolet),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
-                        .shadow(6.dp, RoundedCornerShape(14.dp))
+                        .shadow(6.dp, RoundedCornerShape(16.dp))
                         .testTag("empty_view_refresh_button")
                 ) {
                     Text("Refresh Storage Scan", color = Color.White, fontWeight = FontWeight.Bold)

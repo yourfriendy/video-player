@@ -473,7 +473,7 @@ internal fun InstaViewer(host: ViewerHost) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(18.dp))
+                                    .clip(RoundedCornerShape(20.dp))
                                     .background(Color(0x33FFFFFF))
                                     .clickable { host.onOpenUser(who.username) }
                                     .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp)
@@ -552,12 +552,12 @@ private fun TypeTag(label: String) {
     Text(
         text = label,
         color = Color.White,
-        fontSize = 9.5.sp,
+        fontSize = 11.sp,
         fontWeight = FontWeight.ExtraBold,
         letterSpacing = 0.6.sp,
         maxLines = 1,
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(Brush.horizontalGradient(colors))
             .padding(horizontal = 6.dp, vertical = 2.dp)
     )
@@ -723,7 +723,7 @@ private fun DetailsPanel(
         postLink?.let { appendLine("Link: $it") }
     }.trim()
 
-    val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+    val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -835,7 +835,7 @@ private fun ActionPill(label: String, icon: ImageVector, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(VChip)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp)

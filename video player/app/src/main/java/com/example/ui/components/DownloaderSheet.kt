@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.theme.Ds
 import androidx.compose.material.icons.filled.Link
 import com.example.ui.theme.bouncyClickable
 import androidx.compose.ui.draw.shadow
@@ -92,11 +93,11 @@ import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
 import kotlin.math.roundToInt
 
-private val Cyan = Color(0xFF5EEAD4)
-private val Violet = Color(0xFF8B5CF6)
-private val Pink = Color(0xFFEC4899)
-private val Orange = Color(0xFFF59E0B)
-private val Muted = Color(0xFF94A3B8)
+private val Cyan = Ds.Palette.Cyan
+private val Violet = Ds.Palette.Violet
+private val Pink = Ds.Palette.Pink
+private val Orange = Ds.Palette.Orange
+private val Muted = Ds.Palette.Muted
 
 /**
  * "Save from Instagram" with two tabs:
@@ -106,147 +107,8 @@ private val Muted = Color(0xFF94A3B8)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DownloaderSheet(
-    uiState: VideoFeedUiState,
-    viewModel: VideoFeedViewModel
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = { viewModel.closeDownloader() },
-        sheetState = sheetState,
-        containerColor = Slate950,
-        contentColor = Color.White,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 10.dp)
-                    .width(40.dp)
-                    .height(4.dp)
-                    .background(Color(0x66FFFFFF), CircleShape)
-            )
-        },
-        modifier = Modifier.testTag("downloader_sheet")
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 20.dp)
-        ) {
-            // ---- Header ----
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Brush.linearGradient(listOf(Orange, Pink, Violet))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (uiState.downloaderTab == DownloaderTab.ANY) "Save from any app" else "Save from Instagram",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = when (uiState.downloaderTab) {
-                            DownloaderTab.REELS -> "Paste a reel link, or share a reel to OffScroll"
-                            DownloaderTab.STORIES -> "Username or story link"
-                            DownloaderTab.ANY -> "YouTube, Facebook, Snapchat, TikTok… in every quality"
-                        },
-                        fontSize = 12.sp,
-                        color = Muted
-                    )
-                }
-                IconButton(onClick = { viewModel.closeDownloader() }, modifier = Modifier.testTag("downloader_close")) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ---- Tabs ----
-            TabSwitcher(
-                selected = uiState.downloaderTab,
-                onSelect = { viewModel.setDownloaderTab(it) }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            when (uiState.downloaderTab) {
-                DownloaderTab.REELS -> ReelsContent(uiState, viewModel)
-                DownloaderTab.STORIES -> StoriesContent(uiState, viewModel)
-                DownloaderTab.ANY -> UniversalContent(viewModel)
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-            Text(
-                text = "Only save videos and photos you have permission to keep, and respect the creator's rights.",
-                color = Color(0xFF64748B),
-                fontSize = 11.sp,
-                lineHeight = 15.sp
-            )
-        }
-    }
-
-    // Instagram's sign-in runs on its own screen (a plain web view renders reliably there)
-    val loginLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = com.example.IgLoginActivity.Contract()
-    ) { viewModel.onIgLoginClosed() }
-    LaunchedEffect(uiState.isIgLoginOpen) {
-        if (uiState.isIgLoginOpen) loginLauncher.launch(viewModel.webUserAgent)
-    }
-}
 
 @Composable
-private fun TabSwitcher(selected: DownloaderTab, onSelect: (DownloaderTab) -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(Color(0x14FFFFFF))
-            .border(1.dp, GlassBorder, shape)
-            .padding(4.dp)
-    ) {
-        DownloaderTab.values().forEach { tab ->
-            val isSelected = tab == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(
-                        if (isSelected) Brush.horizontalGradient(listOf(Orange, Pink, Violet))
-                        else SolidColor(Color.Transparent)
-                    )
-                    .clickable { onSelect(tab) }
-                    .testTag("downloader_tab_${tab.name.lowercase()}"),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = tab.label,
-                    color = if (isSelected) Color.White else Muted,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
 
 // ----------------------------------------------------------------------------------------------
 // Reels tab
@@ -360,254 +222,10 @@ internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
 // ----------------------------------------------------------------------------------------------
 
 @Composable
-private fun StoriesContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel) {
-    val clipboard = LocalClipboardManager.current
-    val keyboard = LocalSoftwareKeyboardController.current
-    val state = uiState.storyState
-    val signedIn = uiState.isIgSignedIn
-    val isLoading = state is StoryUiState.Loading
-
-    Column {
-        if (signedIn) {
-            AccountStrip(
-                account = uiState.igAccount,
-                checking = uiState.isCheckingIgAccount,
-                error = uiState.igAccountError,
-                onSignOut = { viewModel.igSignOut() }
-            )
-        } else {
-            if (uiState.igAccountError != null) {
-                MessageCard(Icons.Default.ErrorOutline, Color(0xFFFB7185), uiState.igAccountError)
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-            LoginCard(onSignIn = { viewModel.openIgLogin() })
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        LinkField(
-            value = uiState.storyInput,
-            placeholder = "Username or story link",
-            enabled = !isLoading,
-            keyboardType = KeyboardType.Uri,
-            onChange = { viewModel.setStoryInput(it) },
-            onPaste = { clipboard.getText()?.text?.let { viewModel.setStoryInput(it.trim()) } },
-            onGo = {
-                keyboard?.hide()
-                if (signedIn) viewModel.findStories() else viewModel.openIgLogin()
-            },
-            testTag = "stories_input"
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        when (state) {
-            is StoryUiState.Loading -> {
-                BusyCard(label = "Looking for stories…", progress = null, onCancel = null)
-            }
-
-            is StoryUiState.Loaded -> {
-                StoryResults(uiState = uiState, state = state, viewModel = viewModel)
-            }
-
-            else -> {
-                Column {
-                    when (state) {
-                        is StoryUiState.Error -> {
-                            MessageCard(Icons.Default.ErrorOutline, Color(0xFFFB7185), state.message)
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-                        is StoryUiState.NeedsLogin -> {
-                            MessageCard(Icons.Default.Lock, Orange, state.message)
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-                        else -> Unit
-                    }
-                    GradientButton(
-                        text = if (signedIn) {
-                            if (state is StoryUiState.Error) "Try again" else "Find stories"
-                        } else "Sign in to continue",
-                        icon = if (signedIn) Icons.Default.Search else Icons.Default.Lock,
-                        enabled = !signedIn || uiState.storyInput.isNotBlank(),
-                        onClick = {
-                            keyboard?.hide()
-                            if (signedIn) viewModel.findStories() else viewModel.openIgLogin()
-                        }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(
-            text = "Enter @username to see all current stories, or paste a story link for just that one. " +
-                "You can only see stories your own account can see. Videos save to Movies/OffScroll, photos to Pictures/OffScroll.",
-            color = Muted,
-            fontSize = 12.sp,
-            lineHeight = 17.sp
-        )
-    }
-}
 
 @Composable
-private fun StoryResults(
-    uiState: VideoFeedUiState,
-    state: StoryUiState.Loaded,
-    viewModel: VideoFeedViewModel
-) {
-    val downloads = uiState.storyDownloads
-    val remaining = state.items.count { downloads[it.id] !is StoryItemDownload.Done }
-    val anyRunning = downloads.values.any { it is StoryItemDownload.Downloading }
-
-    Column {
-        state.profile?.let {
-            ProfileCard(it)
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = (if (state.owner == "Highlight") "Highlight" else "@${state.owner}") +
-                    " · ${state.items.size} ${if (state.items.size == 1) "story" else "stories"}",
-                color = Color.White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-
-        if (anyRunning) {
-            OutlineButton(text = "Stop", onClick = { viewModel.cancelStoryDownloads() }, modifier = Modifier.fillMaxWidth())
-        } else if (remaining > 0) {
-            GradientButton(
-                text = if (remaining == state.items.size) "Download all (${state.items.size})" else "Download remaining ($remaining)",
-                onClick = { viewModel.downloadAllStories() }
-            )
-        } else {
-            MessageCard(Icons.Default.CheckCircle, Cyan, "All saved to your phone.")
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            state.items.forEach { item ->
-                StoryRow(
-                    item = item,
-                    download = downloads[item.id],
-                    onDownload = { viewModel.downloadStoryItem(item) }
-                )
-            }
-        }
-    }
-}
 
 @Composable
-private fun StoryRow(
-    item: InstagramParser.StoryItem,
-    download: StoryItemDownload?,
-    onDownload: () -> Unit
-) {
-    val shape = RoundedCornerShape(14.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(Color(0x14FFFFFF))
-            .border(1.dp, GlassBorder, shape)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .width(52.dp)
-                .height(78.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF1E293B))
-        ) {
-            if (item.thumbnailUrl != null) {
-                AsyncImage(
-                    model = item.thumbnailUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            Icon(
-                imageVector = if (item.isVideo) Icons.Default.Videocam else Icons.Default.Image,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(4.dp)
-                    .size(16.dp)
-                    .background(Color(0x99000000), CircleShape)
-                    .padding(2.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = if (item.isVideo) "Video story" else "Photo story",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = when (download) {
-                    is StoryItemDownload.Downloading ->
-                        if (download.progress >= 0f) "Downloading… ${(download.progress * 100).roundToInt()}%" else "Downloading…"
-                    is StoryItemDownload.Done -> "Saved ✓"
-                    is StoryItemDownload.Failed -> download.message
-                    null -> timeAgo(item.takenAtSec)
-                },
-                color = when (download) {
-                    is StoryItemDownload.Done -> Cyan
-                    is StoryItemDownload.Failed -> Color(0xFFFB7185)
-                    else -> Muted
-                },
-                fontSize = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        when (download) {
-            is StoryItemDownload.Downloading -> {
-                if (download.progress >= 0f) {
-                    LinearProgressIndicator(
-                        progress = { download.progress },
-                        modifier = Modifier
-                            .width(40.dp)
-                            .height(4.dp)
-                            .clip(CircleShape),
-                        color = Cyan,
-                        trackColor = Color(0x33FFFFFF)
-                    )
-                } else {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .width(40.dp)
-                            .height(4.dp)
-                            .clip(CircleShape),
-                        color = Cyan,
-                        trackColor = Color(0x33FFFFFF)
-                    )
-                }
-            }
-            is StoryItemDownload.Done -> {
-                Icon(Icons.Default.CheckCircle, contentDescription = "Saved", tint = Cyan, modifier = Modifier.size(24.dp))
-            }
-            else -> {
-                IconButton(onClick = onDownload) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = "Download",
-                        tint = Color.White
-                    )
-                }
-            }
-        }
-    }
-}
 
 internal fun timeAgo(takenAtSec: Long): String {
     if (takenAtSec <= 0L) return "Posted recently"
@@ -670,7 +288,7 @@ internal fun AccountStrip(
     error: String?,
     onSignOut: () -> Unit
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
     val ok = account != null
     val tint = if (error != null) Orange else Cyan
     Row(
@@ -834,7 +452,7 @@ internal fun ProfileCard(profile: InstagramParser.ProfileInfo, onAvatarClick: ((
 
 @Composable
 internal fun LoginCard(onSignIn: () -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -888,7 +506,7 @@ internal fun LinkField(
     onGo: () -> Unit,
     testTag: String
 ) {
-    val fieldShape = RoundedCornerShape(18.dp)
+    val fieldShape = RoundedCornerShape(20.dp)
     var focused by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
@@ -914,7 +532,7 @@ internal fun LinkField(
             onValueChange = onChange,
             enabled = enabled,
             singleLine = true,
-            textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
+            textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
             cursorBrush = SolidColor(Cyan),
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { onGo() }),
@@ -928,7 +546,7 @@ internal fun LinkField(
                         Text(
                             text = placeholder,
                             color = Color(0xFF64748B),
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -963,7 +581,7 @@ internal fun GradientButton(
     enabled: Boolean = true,
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Download
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -991,7 +609,7 @@ internal fun GradientButton(
 
 @Composable
 internal fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier = modifier
             .height(54.dp)
@@ -1011,7 +629,7 @@ internal fun MessageCard(
     tint: Color,
     text: String
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(20.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
