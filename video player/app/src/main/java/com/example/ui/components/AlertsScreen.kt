@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -114,7 +116,7 @@ internal fun AlertsScreen(
         pendingPerson?.let { onSetAlerts(it, true) }
         pendingPerson = null
         if (!granted) {
-            Toast.makeText(context, "Notifications are off for OffScroll, so alerts can't be shown.", Toast.LENGTH_LONG).show()
+            Feedback.show("Notifications are off for OffScroll, so alerts can't be shown.")
             openNotificationSettings(context)
         }
     }
@@ -147,8 +149,8 @@ internal fun AlertsScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 Column {
-                    Text("Alerts", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("Be told the moment someone posts", color = DlMuted, fontSize = 12.sp)
+                    Text(stringResource(R.string.alerts), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.be_told_the_moment_someone_posts), color = DlMuted, fontSize = 12.sp)
                 }
             }
 
@@ -225,7 +227,7 @@ internal fun AlertsScreen(
                             Icon(Icons.Default.Group, contentDescription = null, tint = DlMuted, modifier = Modifier.size(22.dp))
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                "No one saved yet. Open Watch stories, search someone and tap Save.",
+                                stringResource(R.string.no_one_saved_yet_open_watch),
                                 color = DlSoftText, fontSize = 13.sp, lineHeight = 18.sp
                             )
                         }
@@ -359,7 +361,7 @@ internal fun AlertsScreen(
                         )
                     }
                     Text(
-                        "Reposts have no Instagram notification, so they are caught by the timer.",
+                        stringResource(R.string.reposts_have_no_instagram_notification_so),
                         color = DlMuted, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 8.dp)
                     )
                 }
@@ -373,7 +375,7 @@ internal fun AlertsScreen(
                         StatusChip(label = if (batteryOk) "Allowed" else "Limited", ok = batteryOk, icon = if (batteryOk) Icons.Default.CheckCircle else Icons.Default.Warning)
                     }
                     Text(
-                        "Phones pause apps that sit idle, which delays alerts. Allow OffScroll to run in the background so checks stay on time.",
+                        stringResource(R.string.phones_pause_apps_that_sit_idle),
                         color = DlSoftText, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 10.dp)
                     )
                     if (!batteryOk) {
@@ -398,7 +400,7 @@ internal fun AlertsScreen(
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 val ok = StoryAlertWorker.sendTest(context)
-                                Toast.makeText(context, if (ok) "Test alert sent" else "Notifications are off for OffScroll", Toast.LENGTH_LONG).show()
+                                Feedback.show(if (ok) "Test alert sent" else "Notifications are off for OffScroll")
                                 if (!ok) fixNotifications()
                             }
                         )
@@ -407,7 +409,7 @@ internal fun AlertsScreen(
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 StoryAlertScheduler.checkNow(context)
-                                Toast.makeText(context, "Checking now. The result shows here in a minute.", Toast.LENGTH_SHORT).show()
+                                Feedback.show("Checking now. The result shows here in a minute.")
                             }
                         )
                     }
@@ -445,7 +447,7 @@ private fun openListenerSettings(context: Context) {
     try {
         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
-        Toast.makeText(context, "Open Settings > Notifications > Notification access and allow OffScroll", Toast.LENGTH_LONG).show()
+        Feedback.show("Open Settings > Notifications > Notification access and allow OffScroll")
     }
 }
 

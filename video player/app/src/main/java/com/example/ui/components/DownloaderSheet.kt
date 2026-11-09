@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import com.example.ui.theme.Ds
 import androidx.compose.material.icons.filled.Link
 import com.example.ui.theme.bouncyClickable
@@ -148,7 +151,7 @@ internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                     GradientButton(
-                        text = if (status is DownloadStatus.Failed) "Try again" else "Download",
+                        text = if (status is DownloadStatus.Failed) "Try again" else "Save",
                         enabled = url.isNotBlank(),
                         onClick = {
                             keyboard?.hide()
@@ -165,7 +168,7 @@ internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
             is DownloadStatus.Downloading -> {
                 val p = status.progress
                 BusyCard(
-                    label = if (p >= 0f) "Downloading… ${(p * 100).roundToInt()}%" else "Downloading…",
+                    label = if (p >= 0f) "Saving… ${(p * 100).roundToInt()}%" else "Saving…",
                     progress = if (p >= 0f) p else null,
                     onCancel = { viewModel.cancelDownload() }
                 )
@@ -187,7 +190,7 @@ internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
                             modifier = Modifier.weight(1f)
                         )
                         OutlineButton(
-                            text = "Download another",
+                            text = "Save another",
                             onClick = { viewModel.setDownloadUrl("") },
                             modifier = Modifier.weight(1f)
                         )
@@ -198,7 +201,7 @@ internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Tip: in Instagram tap Share → Copy link, or share the reel straight to OffScroll and it downloads automatically. Works with public reels only.",
+            text = stringResource(R.string.tip_in_instagram_tap_share_copy),
             color = Muted,
             fontSize = 12.sp,
             lineHeight = 17.sp
@@ -225,33 +228,44 @@ internal fun timeAgo(takenAtSec: Long): String {
 @Composable
 internal fun Avatar(
     url: String?,
-    size: androidx.compose.ui.unit.Dp,
+    /** Leave unspecified when the caller sizes it through [modifier]. */
+    size: Dp = Dp.Unspecified,
     modifier: Modifier = Modifier,
     /** Shown while the photo loads, or if there is none / it can't be loaded (a username works). */
-    initial: String? = null
+    initial: String? = null,
+    /** A plain colour instead of the sunset gradient behind the photo (the Instagram-style screens use grey). */
+    placeholder: Color? = null,
+    placeholderTint: Color = Color.White
 ) {
+    val sized = size != Dp.Unspecified
     Box(
         modifier = modifier
-            .size(size)
+            .then(if (sized) Modifier.size(size) else Modifier)
             .clip(CircleShape)
-            .background(Brush.linearGradient(listOf(Orange, Pink, Violet))),
+            .background(if (placeholder != null) SolidColor(placeholder) else Brush.linearGradient(listOf(Orange, Pink, Violet))),
         contentAlignment = Alignment.Center
     ) {
         val letter = initial?.trim()?.removePrefix("@")?.take(1)?.uppercase().orEmpty()
-        if (url == null && letter.isEmpty()) {
-            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(size / 2))
+        if (url.isNullOrBlank() && letter.isEmpty()) {
+            Icon(
+                Icons.Default.Person, contentDescription = null, tint = placeholderTint,
+                modifier = if (sized) Modifier.size(size / 2) else Modifier.fillMaxSize(0.55f)
+            )
         } else {
             if (letter.isNotEmpty()) {
-                Text(letter, color = Color.White, fontSize = (size.value * 0.42f).sp, fontWeight = FontWeight.Bold)
+                Text(
+                    letter, color = Color.White, fontWeight = FontWeight.Bold,
+                    fontSize = if (sized) (size.value * 0.42f).sp else 16.sp
+                )
             }
-            if (url != null) {
+            if (!url.isNullOrBlank()) {
                 AsyncImage(
                     model = url,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(2.dp)
+                        .padding(if (placeholder != null) 0.dp else 2.dp)
                         .clip(CircleShape)
                 )
             }
@@ -299,7 +313,7 @@ internal fun AccountStrip(
         Column(modifier = Modifier.weight(1f)) {
             when {
                 account != null -> {
-                    Text("Connected to Instagram as", color = Muted, fontSize = 11.sp)
+                    Text(stringResource(R.string.connected_to_instagram_as), color = Muted, fontSize = 11.sp)
                     Text(
                         text = "@${account.username}",
                         color = Color.White,
@@ -312,13 +326,13 @@ internal fun AccountStrip(
                         Text(account.fullName, color = Color(0xFFE2E8F0), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                checking -> Text("Checking the connection to Instagram…", color = Color(0xFFE2E8F0), fontSize = 13.sp)
+                checking -> Text(stringResource(R.string.checking_the_connection_to_instagram), color = Color(0xFFE2E8F0), fontSize = 13.sp)
                 error != null -> Text(error, color = Color(0xFFE2E8F0), fontSize = 12.sp, lineHeight = 17.sp)
-                else -> Text("Signed in to Instagram", color = Color(0xFFE2E8F0), fontSize = 13.sp)
+                else -> Text(stringResource(R.string.signed_in_to_instagram), color = Color(0xFFE2E8F0), fontSize = 13.sp)
             }
         }
         Text(
-            text = "Sign out",
+            text = stringResource(R.string.sign_out),
             color = Color(0xFFFB7185),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
@@ -392,7 +406,7 @@ internal fun ProfileCard(profile: InstagramParser.ProfileInfo, onAvatarClick: ((
                     ) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Muted, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Private account", color = Color(0xFFE2E8F0), fontSize = 11.sp)
+                        Text(stringResource(R.string.private_account), color = Color(0xFFE2E8F0), fontSize = 11.sp)
                     }
                 }
             }
@@ -430,7 +444,7 @@ internal fun ProfileCard(profile: InstagramParser.ProfileInfo, onAvatarClick: ((
         }
         if (onAvatarClick != null) {
             Spacer(modifier = Modifier.height(10.dp))
-            Text("Tap the photo to watch their story", color = Muted, fontSize = 11.sp)
+            Text(stringResource(R.string.tap_the_photo_to_watch_their), color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -449,11 +463,11 @@ internal fun LoginCard(onSignIn: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Lock, contentDescription = null, tint = Orange, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Stories need your Instagram login", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.stories_need_your_instagram_login), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Instagram only shows stories to signed-in accounts. You sign in on Instagram's own page, " +
+            text = stringResource(R.string.instagram_only_shows_stories_to_signed) +
                 "so OffScroll never sees your password, and you can sign out here any time.",
             color = Color(0xFFE2E8F0),
             fontSize = 12.sp,
@@ -461,7 +475,7 @@ internal fun LoginCard(onSignIn: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Heads-up: Instagram doesn't officially allow third-party tools, and it may limit accounts that use them. " +
+            text = stringResource(R.string.heads_up_instagram_doesn_t_officially) +
                 "A spare account is the safer choice.",
             color = Orange,
             fontSize = 12.sp,
@@ -558,6 +572,55 @@ internal fun LinkField(
     }
 }
 
+internal enum class DsButtonStyle { Primary, Secondary }
+
+/**
+ * The app's button. Primary is the sunset-gradient call to action (full width, glowing); Secondary is the quiet
+ * frosted one. Both are 56 dp tall with the same radius and text size, so every screen's buttons match.
+ */
+@Composable
+internal fun DsButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    style: DsButtonStyle = DsButtonStyle.Primary,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    enabled: Boolean = true
+) {
+    val shape = RoundedCornerShape(Ds.Radius.Xl)
+    val primary = style == DsButtonStyle.Primary
+    Row(
+        modifier = modifier
+            .then(if (primary) Modifier.fillMaxWidth() else Modifier)
+            .height(56.dp)
+            .then(if (primary && enabled) Modifier.shadow(12.dp, shape, ambientColor = Pink, spotColor = Pink) else Modifier)
+            .clip(shape)
+            .background(
+                when {
+                    primary && enabled -> Brush.horizontalGradient(listOf(Orange, Pink, Violet))
+                    primary -> SolidColor(Color(0x33FFFFFF))
+                    else -> SolidColor(Color(0x1AFFFFFF))
+                }
+            )
+            .then(if (!primary) Modifier.border(1.dp, GlassBorder, shape) else Modifier)
+            .bouncyClickable(pressedScale = 0.97f, enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp))
+            Spacer(modifier = Modifier.width(9.dp))
+        }
+        Text(
+            text = text,
+            color = Color.White.copy(alpha = if (enabled) 1f else 0.5f),
+            fontSize = Ds.Type.BodyLarge,
+            fontWeight = if (primary) FontWeight.Bold else FontWeight.SemiBold
+        )
+    }
+}
+
 @Composable
 internal fun GradientButton(
     text: String,
@@ -565,48 +628,12 @@ internal fun GradientButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Download
-) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .then(if (enabled) Modifier.shadow(12.dp, shape, ambientColor = Pink, spotColor = Pink) else Modifier)
-            .clip(shape)
-            .background(
-                if (enabled) Brush.horizontalGradient(listOf(Orange, Pink, Violet))
-                else SolidColor(Color(0x33FFFFFF))
-            )
-            .bouncyClickable(pressedScale = 0.97f, enabled = enabled, onClick = onClick),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(21.dp))
-        Spacer(modifier = Modifier.width(9.dp))
-        Text(
-            text = text,
-            color = Color.White.copy(alpha = if (enabled) 1f else 0.5f),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
+) = DsButton(text, onClick, modifier, DsButtonStyle.Primary, icon, enabled)
 
 @Composable
-internal fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(20.dp)
-    Box(
-        modifier = modifier
-            .height(54.dp)
-            .clip(shape)
-            .background(Color(0x1AFFFFFF))
-            .border(1.dp, GlassBorder, shape)
-            .bouncyClickable(pressedScale = 0.97f, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = text, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
+internal fun OutlineButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) =
+    DsButton(text, onClick, modifier, DsButtonStyle.Secondary)
+
 
 @Composable
 internal fun MessageCard(
@@ -651,7 +678,7 @@ internal fun BusyCard(label: String, progress: Float?, onCancel: (() -> Unit)?) 
             )
             if (onCancel != null) {
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.cancel_2),
                     color = Color(0xFFFB7185),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,

@@ -106,7 +106,6 @@ fun VideoFeedScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     val filteredVideos = uiState.filteredVideos
@@ -217,7 +216,7 @@ fun VideoFeedScreen(
     // Handle toast messages
     LaunchedEffect(uiState.toastMessage) {
         uiState.toastMessage?.let { msg ->
-            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            Feedback.show(msg)
             viewModel.clearToast()
         }
     }
@@ -498,11 +497,6 @@ fun VideoFeedScreen(
                 onDismiss = { viewModel.cancelDelete() }
             )
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 
@@ -516,7 +510,7 @@ private fun shareVideo(context: Context, video: LocalVideo) {
         }
         context.startActivity(Intent.createChooser(shareIntent, "Share video"))
     } catch (e: Exception) {
-        Toast.makeText(context, "Could not share video: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+        Feedback.show("Could not share video: ${e.localizedMessage}")
     }
 }
 

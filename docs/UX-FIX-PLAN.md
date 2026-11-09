@@ -34,16 +34,23 @@ The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (peopl
 4. Turn on system "Remove animations": the downloader background and loaders stop moving.
 5. Skim the Downloader, Search, Settings and the profile for text that now wraps or looks cramped.
 
-## Phase 2: consistency (audit P1)
+## Phase 2: consistency (audit P1): code done, awaiting CI and your on-phone check
 
-| # | Task | Audit | Acceptance check |
-|---|---|---|---|
-| 2.1 | One button component (`DsButton`: primary, secondary, quiet) replacing GradientButton, OutlineButton, ProfileButton, ActionPill, Pill. | #8 | One definition per role; old names removed or thin wrappers. |
-| 2.2 | One avatar component (ring optional) replacing Avatar, ProfileAvatar, AvatarWithRing. | #8 | One definition. |
-| 2.3 | One feedback system: a Snackbar host with actions for passing events; Toasts removed. | #9 | `Toast.makeText` count is 0 in UI code. |
-| 2.4 | Glossary applied to all visible text: Save (never Download), Alerts (never Notifications for our feature), Try again (never Retry). | #10 | A lint test fails on forbidden words in user-facing strings. |
-| 2.5 | Extract hard-coded UI strings to `strings.xml`; scaffold Hindi and Telugu files. | #12 | `Text("...")` literal count falls below 20; `values-hi` and `values-te` exist. |
-| 2.6 | Bridge the Instagram viewer chrome and the app chrome (top bars, sheets share tokens). | #11 | Shared top-bar and sheet components. |
+| # | Task | Result |
+|---|---|---|
+| [x] 2.1 | One button component | `DsButton` (Primary and Secondary, both 56 dp, same radius and text size). `GradientButton` and `OutlineButton` are thin wrappers, so all 26 call sites now match. **Left as is on purpose:** `ProfileButton` and `ActionPill` belong to the Instagram-style viewer chrome; chips (`Pill`, `StatusChip`, `TypeTag`) are a separate family. |
+| [x] 2.2 | One avatar component | `Avatar` is the single implementation (size by parameter or by modifier, optional plain placeholder colour). `ProfileAvatar` is now a one-line view of it. |
+| [x] 2.3 | One feedback system | `Feedback.show(text, action?)` plus `FeedbackLayer`/`FeedbackPill`. All 15 Toasts in the UI are replaced; the unused Snackbar host is gone. Hosted in the main window, the profile dialog, the story viewer and the metadata sheet so the message shows above whichever window is on top. Announced to screen readers; shown 3 to 7 s depending on length. A test fails the build on any new Toast in the UI. |
+| [x] 2.4 | Glossary | Save (never Download) for media; "Saving", "Save another", "Couldn't save."; the engine and app update screens keep "download" because that really is a download of a program. A test fails the build on Retry, Any link, Download another, Download failed. |
+| [x] 2.5 | Strings to resources | 123 `Text("...")` call sites moved to `strings.xml` (133 resources). Hindi and Telugu files added with 16 common words each; everything else falls back to English. **Needs a native speaker review.** 32 strings with `$` placeholders, and strings outside `Text()` (labels, titles, error messages), are still hard-coded and need a second pass. |
+| [ ] 2.6 | Bridge the viewer chrome and the app chrome | Not done. Tokens already unify colour, type and radius across both. A shared top bar and sheet belong with the navigation refactor, so this moves to Phase 3 (3.1). |
+
+**On-phone checklist for Phase 2**
+1. Copy a link somewhere in the profile viewer: a dark pill ("Link copied") appears at the bottom, above the viewer.
+2. Turn on alerts without notification permission: the message appears and Settings opens.
+3. Look at every button in the Downloader: Save, Save another, Try again should all be the same height and radius.
+4. Profile viewer avatars still look right (grey placeholder, no gradient ring).
+5. Switch the phone language to Hindi or Telugu: Search, Save, Cancel and a few other words change; the rest stays English.
 
 ## Phase 3: flows and architecture (audit P2)
 
@@ -73,7 +80,7 @@ The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (peopl
 
 - [x] Plan written (this file)
 - [x] Phase 1 (code done and CI-checked; waiting for the on-phone checklist)
-- [ ] Phase 2
+- [x] Phase 2 (2.6 moved to Phase 3; strings second pass pending)
 - [ ] Phase 3
 - [ ] Phase 4
 

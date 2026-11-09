@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.runtime.rememberUpdatedState
@@ -208,8 +209,8 @@ fun DownloaderScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("Save & watch", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Stories, reels and videos in one place", color = Muted, fontSize = 12.sp)
+                Text(stringResource(R.string.save_watch), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.stories_reels_and_videos_in_one), color = Muted, fontSize = 12.sp)
             }
             val anyAlerts = uiState.people.any { it.alerts }
             Box(
@@ -306,7 +307,7 @@ fun DownloaderScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "Only save videos and photos you have permission to keep, and respect the creator's rights.",
+                text = stringResource(R.string.only_save_videos_and_photos_you),
                 color = Color(0xFF64748B),
                 fontSize = 11.sp,
                 lineHeight = 15.sp
@@ -351,7 +352,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
         pendingAlertFor?.let { viewModel.setPersonAlerts(it, true) }
         pendingAlertFor = null
         if (!granted) {
-            Toast.makeText(context, "Notifications are off for OffScroll, so alerts can't be shown.", Toast.LENGTH_LONG).show()
+            Feedback.show("Notifications are off for OffScroll, so alerts can't be shown.")
         }
     }
     // Phones often pause background work to save battery; this lets the user exempt OffScroll
@@ -386,8 +387,8 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
         // ---- Saved people ----
         if (uiState.people.isNotEmpty()) {
             Spacer(modifier = Modifier.height(18.dp))
-            Text("Your people", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text("Tap a photo to watch their story", color = Muted, fontSize = 12.sp)
+            Text(stringResource(R.string.your_people), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.tap_a_photo_to_watch_their), color = Muted, fontSize = 12.sp)
             Spacer(modifier = Modifier.height(10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 items(uiState.people, key = { it.username }) { person ->
@@ -406,7 +407,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
                 .border(1.dp, GlassBorder, searchShape)
                 .padding(14.dp)
         ) {
-        Text("Find someone", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.find_someone), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(10.dp))
         LinkField(
             value = uiState.storyInput,
@@ -444,7 +445,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
             }
             if (uiState.highlights.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("Highlights", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.highlights), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(uiState.highlights, key = { it.id }) { h ->
@@ -522,7 +523,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
 
         Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = "Tap a story to watch it here. Watching never tells the owner. Saving is optional.",
+            text = stringResource(R.string.tap_a_story_to_watch_it),
             color = Muted, fontSize = 12.sp, lineHeight = 17.sp
         )
     }
@@ -657,9 +658,9 @@ private fun RepostNoteText(item: InstagramParser.StoryItem, maxLines: Int) {
     val note = item.repostNote
     if (note != null) {
         Text("\u201C$note\u201D", color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
-        Text("Repost note", color = Muted, fontSize = 11.sp)
+        Text(stringResource(R.string.repost_note), color = Muted, fontSize = 11.sp)
     } else {
-        Text("No note added with this repost", color = Muted, fontSize = 12.sp)
+        Text(stringResource(R.string.no_note_added_with_this_repost), color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -670,7 +671,7 @@ private fun RepostTimeText(item: InstagramParser.StoryItem) {
         Text("Reposted  ${dateColonTime(t)}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Text(agoExact(t), color = Cyan, fontSize = 11.sp)
     } else {
-        Text("Repost time not found yet (use Copy details)", color = Muted, fontSize = 11.sp)
+        Text(stringResource(R.string.repost_time_not_found_yet_use), color = Muted, fontSize = 11.sp)
     }
 }
 
@@ -698,7 +699,7 @@ private fun countsLine(item: InstagramParser.StoryItem): String = listOfNotNull(
 @Composable
 private fun RepostFilters(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel) {
     var picking by remember { mutableStateOf<Int?>(null) }
-    Text("Reposts between two dates", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    Text(stringResource(R.string.reposts_between_two_dates), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     Spacer(modifier = Modifier.height(6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Pill(text = uiState.repostFrom?.let { "From ${dayLabel(it)}" } ?: "From date", highlighted = uiState.repostFrom != null, onClick = { picking = 1 })
@@ -721,9 +722,9 @@ private fun RepostFilters(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
                         )
                     }
                     picking = null
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { picking = null }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.cancel_2)) } }
         ) { DatePicker(state = state) }
     }
 }
@@ -764,7 +765,7 @@ private fun RepostCard(
             if (item.repostNote.isNullOrBlank() && originalCaption != null) {
                 // No note from the reposter: show a short piece of the reel's own caption instead (clearly labelled)
                 Text(originalCaption, color = Color.White, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Text("Original caption", color = Muted, fontSize = 11.sp)
+                Text(stringResource(R.string.original_caption), color = Muted, fontSize = 11.sp)
             } else {
                 RepostNoteText(item, maxLines = 3)
             }

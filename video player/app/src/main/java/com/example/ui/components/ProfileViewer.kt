@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -516,6 +518,7 @@ internal fun InstaViewer(host: ViewerHost) {
                     onClose = { detailsOpen = false }
                 )
             }
+            FeedbackLayer()
         }
     }
 }
@@ -596,13 +599,13 @@ private fun DetailsPanel(
     val clipboard = LocalClipboardManager.current
     fun copy(label: String, text: String) {
         clipboard.setText(AnnotatedString(text))
-        Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
+        Feedback.show("$label copied")
     }
     fun open(url: String) {
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (e: Exception) {
-            Toast.makeText(context, "Couldn't open that link", Toast.LENGTH_SHORT).show()
+            Feedback.show("Couldn't open that link")
         }
     }
     fun person(username: String) = DetailChip("@$username") { onClose(); host.onOpenUser(username) }
@@ -743,7 +746,7 @@ private fun DetailsPanel(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 6.dp)) {
             Icon(Icons.Default.Info, contentDescription = null, tint = VCyan, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(10.dp))
-            Text("Details", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.details), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White) }
         }
         Column(
@@ -800,7 +803,7 @@ private fun DetailsPanel(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(row.label, color = VMuted, fontSize = 13.sp, modifier = Modifier.weight(1f))
                                 Text(
-                                    "Copy", color = VLink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                    stringResource(R.string.copy), color = VLink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.clickable { copy(row.label, row.text) }.padding(4.dp)
                                 )
                             }
@@ -812,7 +815,7 @@ private fun DetailsPanel(
 
             // ---- Actions ----
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp)) {
-                Text("ACTIONS", color = VMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(stringResource(R.string.actions), color = VMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 postLink?.let { link ->

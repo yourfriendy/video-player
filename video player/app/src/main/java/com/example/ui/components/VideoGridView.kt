@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
@@ -87,14 +89,14 @@ fun VideoGridView(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "No videos match the criteria",
+                    text = stringResource(R.string.no_videos_match_the_criteria),
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Try clearing the search query or selecting a different filter",
+                    text = stringResource(R.string.try_clearing_the_search_query_or),
                     color = Color(0xFF94A3B8),
                     fontSize = 13.sp
                 )

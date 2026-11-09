@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -96,7 +98,7 @@ fun VideoOptionsSheet(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Player Controls",
+                    text = stringResource(R.string.player_controls),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -118,7 +120,7 @@ fun VideoOptionsSheet(
 
             // Playback Speed Selector
             Text(
-                text = "Playback Speed",
+                text = stringResource(R.string.playback_speed),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFFCBD5E1)
@@ -166,7 +168,7 @@ fun VideoOptionsSheet(
 
             // Display Mode Selector
             Text(
-                text = "Aspect & Fit Mode",
+                text = stringResource(R.string.aspect_fit_mode),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFFCBD5E1)
@@ -232,13 +234,13 @@ fun VideoOptionsSheet(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "System Pop-up Player (PiP)",
+                        text = stringResource(R.string.system_pop_up_player_pip),
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Float video on home screen and over any other app",
+                        text = stringResource(R.string.float_video_on_home_screen_and),
                         color = Color(0xFFC4B5FD),
                         fontSize = 11.sp
                     )
@@ -303,13 +305,13 @@ fun VideoOptionsSheet(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "Video Details & Specs",
+                        text = stringResource(R.string.video_details_specs),
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Resolution, codec, bitrate, audio and path",
+                        text = stringResource(R.string.resolution_codec_bitrate_audio_and_path),
                         color = Color(0xFF94A3B8),
                         fontSize = 11.sp
                     )
@@ -342,13 +344,13 @@ fun VideoOptionsSheet(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "Delete Clip",
+                        text = stringResource(R.string.delete_clip),
                         color = Color(0xFFFB7185),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Remove from device or local feed",
+                        text = stringResource(R.string.remove_from_device_or_local_feed),
                         color = Color(0xFFFDA4AF),
                         fontSize = 11.sp
                     )

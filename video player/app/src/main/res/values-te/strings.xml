@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Common words only. Everything not listed falls back to English.
+     Machine-assisted translation: please have a native speaker review before relying on it. -->
+<resources>
+    <string name="search">శోధన</string>
+    <string name="refresh">రిఫ్రెష్ చేయండి</string>
+    <string name="ok">సరే</string>
+    <string name="cancel_2">రద్దు చేయండి</string>
+    <string name="highlights">హైలైట్స్</string>
+    <string name="saved_to_your_library">మీ లైబ్రరీలో సేవ్ చేయబడింది</string>
+    <string name="your_people">మీ వ్యక్తులు</string>
+    <string name="find_someone">ఎవరినైనా వెతకండి</string>
+    <string name="story_alerts">స్టోరీ హెచ్చరికలు</string>
+    <string name="quality">నాణ్యత</string>
+    <string name="open_in_instagram">ఇన్‌స్టాగ్రామ్‌లో తెరవండి</string>
+    <string name="copy_profile_link">ప్రొఫైల్ లింక్ కాపీ చేయండి</string>
+    <string name="sign_in_to_instagram">ఇన్‌స్టాగ్రామ్‌లో సైన్ ఇన్ చేయండి</string>
+    <string name="save_watch">సేవ్ చేసి చూడండి</string>
+    <string name="stories_reels_and_videos_in_one">స్టోరీలు, రీల్స్ మరియు వీడియోలు ఒకే చోట</string>
+    <string name="allow_video_access">వీడియో యాక్సెస్‌కు అనుమతించండి</string>
+</resources>

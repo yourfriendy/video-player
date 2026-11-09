@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.SliderDefaults
@@ -170,7 +172,7 @@ fun ProfileOverlay(
     LaunchedEffect(state.toast) {
         val message = state.toast
         if (message != null) {
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            Feedback.show(message)
             controller.consumeToast()
         }
     }
@@ -188,16 +190,19 @@ fun ProfileOverlay(
             dismissOnClickOutside = false
         )
     ) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalOpenAlertSettings provides onOpenAlertSettings) {
-            ProfileContent(
-                state = state,
-                controller = controller,
-                saved = saved,
-                onToggleSave = { if (saved) onRemovePerson(shownName) else onSavePerson(shownName) },
-                alertsOn = alertsOn,
-                onSetAlerts = { on -> onSetAlerts(shownName, on) },
-                onSignIn = onSignIn
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalOpenAlertSettings provides onOpenAlertSettings) {
+                ProfileContent(
+                    state = state,
+                    controller = controller,
+                    saved = saved,
+                    onToggleSave = { if (saved) onRemovePerson(shownName) else onSavePerson(shownName) },
+                    alertsOn = alertsOn,
+                    onSetAlerts = { on -> onSetAlerts(shownName, on) },
+                    onSignIn = onSignIn
+                )
+            }
+            FeedbackLayer()
         }
     }
 
@@ -272,22 +277,22 @@ private fun ProfileContent(
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("Open in Instagram") },
+                        text = { Text(stringResource(R.string.open_in_instagram)) },
                         onClick = {
                             menuOpen = false
                             openLink(context, "https://www.instagram.com/$name/")
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Copy profile link") },
+                        text = { Text(stringResource(R.string.copy_profile_link)) },
                         onClick = {
                             menuOpen = false
                             clipboard.setText(AnnotatedString("https://www.instagram.com/$name/"))
-                            Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
+                            Feedback.show("Link copied")
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Refresh") },
+                        text = { Text(stringResource(R.string.refresh)) },
                         onClick = {
                             menuOpen = false
                             controller.retry()
@@ -496,7 +501,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
             onSet(true) // still switch it on: the alert is saved, and works as soon as notifications are allowed
         }
         if (!granted) {
-            Toast.makeText(context, "Notifications are off for OffScroll, so alerts can't be shown. Opening settings…", Toast.LENGTH_LONG).show()
+            Feedback.show("Notifications are off for OffScroll, so alerts can't be shown. Opening settings…")
             openNotificationSettings()
         }
     }
@@ -510,7 +515,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
         } else {
             onSet(true)
             if (com.example.data.download.StoryAlertWorker.notificationsBlocked(context)) {
-                Toast.makeText(context, "Notifications are muted for OffScroll in phone settings. Opening settings…", Toast.LENGTH_LONG).show()
+                Feedback.show("Notifications are muted for OffScroll in phone settings. Opening settings…")
                 openNotificationSettings()
             }
         }
@@ -534,7 +539,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Story alerts", color = IgText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.story_alerts), color = IgText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     text = if (on) "Notifies you about @$username's new stories and reposts. Nobody is told you looked."
                     else "Get a notification when @$username posts a new story or reposts a reel.",
@@ -584,23 +589,8 @@ private fun AvatarWithRing(url: String?, hasStories: Boolean, loading: Boolean, 
 }
 
 @Composable
-internal fun ProfileAvatar(url: String?, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.clip(CircleShape).background(IgButton),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!url.isNullOrBlank()) {
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Icon(Icons.Default.Person, contentDescription = null, tint = IgMuted, modifier = Modifier.fillMaxSize(0.55f))
-        }
-    }
-}
+internal fun ProfileAvatar(url: String?, modifier: Modifier = Modifier) =
+    Avatar(url, modifier = modifier, placeholder = IgButton, placeholderTint = IgMuted)
 
 @Composable
 private fun StatBlock(value: Long?, label: String, onClick: (() -> Unit)?) {
@@ -913,7 +903,7 @@ private fun LoginPrompt(message: String?, onSignIn: () -> Unit) {
     ) {
         Icon(Icons.Default.Lock, contentDescription = null, tint = IgText, modifier = Modifier.size(40.dp))
         Spacer(modifier = Modifier.height(14.dp))
-        Text("Sign in to Instagram", color = IgText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.sign_in_to_instagram), color = IgText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = message ?: "Profiles show through your own Instagram sign-in. OffScroll never sees your password.",
@@ -1065,7 +1055,7 @@ private fun PeopleDialog(state: ProfileUiState, people: ProfilePeopleState, cont
                         Icon(Icons.Default.Search, contentDescription = null, tint = IgMuted, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(modifier = Modifier.weight(1f)) {
-                            if (people.query.isEmpty()) Text("Search", color = IgMuted, fontSize = 14.sp)
+                            if (people.query.isEmpty()) Text(stringResource(R.string.search), color = IgMuted, fontSize = 14.sp)
                             inner()
                         }
                     }
@@ -1097,7 +1087,7 @@ private fun PeopleDialog(state: ProfileUiState, people: ProfilePeopleState, cont
             }
             if (query.isNotEmpty() && !people.done) {
                 Text(
-                    text = "Searching the people loaded so far. Tap Load all to search everyone.",
+                    text = stringResource(R.string.searching_the_people_loaded_so_far),
                     color = IgMuted,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -1127,12 +1117,12 @@ private fun PeopleDialog(state: ProfileUiState, people: ProfilePeopleState, cont
                                 onAction = controller::retryPeople
                             )
                             people.done && people.people.isEmpty() -> Text(
-                                text = "Nobody to show here.",
+                                text = stringResource(R.string.nobody_to_show_here),
                                 color = IgMuted,
                                 fontSize = 14.sp
                             )
                             query.isNotEmpty() && shown.isEmpty() -> Text(
-                                text = "No match in the people loaded so far.",
+                                text = stringResource(R.string.no_match_in_the_people_loaded),
                                 color = IgMuted,
                                 fontSize = 14.sp
                             )
@@ -1259,6 +1249,6 @@ internal fun openLink(context: android.content.Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
-        Toast.makeText(context, "Couldn't open that link", Toast.LENGTH_SHORT).show()
+        Feedback.show("Couldn't open that link")
     }
 }

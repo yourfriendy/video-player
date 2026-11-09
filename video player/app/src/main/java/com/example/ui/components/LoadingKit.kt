@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -260,7 +262,7 @@ internal fun FullScreenFetching(
             if (onCancel != null) {
                 Spacer(modifier = Modifier.width(1.dp).height(6.dp))
                 Text(
-                    "Cancel", color = Color(0xFFFB7185), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    stringResource(R.string.cancel_2), color = Color(0xFFFB7185), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onCancel).padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }

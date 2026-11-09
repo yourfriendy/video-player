@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -212,7 +214,7 @@ fun FeedTopBar(
                             .testTag("filter_dropdown_menu")
                     ) {
                         DropdownMenuItem(
-                            text = { Text("All Videos", color = Color.White, fontWeight = FontWeight.Medium) },
+                            text = { Text(stringResource(R.string.all_videos), color = Color.White, fontWeight = FontWeight.Medium) },
                             leadingIcon = {
                                 Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFFA78BFA))
                             },
@@ -222,7 +224,7 @@ fun FeedTopBar(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Favorites", color = Color.White, fontWeight = FontWeight.Medium) },
+                            text = { Text(stringResource(R.string.favorites), color = Color.White, fontWeight = FontWeight.Medium) },
                             leadingIcon = {
                                 Icon(Icons.Default.Favorite, contentDescription = null, tint = FrostedRose)
                             },
@@ -232,7 +234,7 @@ fun FeedTopBar(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Recently Added", color = Color.White, fontWeight = FontWeight.Medium) },
+                            text = { Text(stringResource(R.string.recently_added), color = Color.White, fontWeight = FontWeight.Medium) },
                             leadingIcon = {
                                 Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFF38BDF8))
                             },
@@ -242,7 +244,7 @@ fun FeedTopBar(
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Recently Played", color = Color.White, fontWeight = FontWeight.Medium) },
+                            text = { Text(stringResource(R.string.recently_played), color = Color.White, fontWeight = FontWeight.Medium) },
                             leadingIcon = {
                                 Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFF34D399))
                             },
@@ -258,7 +260,7 @@ fun FeedTopBar(
                                 modifier = Modifier.padding(vertical = 4.dp)
                             )
                             Text(
-                                text = "FOLDERS",
+                                text = stringResource(R.string.folders),
                                 color = Color(0xFF94A3B8),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -399,7 +401,7 @@ fun FeedTopBar(
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = "Offline Vault",
+                            text = stringResource(R.string.offline_vault),
                             color = Color(0xFF6EE7B7),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold

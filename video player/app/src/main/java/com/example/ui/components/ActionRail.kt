@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -249,7 +251,7 @@ private fun DetailsActionButton(onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Details",
+            text = stringResource(R.string.details),
             color = Color(0xFFE9D5FF),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,

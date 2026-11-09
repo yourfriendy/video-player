@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import android.app.Application
 import androidx.activity.compose.BackHandler
@@ -196,7 +198,7 @@ private fun PopupCard(
     val (headline, sub) = when (state) {
         is ShareDownloads.State.Looking -> "Checking your link" to state.platform
         is ShareDownloads.State.Choose -> "Ready to download" to state.info.platform
-        is ShareDownloads.State.Downloading -> "Downloading" to state.platform
+        is ShareDownloads.State.Downloading -> "Saving" to state.platform
         is ShareDownloads.State.Saved -> "Saved" to state.platform
         is ShareDownloads.State.Failed -> "Couldn't download" to state.platform
         is ShareDownloads.State.Idle -> "" to ""
@@ -385,7 +387,7 @@ private fun ChooseBody(
         }
 
         if (info.options.size > 1) {
-            Text(text = "Quality", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(text = stringResource(R.string.quality), color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(info.options, key = { it.id }) { option ->
                     QualityChip(
@@ -398,7 +400,7 @@ private fun ChooseBody(
         }
 
         GradientButton(
-            text = "Download",
+            text = "Save",
             icon = Icons.Default.Download,
             modifier = Modifier.fillMaxWidth(),
             onClick = onDownload
@@ -448,7 +450,7 @@ private fun DownloadingBody(
             GradientButton(text = "Hide, keep going", icon = null, modifier = Modifier.weight(1f), onClick = onHide)
         }
         Text(
-            text = "Hiding doesn't stop it. You'll get a notification when it's saved.",
+            text = stringResource(R.string.hiding_doesn_t_stop_it_you),
             color = Muted,
             fontSize = 11.sp
         )
@@ -502,7 +504,7 @@ private fun SavedBody(
             )
         }
         Text(
-            text = "Saved to your library",
+            text = stringResource(R.string.saved_to_your_library),
             color = Color.White,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold

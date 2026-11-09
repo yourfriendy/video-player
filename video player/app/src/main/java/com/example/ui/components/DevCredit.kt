@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -110,7 +112,7 @@ fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "MY",
+                    text = stringResource(R.string.my),
                     style = TextStyle(
                         brush = Brush.linearGradient(listOf(Teal, Violet)),
                         fontSize = 28.sp,
@@ -124,20 +126,20 @@ fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "Made with ", color = Slate, fontSize = 13.sp)
+            Text(text = stringResource(R.string.made_with), color = Slate, fontSize = 13.sp)
             Icon(
                 imageVector = Icons.Default.Favorite,
                 contentDescription = "love",
                 tint = Pink,
                 modifier = Modifier.size(14.dp)
             )
-            Text(text = " by", color = Slate, fontSize = 13.sp)
+            Text(text = stringResource(R.string.by), color = Slate, fontSize = 13.sp)
         }
 
         Spacer(modifier = Modifier.height(2.dp))
 
         Text(
-            text = "Madhu Yadav",
+            text = stringResource(R.string.madhu_yadav),
             style = TextStyle(
                 brush = Brush.horizontalGradient(listOf(Teal, Blue, Violet)),
                 fontSize = 28.sp,
@@ -148,7 +150,7 @@ fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier
         Spacer(modifier = Modifier.height(2.dp))
 
         Text(
-            text = "Developer of OffScroll",
+            text = stringResource(R.string.developer_of_offscroll),
             color = Color(0xFFE2E8F0),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
@@ -197,7 +199,7 @@ fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "View on GitHub",
+                text = stringResource(R.string.view_on_github),
                 color = Color(0xFF020617),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold

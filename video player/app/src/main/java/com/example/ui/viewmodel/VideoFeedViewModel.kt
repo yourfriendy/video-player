@@ -823,10 +823,10 @@ class VideoFeedViewModel(
             setStatus(null)
             throw e
         } catch (e: DownloadException) {
-            setStatus(StoryItemDownload.Failed(e.message ?: "Download failed."))
+            setStatus(StoryItemDownload.Failed(e.message ?: "Couldn't save."))
             false
         } catch (e: Exception) {
-            setStatus(StoryItemDownload.Failed("Download failed."))
+            setStatus(StoryItemDownload.Failed("Couldn't save."))
             false
         }
     }
@@ -863,7 +863,7 @@ class VideoFeedViewModel(
                 _uiState.update { it.copy(downloadStatus = DownloadStatus.Idle) }
                 throw e
             } catch (e: DownloadException) {
-                _uiState.update { it.copy(downloadStatus = DownloadStatus.Failed(e.message ?: "Download failed.")) }
+                _uiState.update { it.copy(downloadStatus = DownloadStatus.Failed(e.message ?: "Couldn't save.")) }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(downloadStatus = DownloadStatus.Failed("Something went wrong. Please try again."))

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -99,7 +100,7 @@ fun PermissionRequestScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "OffScroll",
+                text = stringResource(R.string.offscroll),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 28.sp,
@@ -112,7 +113,7 @@ fun PermissionRequestScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Turn your device's offline videos and saved clips into a vertical, swipeable feed.",
+                text = stringResource(R.string.turn_your_device_s_offline_videos),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xCCFFFFFF),
                 textAlign = TextAlign.Center,
@@ -165,7 +166,7 @@ fun PermissionRequestScreen(
                     .testTag("grant_permission_button")
             ) {
                 Text(
-                    text = "Allow video access",
+                    text = stringResource(R.string.allow_video_access),
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -185,7 +186,7 @@ fun PermissionRequestScreen(
                     .testTag("demo_preview_button")
             ) {
                 Text(
-                    text = "Preview with Demo Reels",
+                    text = stringResource(R.string.preview_with_demo_reels),
                     color = Color(0xEEFFFFFF),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
@@ -202,7 +203,7 @@ fun PermissionRequestScreen(
                         .testTag("welcome_open_downloader")
                 ) {
                     Text(
-                        text = "Just save stories, reels and videos (no permission needed)",
+                        text = stringResource(R.string.just_save_stories_reels_and_videos),
                         color = Color(0xFF5EEAD4),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,

@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import com.example.ui.viewmodel.EngineStatus
 import com.example.data.universal.engine.EngineManager
@@ -196,7 +198,7 @@ private fun EngineInstallCard(status: EngineStatus, onInstall: () -> Unit, onOpe
         if (status !is EngineStatus.Downloading) {
             Spacer(modifier = Modifier.height(10.dp))
             TextButton(onClick = onOpenGitHub) {
-                Text("Open GitHub page", color = UMuted, fontSize = 13.sp)
+                Text(stringResource(R.string.open_github_page), color = UMuted, fontSize = 13.sp)
             }
         }
     }
@@ -342,7 +344,7 @@ private fun UniversalBody(feedViewModel: VideoFeedViewModel, vm: UniversalDownlo
                         modifier = Modifier.weight(1f)
                     )
                     OutlineButton(
-                        text = "Download another",
+                        text = "Save another",
                         onClick = { vm.reset() },
                         modifier = Modifier.weight(1f)
                     )
@@ -439,7 +441,7 @@ private fun ReadyCard(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "Choose quality", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(text = stringResource(R.string.choose_quality), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
 
         info.options.forEachIndexed { index, option ->
@@ -454,7 +456,7 @@ private fun ReadyCard(
 
         Spacer(modifier = Modifier.height(6.dp))
         GradientButton(
-            text = "Download ${chosen.label}",
+            text = "Save ${chosen.label}",
             onClick = onDownload,
             modifier = Modifier.testTag("universal_download")
         )
@@ -497,7 +499,7 @@ private fun QualityRow(option: QualityOption, selected: Boolean, isBest: Boolean
                 if (isBest) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "BEST",
+                        text = stringResource(R.string.best),
                         color = Color(0xFF020617),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -520,13 +522,13 @@ private fun EngineRow(version: String, note: String, enabled: Boolean, onUpdate:
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Download engine: yt-dlp ${version.ifBlank { "built-in" }}",
+                text = "Engine: yt-dlp ${version.ifBlank { "built-in" }}",
                 color = UMuted,
                 fontSize = 11.sp,
                 modifier = Modifier.weight(1f)
             )
             TextButton(onClick = onUpdate, enabled = enabled) {
-                Text(text = "Update", color = if (enabled) UCyan else UMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(text = stringResource(R.string.update), color = if (enabled) UCyan else UMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
         if (note.isNotBlank()) {

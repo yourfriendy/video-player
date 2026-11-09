@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Common words only. Everything not listed falls back to English.
+     Machine-assisted translation: please have a native speaker review before relying on it. -->
+<resources>
+    <string name="search">खोजें</string>
+    <string name="refresh">रीफ़्रेश करें</string>
+    <string name="ok">ठीक है</string>
+    <string name="cancel_2">रद्द करें</string>
+    <string name="highlights">हाइलाइट्स</string>
+    <string name="saved_to_your_library">आपकी लाइब्रेरी में सहेजा गया</string>
+    <string name="your_people">आपके लोग</string>
+    <string name="find_someone">किसी को खोजें</string>
+    <string name="story_alerts">स्टोरी अलर्ट</string>
+    <string name="quality">क्वालिटी</string>
+    <string name="open_in_instagram">इंस्टाग्राम में खोलें</string>
+    <string name="copy_profile_link">प्रोफ़ाइल लिंक कॉपी करें</string>
+    <string name="sign_in_to_instagram">इंस्टाग्राम में साइन इन करें</string>
+    <string name="save_watch">सहेजें और देखें</string>
+    <string name="stories_reels_and_videos_in_one">स्टोरीज़, रील्स और वीडियो एक ही जगह</string>
+    <string name="allow_video_access">वीडियो एक्सेस की अनुमति दें</string>
+</resources>

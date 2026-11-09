@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -139,7 +141,7 @@ fun AddToPlaylistSheet(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Add to Playlist",
+                            text = stringResource(R.string.add_to_playlist),
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -200,7 +202,7 @@ fun AddToPlaylistSheet(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Create new playlist",
+                        text = stringResource(R.string.create_new_playlist),
                         color = Color(0xFFC4B5FD),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
@@ -222,7 +224,7 @@ fun AddToPlaylistSheet(
                         .padding(14.dp)
                 ) {
                     Text(
-                        text = "New Playlist Name",
+                        text = stringResource(R.string.new_playlist_name),
                         color = Color(0xFFE2E8F0),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -232,7 +234,7 @@ fun AddToPlaylistSheet(
                     OutlinedTextField(
                         value = newPlaylistName,
                         onValueChange = { newPlaylistName = it },
-                        placeholder = { Text("e.g. Favorite Reels, Chill Vibes", color = Color(0xFF64748B), fontSize = 13.sp) },
+                        placeholder = { Text(stringResource(R.string.e_g_favorite_reels_chill_vibes), color = Color(0xFF64748B), fontSize = 13.sp) },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -291,7 +293,7 @@ fun AddToPlaylistSheet(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color(0xFF94A3B8))
                         ) {
-                            Text("Cancel", fontSize = 13.sp)
+                            Text(stringResource(R.string.cancel_2), fontSize = 13.sp)
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
@@ -313,7 +315,7 @@ fun AddToPlaylistSheet(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.testTag("confirm_create_playlist_button")
                         ) {
-                            Text("Create & Add", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(stringResource(R.string.create_add), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
                     }
                 }
@@ -340,13 +342,13 @@ fun AddToPlaylistSheet(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "No playlists yet",
+                            text = stringResource(R.string.no_playlists_yet),
                             color = Color(0xFF94A3B8),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Create your first playlist above!",
+                            text = stringResource(R.string.create_your_first_playlist_above),
                             color = Color(0xFF64748B),
                             fontSize = 12.sp
                         )

@@ -458,10 +458,10 @@ class ProfileController(
             setSave(target.id, null)
             throw e
         } catch (e: DownloadException) {
-            setSave(target.id, StoryItemDownload.Failed(e.message ?: "Download failed."))
+            setSave(target.id, StoryItemDownload.Failed(e.message ?: "Couldn't save."))
             false
         } catch (e: Exception) {
-            setSave(target.id, StoryItemDownload.Failed("Download failed."))
+            setSave(target.id, StoryItemDownload.Failed("Couldn't save."))
             false
         }
     }

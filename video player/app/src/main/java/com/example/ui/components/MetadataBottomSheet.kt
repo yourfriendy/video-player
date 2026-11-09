@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -123,6 +125,7 @@ fun MetadataBottomSheet(
                 .padding(bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            FeedbackPill(Modifier.align(Alignment.CenterHorizontally))
             Reveal(0) { TopBar(onDismiss) }
 
             Reveal(1) {
@@ -221,7 +224,7 @@ private fun TopBar(onDismiss: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Text("Details", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.details), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Text("Everything about this video, 100% on your phone", color = Muted, fontSize = 12.sp)
         }
         IconButton(
@@ -359,7 +362,7 @@ private fun StorageCard(fileBytes: Long) {
 
     SectionCard("Storage", Icons.Default.Storage, Violet) {
         if (totalBytes <= 0) {
-            Text("Storage info isn't available on this phone.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 10.dp))
+            Text(stringResource(R.string.storage_info_isn_t_available_on), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 10.dp))
             return@SectionCard
         }
         Spacer(Modifier.height(10.dp))
@@ -385,7 +388,7 @@ private fun StorageCard(fileBytes: Long) {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text("This video  " + formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.this_video) + formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Text(formatBytes(freeBytes) + " free of " + formatBytes(totalBytes), color = Muted, fontSize = 12.sp)
         }
         Spacer(Modifier.height(10.dp))
@@ -470,5 +473,5 @@ private fun formatSeconds(sec: Long): String =
 private fun copyToClipboard(context: Context, label: String, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
     clipboard?.setPrimaryClip(ClipData.newPlainText(label, text))
-    Toast.makeText(context, "Copied $label", Toast.LENGTH_SHORT).show()
+    Feedback.show("Copied $label")
 }

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -446,7 +447,7 @@ fun ReelPlayerItem(
                         )
                         androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
                         Text(
-                            text = "Unsupported Codec",
+                            text = stringResource(R.string.unsupported_codec),
                             style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                             color = ComposeColor.White
                         )

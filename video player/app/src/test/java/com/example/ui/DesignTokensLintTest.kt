@@ -52,4 +52,35 @@ class DesignTokensLintTest {
         assertTrue("MainActivity must not gate the app behind the permission screen", !main.contains("needsPermissionScreen"))
         assertTrue("No permission prompt at launch", !main.contains("askForNotificationsOnce"))
     }
+
+    private val uiFiles get() = File(root, "com/example/ui").walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+
+    private fun isCode(line: String): Boolean {
+        val t = line.trim()
+        return !(t.startsWith("//") || t.startsWith("*") || t.startsWith("/*"))
+    }
+
+    @Test
+    fun noToastsInTheUi() {
+        // Phase 2.3: one feedback system (Feedback.show), not Toasts
+        val bad = uiFiles.flatMap { f -> f.readLines().mapIndexedNotNull { i, l -> if (isCode(l) && l.contains("Toast.makeText")) "${f.name}:${i + 1}" else null } }
+        assertTrue("Use Feedback.show(...) instead of Toast:\n" + bad.joinToString("\n"), bad.isEmpty())
+    }
+
+    @Test
+    fun glossaryWordsAreRespected() {
+        // Phase 2.4: Save (never Download) for media, Try again (never Retry), no old tab name "Any link".
+        // App and engine updates may say Downloading because that really is a download of a program.
+        val forbidden = listOf(
+            Regex(""""[^"\n]*\b(Retry|Any link|Download another|Download failed)\b[^"\n]*""""),
+            Regex(""""Download""""),
+            Regex(""""Download \$""")
+        )
+        val bad = uiFiles.flatMap { f ->
+            f.readLines().mapIndexedNotNull { i, l ->
+                if (isCode(l) && forbidden.any { it.containsMatchIn(l) }) "${f.name}:${i + 1} ${l.trim().take(80)}" else null
+            }
+        }
+        assertTrue("Glossary violations:\n" + bad.joinToString("\n"), bad.isEmpty())
+    }
 }

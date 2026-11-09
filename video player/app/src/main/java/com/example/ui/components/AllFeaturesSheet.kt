@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -126,13 +128,13 @@ fun AllFeaturesSheet(
             ) {
                 Column {
                     Text(
-                        text = "All Features & Controls",
+                        text = stringResource(R.string.all_features_controls),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
                     Text(
-                        text = "Everything in one place • Settings saved automatically",
+                        text = stringResource(R.string.everything_in_one_place_settings_saved),
                         fontSize = 12.sp,
                         color = Color(0xFF94A3B8)
                     )
@@ -186,14 +188,14 @@ fun AllFeaturesSheet(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "System Pop-up Player",
+                                text = stringResource(R.string.system_pop_up_player),
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontSize = 16.sp
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "PiP",
+                                text = stringResource(R.string.pip),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFC4B5FD),
@@ -204,7 +206,7 @@ fun AllFeaturesSheet(
                         }
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Float video on home screen & over any other app",
+                            text = stringResource(R.string.float_video_on_home_screen_over),
                             fontSize = 12.sp,
                             color = Color(0xFFCBD5E1)
                         )
@@ -218,7 +220,7 @@ fun AllFeaturesSheet(
 
             // Quick Toggle Row: Grid View, Mute, Loop, Shuffle
             Text(
-                text = "QUICK TOGGLES",
+                text = stringResource(R.string.quick_toggles),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF94A3B8),
@@ -277,7 +279,7 @@ fun AllFeaturesSheet(
                 Icon(Icons.Default.Speed, contentDescription = null, tint = Color(0xFFA78BFA), modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Playback Speed",
+                    text = stringResource(R.string.playback_speed),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -325,7 +327,7 @@ fun AllFeaturesSheet(
                 Icon(Icons.Default.AspectRatio, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Screen Fit / Aspect Ratio",
+                    text = stringResource(R.string.screen_fit_aspect_ratio),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -373,7 +375,7 @@ fun AllFeaturesSheet(
                 Icon(Icons.Default.Sort, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Sort Feed",
+                    text = stringResource(R.string.sort_feed),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -417,7 +419,7 @@ fun AllFeaturesSheet(
             // Current Video Actions (if available)
             if (currentVideo != null) {
                 Text(
-                    text = "CURRENT VIDEO ACTIONS",
+                    text = stringResource(R.string.current_video_actions),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF94A3B8),
@@ -455,7 +457,7 @@ fun AllFeaturesSheet(
 
             // Library Utilities
             Text(
-                text = "LIBRARY UTILITIES",
+                text = stringResource(R.string.library_utilities),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF94A3B8),

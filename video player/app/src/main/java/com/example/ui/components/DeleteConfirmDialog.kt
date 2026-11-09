@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -65,7 +67,7 @@ fun DeleteConfirmDialog(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Delete Video?",
+                    text = stringResource(R.string.delete_video),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
@@ -75,7 +77,7 @@ fun DeleteConfirmDialog(
         text = {
             Column {
                 Text(
-                    text = "Are you sure you want to permanently delete this video from your device storage?",
+                    text = stringResource(R.string.are_you_sure_you_want_to),
                     color = Color(0xFFCBD5E1),
                     fontSize = 14.sp
                 )
@@ -113,7 +115,7 @@ fun DeleteConfirmDialog(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.testTag("delete_confirm_button")
             ) {
-                Text("Delete", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.delete), color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -123,7 +125,7 @@ fun DeleteConfirmDialog(
                 border = BorderStroke(1.dp, GlassBorder),
                 modifier = Modifier.testTag("delete_cancel_button")
             ) {
-                Text("Cancel", color = Color(0xFFCBD5E1))
+                Text(stringResource(R.string.cancel_2), color = Color(0xFFCBD5E1))
             }
         },
         modifier = Modifier

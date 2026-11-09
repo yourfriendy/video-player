@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -130,7 +131,7 @@ fun EmptyFeedView(
                         .shadow(6.dp, RoundedCornerShape(16.dp))
                         .testTag("empty_view_clear_search_button")
                 ) {
-                    Text("Clear Search", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.clear_search), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             } else if (filter !is FeedFilter.All) {
                 Button(
@@ -141,7 +142,7 @@ fun EmptyFeedView(
                         .shadow(6.dp, RoundedCornerShape(16.dp))
                         .testTag("empty_view_reset_filter_button")
                 ) {
-                    Text("View All Videos", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.view_all_videos), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             } else {
                 Button(
@@ -152,7 +153,7 @@ fun EmptyFeedView(
                         .shadow(6.dp, RoundedCornerShape(16.dp))
                         .testTag("empty_view_refresh_button")
                 ) {
-                    Text("Refresh Storage Scan", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.refresh_storage_scan), color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

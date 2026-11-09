@@ -107,14 +107,17 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
                 ) { _ ->
-                    com.example.ui.navigation.AppNavigation(
-                        uiState = uiState,
-                        viewModel = viewModel,
-                        updateViewModel = updateViewModel,
-                        onEnterPiP = { enterSystemPiP() },
-                        onRequestVideoAccess = requestVideoAccess,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+                        com.example.ui.navigation.AppNavigation(
+                            uiState = uiState,
+                            viewModel = viewModel,
+                            updateViewModel = updateViewModel,
+                            onEnterPiP = { enterSystemPiP() },
+                            onRequestVideoAccess = requestVideoAccess,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        com.example.ui.components.FeedbackLayer()
+                    }
                 }
                 AppUpdateDialog(updateViewModel)
             }

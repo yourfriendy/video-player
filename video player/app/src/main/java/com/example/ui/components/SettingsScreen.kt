@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateContentSize
 
 import androidx.compose.foundation.background
@@ -109,14 +111,14 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(4.dp))
                     Column {
                         Text(
-                            text = "Settings & Guide",
+                            text = stringResource(R.string.settings_guide),
                             color = Color.White,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Gestures and storage info",
+                            text = stringResource(R.string.gestures_and_storage_info),
                             color = Color(0xFF94A3B8),
                             fontSize = 14.sp
                         )
@@ -127,7 +129,7 @@ fun SettingsScreen(
             // In-app updates (reads this app's GitHub releases)
             item {
                 Text(
-                    text = "App updates",
+                    text = stringResource(R.string.app_updates),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -140,7 +142,7 @@ fun SettingsScreen(
             // Gesture Cheatsheet
             item {
                 Text(
-                    text = "Player Gestures",
+                    text = stringResource(R.string.player_gestures),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -184,7 +186,7 @@ fun SettingsScreen(
             // Storage & Library Management
             item {
                 Text(
-                    text = "Storage",
+                    text = stringResource(R.string.storage),
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -240,7 +242,7 @@ fun SettingsScreen(
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Rescan", fontSize = 13.sp)
+                                Text(stringResource(R.string.rescan), fontSize = 13.sp)
                             }
 
                             Button(
@@ -251,7 +253,7 @@ fun SettingsScreen(
                             ) {
                                 Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFFB7185), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Clear History", color = Color(0xFFFB7185), fontSize = 13.sp)
+                                Text(stringResource(R.string.clear_history), color = Color(0xFFFB7185), fontSize = 13.sp)
                             }
                         }
                     }
@@ -281,7 +283,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "OffScroll",
+                                text = stringResource(R.string.offscroll),
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold

@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.R
+import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import com.example.ui.theme.bouncyClickable
 import androidx.compose.material.icons.filled.PlayArrow
@@ -247,7 +249,7 @@ fun SearchScreen(
                                 Box(contentAlignment = Alignment.CenterStart) {
                                     if (draft.isEmpty()) {
                                         Text(
-                                            text = "Search your videos…",
+                                            text = stringResource(R.string.search_your_videos),
                                             color = Color(0xFF64748B),
                                             fontSize = 16.sp
                                         )
@@ -334,7 +336,7 @@ fun SearchScreen(
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             Text(
-                                text = "Tap one to play it",
+                                text = stringResource(R.string.tap_one_to_play_it),
                                 color = Muted,
                                 fontSize = 12.sp
                             )
@@ -541,7 +543,7 @@ private fun SuggestionsList(
                         SectionTitle("Recent searches")
                         Spacer(modifier = Modifier.weight(1f))
                         Text(
-                            text = "Clear all",
+                            text = stringResource(R.string.clear_all),
                             color = FrostedVioletLight,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -1006,14 +1008,14 @@ private fun NoResults(onReset: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(18.dp))
         Text(
-            text = "No matches",
+            text = stringResource(R.string.no_matches),
             color = Color.White,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Try fewer words, or loosen the filters above.",
+            text = stringResource(R.string.try_fewer_words_or_loosen_the),
             color = Muted,
             fontSize = 14.sp
         )
