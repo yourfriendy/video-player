@@ -99,17 +99,6 @@ private val Pink = Ds.Palette.Pink
 private val Orange = Ds.Palette.Orange
 private val Muted = Ds.Palette.Muted
 
-/**
- * "Save from Instagram" with two tabs:
- *  - Reels: paste a public reel link (or share a reel straight to OffScroll).
- *  - Stories: type a username or paste a story link. Stories are never public, so this tab
- *    needs the user to sign in to their own Instagram account first.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-
-@Composable
-
 // ----------------------------------------------------------------------------------------------
 // Reels tab
 // ----------------------------------------------------------------------------------------------
@@ -220,10 +209,6 @@ internal fun ReelsContent(uiState: VideoFeedUiState, viewModel: VideoFeedViewMod
 // ----------------------------------------------------------------------------------------------
 // Stories tab
 // ----------------------------------------------------------------------------------------------
-
-@Composable
-
-@Composable
 
 @Composable
 
