@@ -241,15 +241,25 @@ class StoryAlertRun(private val context: Context) {
     }
 }
 
-/** The result line of the latest alert check, shown on the Stories screen. */
+/** The result line of the latest alert check, plus a short history of earlier ones. */
 object StoryAlertStatus {
     private const val PREFS = "story_alert_status"
+    private const val KEEP = 10
 
     fun record(context: Context, line: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putLong("at", System.currentTimeMillis())
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        // "checking..." is progress, not a result: it stays out of the history
+        val history = if (line.startsWith("checking ")) prefs.getString("history", "").orEmpty()
+        else appendHistory(prefs.getString("history", "").orEmpty(), now, line, KEEP)
+        prefs.edit()
+            .putLong("at", now)
             .putString("line", line)
+            .putString("history", history)
             .apply()
+        if (!line.startsWith("checking ") && (line.contains("Couldn't read") || line.contains("not signed in"))) {
+            com.example.data.Diagnostics.log("alerts", line)
+        }
     }
 
     /** (time in milliseconds, result line), or null if no check has run yet. */
@@ -258,6 +268,19 @@ object StoryAlertStatus {
         val at = prefs.getLong("at", 0L)
         return if (at == 0L) null else at to (prefs.getString("line", "") ?: "")
     }
+
+    /** Newest first. */
+    fun history(context: Context): List<Pair<Long, String>> =
+        parseHistory(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("history", "").orEmpty())
+
+    internal fun appendHistory(existing: String, nowMs: Long, line: String, keep: Int): String =
+        (listOf("$nowMs|${line.replace('\n', ' ')}") + existing.lines().filter { it.isNotBlank() }).take(keep).joinToString("\n")
+
+    internal fun parseHistory(raw: String): List<Pair<Long, String>> =
+        raw.lines().mapNotNull { row ->
+            val cut = row.indexOf('|')
+            if (cut <= 0) null else row.substring(0, cut).toLongOrNull()?.let { it to row.substring(cut + 1) }
+        }
 }
 
 object StoryAlertScheduler {

@@ -210,12 +210,13 @@ fun ProfileOverlay(
     if (state.viewerLoading && state.viewer == null) {
         val who = state.details?.username ?: state.username
         Dialog(
-            onDismissRequest = { /* the lookup can't be cancelled; it finishes in a few seconds */ },
+            onDismissRequest = controller::cancelViewerLoading,
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false)
         ) {
             FullScreenFetching(
                 steps = listOf("Fetching info…", "Looking for @$who's stories…", "Reading the story reel…", "Loading the first story…"),
-                avatar = { size -> ProfileAvatar(state.details?.picUrl, Modifier.size(size)) }
+                avatar = { size -> ProfileAvatar(state.details?.picUrl, Modifier.size(size)) },
+                onCancel = controller::cancelViewerLoading
             )
         }
     }

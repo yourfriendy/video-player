@@ -52,17 +52,23 @@ The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (peopl
 4. Profile viewer avatars still look right (grey placeholder, no gradient ring).
 5. Switch the phone language to Hindi or Telugu: Search, Save, Cancel and a few other words change; the rest stays English.
 
-## Phase 3: flows and architecture (audit P2)
+## Phase 3: flows and architecture (audit P2): partly done
 
-| # | Task | Audit | Acceptance check |
-|---|---|---|---|
-| 3.1 | Real routes for Profile, Alerts and Search with back-stack and deep links. | #13 #14 | NavHost has the routes; BackHandler count drops. |
-| 3.2 | Split the 1,750-line ViewModel by feature (Feed, Search, Downloader, Profile). | #13 | No ViewModel over 600 lines. |
-| 3.3 | Coach marks for gestures at first use; a "?" in the player. | #15 | First-run flag + tests. |
-| 3.4 | Alerts: one entry point, four plain states, short history. | #16 | One bell entry; state enum with tests. |
-| 3.5 | Staged, cancellable loading with early results. | #17 | Controller reports `step i of n`; Cancel works. |
-| 3.6 | Typed errors plus one reporter; "Send diagnostics" in Settings. | #18 | Empty catches under 10; diagnostics action exists. |
-| 3.7 | Completion moments: "View in library" Snackbar after save. | #19 | Snackbar action opens the library item. |
+| # | Task | Status |
+|---|---|---|
+| [ ] 3.1 | Real routes for Profile, Alerts and Search with back stack and deep links | **Not started.** It rewrites how every overlay is opened and closed, and the profile and viewers are Dialog windows. That needs on-device testing of back behaviour, which I cannot do here, so it should be its own supervised session. |
+| [ ] 3.2 | Split the 1,750-line ViewModel by feature | **Not started.** Mechanical but touches almost every screen; best done right after 3.1 so the routes decide the split. |
+| [ ] 3.3 | Coach marks for gestures at first use | **Not started.** Needs design iteration on a device. |
+| [x] 3.4 | Alerts: plain states, one fix button, short history | `AlertHealthRules` turns the facts into one state (Working, Late, Not allowed, Instagram problem) shown as a banner with a single fix button. The last 10 checks are kept and the latest 5 are listed under "Make sure it works". The profile viewer and the Downloader now only link to this one screen. Unit tested (8 cases). |
+| [~] 3.5 | Staged, cancellable loading | **Cancel done:** the full-screen story wait has a Cancel button and Back cancels it. **Not done:** real "step 2 of 4" progress and showing the first stories while the rest load (needs changes inside the Instagram loaders). |
+| [~] 3.6 | Typed errors, one reporter, diagnostics | **Diagnostics done:** Settings > Copy diagnostics builds a report (app and phone, permissions, alerts, recent checks, engine, recent problems) with no passwords or cookies. Problems from the viewer, the engine and failed alert checks are logged to it. **Not done:** typed errors and the 28 empty catch blocks. |
+| [x] 3.7 | Completion moments | After a save from the profile viewer, stories or reposts: "Saved to your library" with a View action that leaves the profile and Downloader. **Not covered yet:** the direct reel-link save in the Downloader. |
+
+**On-phone checklist for Phase 3**
+1. Alerts screen: the banner under "Watching N people" reads sensibly. Block notifications for OffScroll in phone settings: it turns red with "Allow notifications".
+2. Tap a story ring, then Cancel (or Back) while the full-screen loader shows: it returns to the profile.
+3. Save a story: the "Saved to your library" pill appears with View; View lands on the library.
+4. Settings > Copy diagnostics, paste somewhere: the report reads clearly and has no secrets.
 
 ## Phase 4: polish and engineering (audit P3 + section 7)
 
@@ -81,7 +87,7 @@ The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (peopl
 - [x] Plan written (this file)
 - [x] Phase 1 (code done and CI-checked; waiting for the on-phone checklist)
 - [x] Phase 2 (2.6 moved to Phase 3; strings second pass pending)
-- [ ] Phase 3
+- [~] Phase 3 (3.4, 3.7 done; 3.5, 3.6 partial; 3.1, 3.2, 3.3 not started)
 - [ ] Phase 4
 
 ## Not verifiable without a device

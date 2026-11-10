@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.data.download.AlertHealth
+import com.example.data.download.AlertHealthRules
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import android.Manifest
@@ -106,9 +108,19 @@ internal fun AlertsScreen(
     val batteryOk = remember(tick) { isIgnoringBattery(context) }
     val instantOn = remember(tick) { InstagramNotificationListener.isEnabled(context) }
     val lastCheck = remember(tick) { StoryAlertStatus.read(context) }
+    val history = remember(tick) { StoryAlertStatus.history(context) }
+    val nowMs = remember(tick) { System.currentTimeMillis() }
     var minutes by remember { mutableIntStateOf(StoryAlertSettings.intervalMinutes(context)) }
     val watching = people.count { it.alerts }
     val live = minutes <= StoryAlertSettings.LIVE_MAX_MINUTES
+    val health = AlertHealthRules.compute(
+        anyAlerts = watching > 0,
+        notificationsAllowed = notificationsOk,
+        lastCheckAtMs = lastCheck?.first,
+        lastLine = lastCheck?.second,
+        intervalMinutes = minutes,
+        nowMs = nowMs
+    )
 
     // ---- permission handling ----
     var pendingPerson by remember { mutableStateOf<String?>(null) }
@@ -186,6 +198,25 @@ internal fun AlertsScreen(
                                 color = DlSoftText.copy(alpha = 0.85f), fontSize = 13.sp, lineHeight = 18.sp
                             )
                         }
+                    }
+                    if (health != AlertHealth.Off) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HealthBanner(
+                            health = health,
+                            lastCheckAtMs = lastCheck?.first,
+                            nowMs = nowMs,
+                            onFix = {
+                                when (health) {
+                                    AlertHealth.NotAllowed -> fixNotifications()
+                                    AlertHealth.Late -> requestBatteryExemption(context)
+                                    AlertHealth.InstagramProblem -> {
+                                        StoryAlertScheduler.checkNow(context)
+                                        Feedback.show("Checking again. The result shows here in a minute.")
+                                    }
+                                    else -> Unit
+                                }
+                            }
+                        )
                     }
                     Spacer(modifier = Modifier.height(14.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -393,6 +424,16 @@ internal fun AlertsScreen(
                         } ?: "No check has run yet. The first one only notes what is already posted.",
                         color = DlSoftText, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp)
                     )
+                    if (history.size > 1) {
+                        Text("Recent checks", color = DlMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+                        history.drop(1).take(5).forEach { (at, line) ->
+                            Text(
+                                text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(at)) + "  " + line,
+                                color = DlMuted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2,
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlineButton(
@@ -465,3 +506,60 @@ private fun requestBatteryExemption(context: Context) {
         }
     }
 }
+
+
+/** One plain sentence about the state of alerts, with the one thing to press if it needs fixing. */
+@Composable
+private fun HealthBanner(health: AlertHealth, lastCheckAtMs: Long?, nowMs: Long, onFix: () -> Unit) {
+    val (tint, title, body, fix) = when (health) {
+        AlertHealth.Working -> HealthText(
+            DlGood, "Alerts are working",
+            lastCheckAtMs?.let { "Last check " + elapsedText((nowMs - it) / 1000) + " ago." } ?: "The first check is on its way.",
+            null
+        )
+        AlertHealth.Late -> HealthText(
+            DlWarn, "Checks are running late",
+            "Your phone paused OffScroll's background work. Allow it to run in the background, or open the app.",
+            "Fix"
+        )
+        AlertHealth.NotAllowed -> HealthText(
+            DlBad, "Notifications are blocked",
+            "Alerts are found but can't be shown until notifications are allowed.",
+            "Allow notifications"
+        )
+        AlertHealth.InstagramProblem -> HealthText(
+            DlBad, "Instagram isn't answering",
+            "The last check couldn't read Instagram. Sign in again, or try again in a few minutes.",
+            "Check again"
+        )
+        AlertHealth.Off -> return
+    }
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(tint.copy(alpha = 0.13f))
+            .border(1.dp, tint.copy(alpha = 0.45f), shape)
+            .padding(14.dp)
+            .testTag("alerts_health_banner")
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (health == AlertHealth.Working) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = null, tint = tint, modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(body, color = DlSoftText.copy(alpha = 0.9f), fontSize = 13.sp, lineHeight = 18.sp)
+            }
+        }
+        if (fix != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            DsButton(text = fix, onClick = onFix, style = DsButtonStyle.Secondary, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+private data class HealthText(val tint: Color, val title: String, val body: String, val fix: String?)

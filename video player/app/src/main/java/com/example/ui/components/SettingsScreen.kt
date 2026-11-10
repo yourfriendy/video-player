@@ -298,6 +298,27 @@ fun SettingsScreen(
                 }
             }
 
+            // Help: one copyable report instead of "it doesn't work"
+            item {
+                Column(modifier = Modifier.staggeredEntrance(7), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("If something doesn't work", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Copies a short report (app version, phone model, alert status, recent problems) that you can paste into a message. " +
+                            "It contains no passwords or login cookies.",
+                        color = Color(0xFF94A3B8), fontSize = 13.sp, lineHeight = 18.sp
+                    )
+                    OutlineButton(
+                        text = "Copy diagnostics",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("OffScroll diagnostics", com.example.data.DiagnosticsReport.build(context)))
+                            Feedback.show("Diagnostics copied")
+                        }
+                    )
+                }
+            }
+
             // Dev credit (last item)
             item {
                 Box(Modifier.staggeredEntrance(8)) {

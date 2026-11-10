@@ -196,6 +196,7 @@ class EngineClient(context: Context) {
     }
 
     private fun errorFrom(data: Bundle): Throwable {
+        com.example.data.Diagnostics.log("engine", data.getString(P.KEY_RAW_ERROR) ?: data.getString(P.KEY_MESSAGE) ?: "cancelled")
         if (data.getBoolean(P.KEY_CANCELLED, false)) return CancellationException("cancelled")
         val raw = data.getString(P.KEY_RAW_ERROR)
         if (raw != null) {

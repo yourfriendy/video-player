@@ -133,7 +133,10 @@ class VideoFeedViewModel(
     val profile = ProfileController(
         scope = viewModelScope,
         downloader = downloader,
-        onMediaSaved = { viewModelScope.launch { reloadLibrary(showLoading = false) } },
+        onMediaSaved = {
+            viewModelScope.launch { reloadLibrary(showLoading = false) }
+            com.example.ui.components.Feedback.show("Saved to your library", "View") { showLibrary() }
+        },
         onProfileLoaded = { rememberPerson(it.username, it.picUrl, it.fullName) }
     )
 
@@ -336,6 +339,12 @@ class VideoFeedViewModel(
         }
         if (autoStart && prefill != null && !busy) startDownload()
         if (_uiState.value.downloaderTab == DownloaderTab.STORIES) verifyIgAccount()
+    }
+
+    /** The "View" action after a save: leave the profile and the Downloader so the new video is in front. */
+    fun showLibrary() {
+        profile.close()
+        closeDownloader()
     }
 
     fun closeDownloader() {

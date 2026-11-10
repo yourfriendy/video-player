@@ -346,6 +346,12 @@ class ProfileController(
         _state.update { it.copy(viewer = null) }
     }
 
+    /** Stops the wait after tapping a story ring (the Cancel button, or Back). */
+    fun cancelViewerLoading() {
+        viewerJob?.cancel()
+        _state.update { it.copy(viewerLoading = false) }
+    }
+
     private fun openViewerFrom(title: String, fetch: suspend () -> List<InstagramParser.StoryItem>) {
         if (_state.value.viewerLoading) return
         _state.update { it.copy(viewerLoading = true) }
@@ -361,8 +367,10 @@ class ProfileController(
             } catch (e: LoginRequiredException) {
                 _state.update { it.copy(viewerLoading = false, needsLogin = true, toast = e.message) }
             } catch (e: DownloadException) {
+                com.example.data.Diagnostics.log("viewer", "$title: ${e.message}")
                 _state.update { it.copy(viewerLoading = false, toast = e.message ?: "Couldn't load this.") }
             } catch (e: Exception) {
+                com.example.data.Diagnostics.log("viewer", "$title: ${e.javaClass.simpleName} ${e.message}")
                 _state.update { it.copy(viewerLoading = false, toast = "Something went wrong. Please try again.") }
             }
         }
