@@ -67,8 +67,8 @@ class MetadataExtractor(private val context: Context) {
             try {
                 retriever.release()
             } catch (e: Exception) {
-                // Ignore
-            }
+            com.example.data.Diagnostics.log("ignored", "MetadataExtractor.kt:69 Ignore")
+        }
         }
 
         VideoMetadataDetails(

@@ -71,8 +71,8 @@ class InstagramDownloader(private val context: Context) {
                 val reel = resolve("https://www.instagram.com/reel/$code/")
                 merged = merged.copy(mediaUrl = reel.videoUrl, isVideo = true, needsResolve = false, caption = merged.caption ?: reel.title)
             } catch (e: DownloadException) {
-                // leave it unresolved: the UI says so
-            }
+            com.example.data.Diagnostics.log("ignored", "InstagramDownloader.kt:73 leave it unresolved: the UI says so")
+        }
         }
         return merged
     }

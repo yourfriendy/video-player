@@ -1,5 +1,12 @@
 package com.example.ui.components
 
+import com.example.ui.viewmodel.setSearchOptions
+import com.example.ui.viewmodel.setSearchDraft
+import com.example.ui.viewmodel.removeRecentSearch
+import com.example.ui.viewmodel.playVideo
+import com.example.ui.viewmodel.openSearchResult
+import com.example.ui.viewmodel.closeSearch
+import com.example.ui.viewmodel.clearRecentSearches
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
@@ -141,7 +148,7 @@ fun SearchScreen(
         try {
             focusRequester.requestFocus()
         } catch (_: Exception) {
-            // not attached yet; the user can tap the field
+            com.example.data.Diagnostics.log("ignored", "SearchScreen.kt:143 not attached yet; the user can tap the field")
         }
     }
     // Scrolling the list means "I'm done typing": get the keyboard out of the way

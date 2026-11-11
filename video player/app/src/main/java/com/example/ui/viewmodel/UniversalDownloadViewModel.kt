@@ -161,8 +161,8 @@ class UniversalDownloadViewModel(application: Application) : AndroidViewModel(ap
             } catch (e: EngineMissingException) {
                 noteEngineProblem(e)
             } catch (e: Exception) {
-                // Shown properly when the user actually looks something up
-            }
+            com.example.data.Diagnostics.log("ignored", "UniversalDownloadViewModel.kt:163 Shown properly when the user actually looks something up")
+        }
         }
     }
 

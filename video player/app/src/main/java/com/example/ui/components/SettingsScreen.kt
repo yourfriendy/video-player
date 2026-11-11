@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.viewmodel.refreshVideos
+import com.example.ui.viewmodel.clearWatchHistory
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.animateContentSize

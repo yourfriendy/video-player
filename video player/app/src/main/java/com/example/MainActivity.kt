@@ -1,5 +1,13 @@
 package com.example
 
+import com.example.ui.viewmodel.updatePictureInPictureMode
+import com.example.ui.viewmodel.setDownloaderTab
+import com.example.ui.viewmodel.resumePlayback
+import com.example.ui.viewmodel.refreshVideos
+import com.example.ui.viewmodel.pausePlayback
+import com.example.ui.viewmodel.openPerson
+import com.example.ui.viewmodel.openDownloader
+import com.example.ui.viewmodel.handleSharedText
 import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.Intent
@@ -178,8 +186,8 @@ class MainActivity : ComponentActivity() {
                     val params = PictureInPictureParams.Builder().build()
                     enterPictureInPictureMode(params)
                 } catch (e2: Exception) {
-                    // Ignore if device does not support PiP
-                }
+            com.example.data.Diagnostics.log("ignored", "MainActivity.kt:180 Ignore if device does not support PiP")
+        }
             }
         }
     }

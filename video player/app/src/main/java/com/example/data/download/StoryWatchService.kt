@@ -111,8 +111,8 @@ class StoryWatchService : Service() {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // One bad round must not end live mode
-            }
+            com.example.data.Diagnostics.log("ignored", "StoryWatchService.kt:113 One bad round must not end live mode")
+        }
             update(this, watching, minutes)
             // Start-to-start spacing; never less than 15 s between rounds so a slow round can't turn into a request storm
             val wait = (minutes * 60_000L - (SystemClock.elapsedRealtime() - startedAt)).coerceAtLeast(15_000L)
@@ -143,16 +143,16 @@ class StoryWatchService : Service() {
                     Intent(context, StoryWatchService::class.java).putExtra(EXTRA_RESTART, restart)
                 )
             } catch (e: Exception) {
-                // Not allowed to start right now (app in the background): the background chain still runs
-            }
+            com.example.data.Diagnostics.log("ignored", "StoryWatchService.kt:145 Not allowed to start right now (app in the background): the background chain sti")
+        }
         }
 
         fun stop(context: Context) {
             try {
                 context.stopService(Intent(context, StoryWatchService::class.java))
             } catch (e: Exception) {
-                // Already stopped
-            }
+            com.example.data.Diagnostics.log("ignored", "StoryWatchService.kt:153 Already stopped")
+        }
         }
 
         private fun update(context: Context, watching: Int, minutes: Int) {
@@ -165,8 +165,8 @@ class StoryWatchService : Service() {
                     NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, buildNotification(context, text))
                 }
             } catch (e: SecurityException) {
-                // Notifications switched off: the loop keeps running anyway
-            }
+            com.example.data.Diagnostics.log("ignored", "StoryWatchService.kt:167 Notifications switched off: the loop keeps running anyway")
+        }
         }
 
         private fun ensureChannel(context: Context) {

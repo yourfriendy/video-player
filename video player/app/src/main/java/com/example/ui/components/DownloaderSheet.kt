@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import com.example.ui.viewmodel.startDownload
+import com.example.ui.viewmodel.setDownloadUrl
+import com.example.ui.viewmodel.playDownloaded
+import com.example.ui.viewmodel.cancelDownload
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp

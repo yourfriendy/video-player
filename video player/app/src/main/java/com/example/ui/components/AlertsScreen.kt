@@ -480,8 +480,8 @@ private fun openNotificationSettings(context: Context) {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     } catch (e: Exception) {
-        // No settings screen to open
-    }
+            com.example.data.Diagnostics.log("ignored", "AlertsScreen.kt:482 No settings screen to open")
+        }
 }
 
 private fun openListenerSettings(context: Context) {
@@ -502,7 +502,7 @@ private fun requestBatteryExemption(context: Context) {
         try {
             context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (e2: Exception) {
-            // Nothing to open on this phone
+            com.example.data.Diagnostics.log("ignored", "AlertsScreen.kt:504 Nothing to open on this phone")
         }
     }
 }

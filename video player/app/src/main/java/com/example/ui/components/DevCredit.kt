@@ -184,8 +184,8 @@ fun DevCreditCard(versionName: String, build: Int, modifier: Modifier = Modifier
                     try {
                         uriHandler.openUri("https://github.com/${AppUpdateService.REPO}")
                     } catch (_: Exception) {
-                        // No browser installed: nothing to open
-                    }
+            com.example.data.Diagnostics.log("ignored", "DevCredit.kt:186 No browser installed: nothing to open")
+        }
                 }
                 .padding(horizontal = 22.dp, vertical = 11.dp)
                 .testTag("dev_credit_github"),

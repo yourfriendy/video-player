@@ -56,16 +56,16 @@ class DownloadKeepAliveService : Service() {
                 val intent = Intent(context, DownloadKeepAliveService::class.java).putExtra(EXTRA_TITLE, title)
                 ContextCompat.startForegroundService(context, intent)
             } catch (e: Exception) {
-                // Not allowed right now: the download keeps going while the app is open
-            }
+            com.example.data.Diagnostics.log("ignored", "DownloadKeepAliveService.kt:58 Not allowed right now: the download keeps going while the app is open")
+        }
         }
 
         fun stop(context: Context) {
             try {
                 context.stopService(Intent(context, DownloadKeepAliveService::class.java))
             } catch (e: Exception) {
-                // Already stopped
-            }
+            com.example.data.Diagnostics.log("ignored", "DownloadKeepAliveService.kt:66 Already stopped")
+        }
         }
 
         /** [percent] < 0 shows an indeterminate bar. */
@@ -81,8 +81,8 @@ class DownloadKeepAliveService : Service() {
                 NotificationManagerCompat.from(context)
                     .notify(NOTIFICATION_ID, buildNotification(context, title, text, percent))
             } catch (e: SecurityException) {
-                // Notifications are switched off: nothing to update
-            }
+            com.example.data.Diagnostics.log("ignored", "DownloadKeepAliveService.kt:83 Notifications are switched off: nothing to update")
+        }
         }
 
         /** A normal, dismissable notification for when a download ends while the pop-up isn't on screen. */
@@ -114,8 +114,8 @@ class DownloadKeepAliveService : Service() {
                     .build()
                 NotificationManagerCompat.from(context).notify(FINISHED_NOTIFICATION_ID, notification)
             } catch (e: SecurityException) {
-                // Notifications are switched off: nothing to show
-            }
+            com.example.data.Diagnostics.log("ignored", "DownloadKeepAliveService.kt:116 Notifications are switched off: nothing to show")
+        }
         }
 
         private fun ensureChannel(context: Context) {

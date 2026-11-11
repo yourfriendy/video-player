@@ -80,7 +80,8 @@ class InstagramStoryService(
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
             } catch (_: Exception) {
-            }
+            com.example.data.Diagnostics.log("ignored", "InstagramStoryService.kt:82 ignored")
+        }
         }
     }
 

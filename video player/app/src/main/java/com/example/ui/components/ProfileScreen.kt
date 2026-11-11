@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import com.example.ui.viewmodel.openHighlight
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
@@ -492,7 +493,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (e: Exception) {
-            // No settings screen to open
+            com.example.data.Diagnostics.log("ignored", "ProfileScreen.kt:494 No settings screen to open")
         }
     }
 

@@ -173,8 +173,8 @@ class StoryAlertRun(private val context: Context) {
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    // reposts are a beta feature: a failure here must never stop the story alerts
-                }
+            com.example.data.Diagnostics.log("ignored", "StoryAlerts.kt:175 reposts are a beta feature: a failure here must never stop the story alerts")
+        }
             }
         } finally {
             downloader.release()
@@ -303,7 +303,7 @@ object StoryAlertScheduler {
             // Short timers: Android won't run background work that often, so a small ongoing notification keeps a loop alive
             if (anyAlerts && StoryAlertSettings.isLive(context)) StoryWatchService.start(context, restart) else StoryWatchService.stop(context)
         } catch (_: Exception) {
-            // WorkManager unavailable: alerts simply stay off
+            com.example.data.Diagnostics.log("ignored", "StoryAlerts.kt:305 WorkManager unavailable: alerts simply stay off")
         }
     }
 
@@ -316,7 +316,7 @@ object StoryAlertScheduler {
             WorkManager.getInstance(context.applicationContext)
                 .enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request(delay))
         } catch (_: Exception) {
-            // WorkManager unavailable: alerts simply stay off
+            com.example.data.Diagnostics.log("ignored", "StoryAlerts.kt:318 WorkManager unavailable: alerts simply stay off")
         }
     }
 
@@ -331,7 +331,7 @@ object StoryAlertScheduler {
             val last = StoryAlertStatus.read(context)?.first ?: 0L
             if (System.currentTimeMillis() - last > (StoryAlertSettings.intervalMinutes(context) + 1) * 60_000L) checkNow(context)
         } catch (_: Exception) {
-            // WorkManager unavailable
+            com.example.data.Diagnostics.log("ignored", "StoryAlerts.kt:333 WorkManager unavailable")
         }
     }
 
@@ -343,7 +343,7 @@ object StoryAlertScheduler {
             WorkManager.getInstance(context.applicationContext)
                 .enqueueUniqueWork(name, ExistingWorkPolicy.REPLACE, request(0L, only))
         } catch (_: Exception) {
-            // WorkManager unavailable
+            com.example.data.Diagnostics.log("ignored", "StoryAlerts.kt:345 WorkManager unavailable")
         }
     }
 

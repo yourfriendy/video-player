@@ -1,5 +1,26 @@
 package com.example.ui.components
 
+import com.example.ui.viewmodel.verifyIgAccount
+import com.example.ui.viewmodel.setStoryKind
+import com.example.ui.viewmodel.setStoryInput
+import com.example.ui.viewmodel.setRepostRange
+import com.example.ui.viewmodel.setPersonAlerts
+import com.example.ui.viewmodel.setDownloaderTab
+import com.example.ui.viewmodel.savePerson
+import com.example.ui.viewmodel.saveMediaItem
+import com.example.ui.viewmodel.saveAllReposts
+import com.example.ui.viewmodel.resolveRepostNow
+import com.example.ui.viewmodel.removePerson
+import com.example.ui.viewmodel.openPerson
+import com.example.ui.viewmodel.openIgLogin
+import com.example.ui.viewmodel.openHighlight
+import com.example.ui.viewmodel.onIgLoginClosed
+import com.example.ui.viewmodel.loadHighlights
+import com.example.ui.viewmodel.igSignOut
+import com.example.ui.viewmodel.findStories
+import com.example.ui.viewmodel.findReposts
+import com.example.ui.viewmodel.downloadAllStories
+import com.example.ui.viewmodel.closeDownloader
 import androidx.compose.ui.res.stringResource
 import com.example.ui.theme.Ds
 import androidx.compose.material.icons.filled.Repeat
