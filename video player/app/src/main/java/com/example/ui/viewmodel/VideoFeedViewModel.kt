@@ -117,6 +117,10 @@ data class VideoFeedUiState(
     val totalCount: Int = 0
 )
 
+internal data class SearchInput(val query: String, val options: SearchOptions, val version: Int)
+
+internal class SearchEntry(val name: String, val folder: String)
+
 class VideoFeedViewModel(
     internal val repository: VideoRepository,
     internal val metadataExtractor: MetadataExtractor,
@@ -147,13 +151,11 @@ class VideoFeedViewModel(
     internal var resumeAfterForeground = false
 
     // Search engine state. Declared before init{} on purpose: init-time coroutines read these.
-    private data class SearchInput(val query: String, val options: SearchOptions, val version: Int)
 
     internal val searchTrigger = MutableStateFlow(SearchInput("", SearchOptions(), 0))
     internal var searchVersion = 0
 
     // Normalised name/folder text per video, computed once instead of on every keystroke
-    private class SearchEntry(val name: String, val folder: String)
     internal val searchIndex = java.util.concurrent.ConcurrentHashMap<Long, SearchEntry>()
 
     internal fun scrollTo(index: Int) = ScrollRequest(index.coerceAtLeast(0), System.nanoTime())
@@ -331,6 +333,9 @@ class VideoFeedViewModel(
     internal var repostsLoadedFrom: Long? = null
     internal var highlightsFor: String? = null
 
+}
+
+class VideoFeedViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         val database = AppDatabase.getDatabase(context)

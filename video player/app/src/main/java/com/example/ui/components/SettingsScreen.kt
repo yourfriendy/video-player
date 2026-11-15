@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.layout.widthIn
+import com.example.ui.theme.Ds
 import com.example.ui.viewmodel.refreshVideos
 import com.example.ui.viewmodel.clearWatchHistory
 import com.example.R
@@ -88,11 +90,16 @@ fun SettingsScreen(
             .padding(top = statusBarPadding)
             .testTag("settings_screen")
     ) {
+        // Wide screens: keep the column readable and centred
+        val sidePad = ((androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - Ds.MaxContentWidth) / 2)
+            .coerceAtLeast(16.dp)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .animateContentSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = navBarPadding + 28.dp),
+            contentPadding = PaddingValues(
+                start = sidePad, end = sidePad, top = 4.dp, bottom = navBarPadding + 28.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             item {

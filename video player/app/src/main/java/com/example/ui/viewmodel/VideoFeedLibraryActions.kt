@@ -765,6 +765,3 @@ internal fun VideoFeedViewModel.formatStorageSize(bytes: Long): String {
     val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt().coerceIn(0, units.size - 1)
     return String.format(Locale.getDefault(), "%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
 }
-}
-
-class VideoFeedViewModelFactory(private val context: Context) : ViewModelProvider.Factory {

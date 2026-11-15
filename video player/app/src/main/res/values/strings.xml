@@ -134,5 +134,7 @@
     <string name="clear_all">Clear all</string>
     <string name="no_matches">No matches</string>
     <string name="try_fewer_words_or_loosen_the">Try fewer words, or loosen the filters above.</string>
+    <string name="playlists_section">Playlists</string>
+    <string name="no_playlists_hint">No playlists yet. Tap Playlist on any video to make one.</string>
 </resources>
 

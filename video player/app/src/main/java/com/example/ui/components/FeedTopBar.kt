@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.PlaylistPlay
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedContent
@@ -94,6 +97,9 @@ fun FeedTopBar(
     isGridView: Boolean,
     isSearchActive: Boolean,
     folders: List<String>,
+    /** Your playlists, listed in the filter menu so you can actually watch them. */
+    playlists: List<com.example.data.local.entity.PlaylistEntity> = emptyList(),
+    playlistCounts: Map<Long, Int> = emptyMap(),
     totalVideosCount: Int,
     currentIndex: Int,
     totalStorageFormatted: String,
@@ -161,17 +167,18 @@ fun FeedTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left: Filter Selector Dropdown
-                Box {
+                // Left: Filter Selector Dropdown (shrinks with an ellipsis instead of pushing the buttons off screen)
+                Box(modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
+                            .height(44.dp)
                             .testTag("feed_filter_dropdown_button")
                             .shadow(6.dp, CircleShape)
                             .background(GlassBackground, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
                             .clickable { isFilterMenuExpanded = true }
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .padding(horizontal = 14.dp)
                     ) {
                         Icon(
                             imageVector = when (currentFilter) {
@@ -180,6 +187,8 @@ fun FeedTopBar(
                                 is FeedFilter.RecentlyAdded -> Icons.Default.Schedule
                                 is FeedFilter.RecentlyPlayed -> Icons.Default.History
                                 is FeedFilter.ByFolder -> Icons.Default.Folder
+                                is FeedFilter.Playlist -> Icons.Default.PlaylistPlay
+                                is FeedFilter.WatchLater -> Icons.Default.Schedule
                                 else -> Icons.Default.Videocam
                             },
                             contentDescription = null,
@@ -194,7 +203,10 @@ fun FeedTopBar(
                             text = currentFilter.displayName,
                             color = Color.White,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
@@ -254,6 +266,45 @@ fun FeedTopBar(
                             }
                         )
 
+                        HorizontalDivider(
+                            color = GlassBorderSubtle,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.playlists_section),
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                        )
+                        if (playlists.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.no_playlists_hint),
+                                color = Color(0xFF94A3B8),
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                modifier = Modifier.widthIn(max = 240.dp).padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        } else {
+                            playlists.forEach { playlist ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = playlist.name + (playlistCounts[playlist.id]?.let { "  ($it)" } ?: ""),
+                                            color = Color(0xFFE2E8F0),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    leadingIcon = { Text(playlist.emojiOrIcon ?: "📁", fontSize = 18.sp) },
+                                    onClick = {
+                                        onSelectFilter(FeedFilter.Playlist(playlist.id, playlist.name))
+                                        isFilterMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+
                         if (folders.isNotEmpty()) {
                             HorizontalDivider(
                                 color = GlassBorderSubtle,
@@ -285,13 +336,13 @@ fun FeedTopBar(
                 // Right Action Icons Row (Organized: Search, Grid Switcher, and 3-Dots Master Hub)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // 1. Search Button
                     IconButton(
                         onClick = onOpenSearch,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(44.dp)
                             .shadow(4.dp, CircleShape)
                             .background(searchBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
@@ -301,7 +352,7 @@ fun FeedTopBar(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search videos",
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -309,7 +360,7 @@ fun FeedTopBar(
                     IconButton(
                         onClick = onToggleGridView,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(44.dp)
                             .shadow(4.dp, CircleShape)
                             .background(gridBg, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
@@ -319,7 +370,7 @@ fun FeedTopBar(
                             imageVector = if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
                             contentDescription = if (isGridView) "Reels View" else "Grid View",
                             tint = gridTint,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -327,7 +378,7 @@ fun FeedTopBar(
                     IconButton(
                         onClick = onOpenDownloader,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(44.dp)
                             .shadow(4.dp, CircleShape)
                             .background(GlassBackground, CircleShape)
                             .border(1.dp, GlassBorder, CircleShape)
@@ -337,25 +388,7 @@ fun FeedTopBar(
                             imageVector = Icons.Default.Download,
                             contentDescription = "Save from Instagram",
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Settings
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .shadow(4.dp, CircleShape)
-                            .background(GlassBackground, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
-                            .testTag("feed_settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -363,7 +396,7 @@ fun FeedTopBar(
                     IconButton(
                         onClick = onOpenAllFeatures,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(44.dp)
                             .shadow(6.dp, CircleShape)
                             .background(Color(0xE61E1B4B), CircleShape)
                             .border(1.dp, Color(0x66A78BFA), CircleShape)

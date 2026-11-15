@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Settings
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
@@ -93,6 +94,7 @@ fun AllFeaturesSheet(
     onAddToPlaylist: (LocalVideo) -> Unit,
     onClearHistory: () -> Unit,
     onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -485,6 +487,16 @@ fun AllFeaturesSheet(
                     tint = Color(0xFFFB7185),
                     onClick = {
                         onClearHistory()
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                FeatureActionButton(
+                    icon = Icons.Default.Settings,
+                    title = "Settings",
+                    onClick = {
+                        onOpenSettings()
                         onDismiss()
                     },
                     modifier = Modifier.weight(1f)

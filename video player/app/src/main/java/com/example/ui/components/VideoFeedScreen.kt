@@ -178,12 +178,18 @@ fun VideoFeedScreen(
     // Auto-hide only during uninterrupted playback; scrubbing, sheets and search reset/suspend it
     LaunchedEffect(
         uiState.isPlaying, uiState.areControlsVisible, pagerState.currentPage,
-        uiState.isSearchOpen, interactionTick, hasOverlay
+        uiState.isSearchOpen, interactionTick, hasOverlay, showGrid
     ) {
-        if (uiState.isPlaying && uiState.areControlsVisible && !uiState.isSearchOpen && !hasOverlay) {
+        // The grid is a browsing screen, not playback: its controls must stay put
+        if (uiState.isPlaying && uiState.areControlsVisible && !uiState.isSearchOpen && !hasOverlay && !showGrid) {
             delay(3500L)
             viewModel.setControlsVisible(false)
         }
+    }
+
+    // Switching to the grid brings the controls back, and they stay while you browse
+    LaunchedEffect(showGrid) {
+        if (showGrid) viewModel.setControlsVisible(true)
     }
 
     val deleteIntentLauncher = rememberLauncherForActivityResult(
@@ -404,6 +410,8 @@ fun VideoFeedScreen(
                 isGridView = uiState.isGridView,
                 isSearchActive = uiState.searchQuery.isNotBlank(),
                 folders = uiState.folders,
+                playlists = uiState.playlists,
+                playlistCounts = uiState.playlistVideosMap.mapValues { it.value.size },
                 totalVideosCount = filteredVideos.size,
                 currentIndex = if (showPager) pagerState.currentPage else uiState.currentIndex,
                 totalStorageFormatted = uiState.totalStorageFormatted,
@@ -513,6 +521,7 @@ fun VideoFeedScreen(
                 onOpenInfo = { v -> viewModel.openMetadata(v) },
                 onAddToPlaylist = { v -> viewModel.openAddToPlaylist(v) },
                 onClearHistory = { viewModel.clearWatchHistory() },
+                onOpenSettings = onOpenSettings,
                 onDismiss = { isAllFeaturesOpen = false }
             )
         }

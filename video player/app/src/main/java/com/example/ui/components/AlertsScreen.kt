@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.layout.widthIn
+import com.example.ui.theme.Ds
 import com.example.data.download.AlertHealth
 import com.example.data.download.AlertHealthRules
 import com.example.R
@@ -152,7 +154,14 @@ internal fun AlertsScreen(
 
     Box(modifier = modifier.fillMaxSize().testTag("alerts_screen")) {
         AuroraBackground()
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = Ds.MaxContentWidth)
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically

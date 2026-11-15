@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.layout.widthIn
 import com.example.ui.viewmodel.verifyIgAccount
 import com.example.ui.viewmodel.setStoryKind
 import com.example.ui.viewmodel.setStoryInput
@@ -172,15 +173,10 @@ fun DownloaderScreen(
     uiState: VideoFeedUiState,
     viewModel: VideoFeedViewModel,
     onBack: () -> Unit,
+    /** Opens the Alerts screen (its own route). Leaving the Downloader for the feed is handled by the navigation host. */
+    onOpenAlerts: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Leaving the page by any route (back button, swipe) clears the "open" flag
-    DisposableEffect(Unit) {
-        onDispose {
-            viewModel.profile.close()
-            viewModel.closeDownloader()
-        }
-    }
 
     // Instagram's own sign-in runs on its own screen (a plain web view renders reliably there)
     val loginLauncher = rememberLauncherForActivityResult(
@@ -193,7 +189,6 @@ fun DownloaderScreen(
         if (uiState.downloaderTab == DownloaderTab.STORIES) viewModel.verifyIgAccount()
     }
 
-    var showAlerts by remember { mutableStateOf(false) }
 
     // Notifications ("Saved", progress, story alerts) are asked for here, where they make sense, once per install.
     val notifyContext = LocalContext.current
@@ -209,12 +204,13 @@ fun DownloaderScreen(
             }
         }
     }
-    BackHandler(enabled = showAlerts) { showAlerts = false }
 
     Box(modifier = modifier.fillMaxSize().testTag("downloader_screen")) {
     AuroraBackground()
     Column(
         modifier = Modifier
+            .align(Alignment.TopCenter)
+            .widthIn(max = Ds.MaxContentWidth)
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
@@ -241,7 +237,7 @@ fun DownloaderScreen(
                     .clip(CircleShape)
                     .background(Color(0x1FFFFFFF))
                     .border(1.dp, GlassBorder, CircleShape)
-                    .clickable { showAlerts = true }
+                    .clickable { onOpenAlerts() }
                     .testTag("downloader_alerts_button"),
                 contentAlignment = Alignment.Center
             ) {
@@ -302,7 +298,7 @@ fun DownloaderScreen(
                                 subtitle = "See anyone's stories and reposts first. Nobody is told you looked, and you save only what you like.",
                                 accent = listOf(DlPink, DlViolet)
                             )
-                            PeoplePage(uiState, viewModel, onOpenAlerts = { showAlerts = true })
+                            PeoplePage(uiState, viewModel, onOpenAlerts = onOpenAlerts)
                         }
                         DownloaderTab.REELS -> {
                             HeroCard(
@@ -336,23 +332,6 @@ fun DownloaderScreen(
         }
     }
 
-    // ---- Alerts: its own screen, in the app's look ----
-    AnimatedVisibility(
-        visible = showAlerts,
-        enter = slideInHorizontally(tween(280)) { it } + fadeIn(tween(200)),
-        exit = slideOutHorizontally(tween(220)) { it } + fadeOut(tween(160))
-    ) {
-        AlertsScreen(
-            people = uiState.people,
-            onSetAlerts = { name, on -> viewModel.setPersonAlerts(name, on) },
-            onOpenPerson = { name ->
-                showAlerts = false
-                viewModel.setDownloaderTab(DownloaderTab.STORIES)
-                viewModel.openPerson(name)
-            },
-            onBack = { showAlerts = false }
-        )
-    }
     }
 }
 

@@ -104,7 +104,7 @@ fun VideoGridView(
         }
     } else {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+            columns = GridCells.Adaptive(minSize = 110.dp),
             modifier = modifier
                 .fillMaxSize()
                 .testTag("video_grid_view"),

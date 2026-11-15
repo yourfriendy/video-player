@@ -70,6 +70,9 @@ object Ds {
 
     /** Smallest comfortable tap target. */
     val MinTouch = 44.dp
+
+    /** On tablets and foldables, content columns stop growing here and are centred. */
+    val MaxContentWidth = 640.dp
 }
 
 /**

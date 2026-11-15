@@ -146,6 +146,15 @@ class MainActivity : ComponentActivity() {
             viewModel.openPerson(person, autoStories = true)
             return
         }
+        // Deep link offscroll://person/<username> opens that person (offscroll://alerts is handled by the navigation host)
+        intent?.data?.takeIf { it.scheme == "offscroll" && it.host == "person" }?.let { uri ->
+            val name = uri.pathSegments.firstOrNull()?.takeIf { it.isNotBlank() }
+            intent?.data = null
+            if (name != null) {
+                viewModel.openPerson(name)
+                return
+            }
+        }
         if (intent?.action != Intent.ACTION_SEND) return
         val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
         // Consume it so the same share is never handled twice

@@ -1,5 +1,11 @@
 package com.example.ui.navigation
 
+import com.example.ui.viewmodel.closeDownloader
+import com.example.ui.viewmodel.openPerson
+import com.example.ui.viewmodel.setDownloaderTab
+import com.example.ui.viewmodel.setPersonAlerts
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -29,7 +35,10 @@ import com.example.ui.viewmodel.VideoFeedViewModel
 enum class NavRoute {
     Feed,
     Settings,
-    Downloader
+    Downloader,
+
+    /** Story and repost alerts: its own screen. Deep link: offscroll://alerts */
+    Alerts
 }
 
 /**
@@ -46,6 +55,24 @@ fun AppNavigation(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+
+    // Back on the feed means the Downloader (and any profile open inside it) is finished
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == NavRoute.Feed.name && uiState.isDownloaderOpen) {
+            viewModel.profile.close()
+            viewModel.closeDownloader()
+        }
+    }
+
+    // Deep links while the app is already running (the activity is single-task, so they arrive as new intents)
+    val activity = androidx.compose.ui.platform.LocalContext.current as? androidx.activity.ComponentActivity
+    androidx.compose.runtime.DisposableEffect(activity, navController) {
+        val listener = androidx.core.util.Consumer<android.content.Intent> { navController.handleDeepLink(it) }
+        activity?.addOnNewIntentListener(listener)
+        onDispose { activity?.removeOnNewIntentListener(listener) }
+    }
     val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     // The download icon, a shared link, or a story notification all just set this flag: show the full page
@@ -100,7 +127,23 @@ fun AppNavigation(
                 uiState = uiState,
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
+                onOpenAlerts = { navController.navigate(NavRoute.Alerts.name) { launchSingleTop = true } },
                 modifier = Modifier.fillMaxSize()
+            )
+        }
+        composable(
+            NavRoute.Alerts.name,
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "offscroll://alerts" })
+        ) {
+            com.example.ui.components.AlertsScreen(
+                people = uiState.people,
+                onSetAlerts = { name, on -> viewModel.setPersonAlerts(name, on) },
+                onOpenPerson = { name ->
+                    navController.popBackStack()
+                    viewModel.setDownloaderTab(com.example.ui.model.DownloaderTab.STORIES)
+                    viewModel.openPerson(name)
+                },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(NavRoute.Settings.name) {

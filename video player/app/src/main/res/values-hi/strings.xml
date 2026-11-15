@@ -18,4 +18,6 @@
     <string name="save_watch">सहेजें और देखें</string>
     <string name="stories_reels_and_videos_in_one">स्टोरीज़, रील्स और वीडियो एक ही जगह</string>
     <string name="allow_video_access">वीडियो एक्सेस की अनुमति दें</string>
+    <string name="playlists_section">प्लेलिस्ट</string>
+    <string name="no_playlists_hint">अभी कोई प्लेलिस्ट नहीं। किसी भी वीडियो पर प्लेलिस्ट दबाकर बनाएं।</string>
 </resources>

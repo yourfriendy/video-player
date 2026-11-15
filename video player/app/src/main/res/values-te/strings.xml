@@ -18,4 +18,6 @@
     <string name="save_watch">సేవ్ చేసి చూడండి</string>
     <string name="stories_reels_and_videos_in_one">స్టోరీలు, రీల్స్ మరియు వీడియోలు ఒకే చోట</string>
     <string name="allow_video_access">వీడియో యాక్సెస్‌కు అనుమతించండి</string>
+    <string name="playlists_section">ప్లేలిస్ట్‌లు</string>
+    <string name="no_playlists_hint">ఇంకా ప్లేలిస్ట్‌లు లేవు. ఏదైనా వీడియోలో ప్లేలిస్ట్ నొక్కి కొత్తది తయారు చేయండి.</string>
 </resources>
