@@ -58,6 +58,8 @@ data class ProfileViewerState(
 data class ProfileUiState(
     val visible: Boolean = false,
     val username: String = "",
+    /** What the story lookup is doing right now (shown in the full-screen wait). */
+    val viewerStage: String? = null,
     val loading: Boolean = false,
     val error: String? = null,
     val needsLogin: Boolean = false,
@@ -86,7 +88,11 @@ class ProfileController(
     private val downloader: InstagramDownloader,
     private val onMediaSaved: () -> Unit,
     /** Called whenever a profile's header arrives, so the app can remember the name and photo of saved people. */
-    private val onProfileLoaded: (ProfileDetails) -> Unit = {}
+    private val onProfileLoaded: (ProfileDetails) -> Unit = {},
+    /** (username, story id): the person's story was actually watched. */
+    private val onStoryViewed: (String, String) -> Unit = { _, _ -> },
+    /** (username, story ids): the stories that are live right now, for the unseen-story ring. */
+    private val onLiveStories: (String, List<String>) -> Unit = { _, _ -> }
 ) {
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
@@ -316,9 +322,12 @@ class ProfileController(
         val name = _state.value.details?.username ?: return
         openViewerFrom("Stories") {
             // The ring is only a hint (its pre-check can fail even when stories exist), so a tap always asks for real
-            val items = service.load(InstagramParser.StoryTarget.User(name)).items
+            val items = service.load(InstagramParser.StoryTarget.User(name)) { stage ->
+                _state.update { it.copy(viewerStage = stage) }
+            }.items
             if (items.isEmpty()) throw NoStoriesException("@$name has no active story right now.")
-            _state.update { it.copy(hasStories = true) }
+            _state.update { it.copy(hasStories = true, viewerStage = "Loading the first story…") }
+            onLiveStories(name, items.map { it.id })
             items
         }
     }
@@ -349,12 +358,18 @@ class ProfileController(
     /** Stops the wait after tapping a story ring (the Cancel button, or Back). */
     fun cancelViewerLoading() {
         viewerJob?.cancel()
-        _state.update { it.copy(viewerLoading = false) }
+        _state.update { it.copy(viewerLoading = false, viewerStage = null) }
+    }
+
+    /** The viewer is showing this story: the person's ring stops looking new once all of them were seen. */
+    fun reportViewed(itemId: String) {
+        val name = _state.value.details?.username ?: _state.value.username
+        if (name.isNotBlank()) onStoryViewed(name, itemId)
     }
 
     private fun openViewerFrom(title: String, fetch: suspend () -> List<InstagramParser.StoryItem>) {
         if (_state.value.viewerLoading) return
-        _state.update { it.copy(viewerLoading = true) }
+        _state.update { it.copy(viewerLoading = true, viewerStage = null) }
         viewerJob = scope.launch {
             try {
                 val items = fetch()

@@ -467,8 +467,11 @@ fun VideoFeedViewModel.findStories() {
     storyJob = viewModelScope.launch {
         try {
             _uiState.update { it.copy(storyState = StoryUiState.Loading, storyDownloads = emptyMap()) }
-            val result = downloader.stories.load(target)
+            val result = downloader.stories.load(target) { stage ->
+                _uiState.update { it.copy(storyStage = stage) }
+            }
             result.profile?.let { rememberPerson(it.username, it.picUrl, it.fullName) }
+            recordLiveStories(result.profile?.username ?: result.owner, result.items.map { it.id })
             _uiState.update {
                 it.copy(
                     storyState = StoryUiState.Loaded(result.owner, result.items, result.profile),
@@ -741,3 +744,20 @@ fun VideoFeedViewModel.cycleDisplayMode() {
 // ------------------------------------------------------------------------------------------
 // Search: a separate full-screen page. The feed is only touched when a result is picked.
 // ------------------------------------------------------------------------------------------
+
+
+/** The stories this person has live right now (a saved person's ring lights up while some are unwatched). */
+fun VideoFeedViewModel.recordLiveStories(username: String, ids: List<String>) {
+    val name = cleanName(username)
+    if (name.isBlank()) return
+    peopleStore.update(name) { it.copy(liveIds = ids.toSet()) }
+    refreshPeople()
+}
+
+/** A story of this person was watched here. */
+fun VideoFeedViewModel.markStoryViewed(username: String, id: String) {
+    val name = cleanName(username)
+    if (name.isBlank() || id.isBlank()) return
+    peopleStore.update(name) { if (id in it.viewedIds) it else it.copy(viewedIds = it.viewedIds + id) }
+    refreshPeople()
+}

@@ -307,6 +307,31 @@ fun SettingsScreen(
                 }
             }
 
+            // Appearance
+            item {
+                Row(
+                    modifier = Modifier
+                        .staggeredEntrance(6)
+                        .fillMaxWidth()
+                        .background(GlassBackground, RoundedCornerShape(16.dp))
+                        .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Pure black background", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Saves battery on OLED screens. Light theme is planned.",
+                            color = Color(0xFF94A3B8), fontSize = 12.sp, lineHeight = 16.sp
+                        )
+                    }
+                    androidx.compose.material3.Switch(
+                        checked = com.example.ui.theme.Appearance.amoled,
+                        onCheckedChange = { com.example.ui.theme.Appearance.setAmoled(context, it) }
+                    )
+                }
+            }
+
             // Help: one copyable report instead of "it doesn't work"
             item {
                 Column(modifier = Modifier.staggeredEntrance(7), verticalArrangement = Arrangement.spacedBy(10.dp)) {

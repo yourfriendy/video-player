@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Settings
 import com.example.R
 import androidx.compose.ui.res.stringResource
@@ -95,6 +96,7 @@ fun AllFeaturesSheet(
     onClearHistory: () -> Unit,
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onShowTour: () -> Unit = {},
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 ) {
     val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
@@ -497,6 +499,16 @@ fun AllFeaturesSheet(
                     title = "Settings",
                     onClick = {
                         onOpenSettings()
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                FeatureActionButton(
+                    icon = Icons.Default.Swipe,
+                    title = "Quick tour",
+                    onClick = {
+                        onShowTour()
                         onDismiss()
                     },
                     modifier = Modifier.weight(1f)

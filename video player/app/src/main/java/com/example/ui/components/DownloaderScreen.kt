@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.example.ui.viewmodel.markStoryViewed
 import androidx.compose.foundation.layout.widthIn
 import com.example.ui.viewmodel.verifyIgAccount
 import com.example.ui.viewmodel.setStoryKind
@@ -575,7 +579,8 @@ private fun ResultsSection(
         is StoryUiState.Loading -> GlassCard {
             FetchingLoader(
                 steps = if (kind == StoryKind.STORIES) {
-                    listOf("Contacting Instagram…", "Fetching info…", "Looking for stories…", "Reading the story reel…", "Almost there…")
+                    uiState.storyStage?.let { listOf(it) }
+                        ?: listOf("Contacting Instagram…", "Fetching info…", "Looking for stories…")
                 } else {
                     listOf("Opening their Reposts tab…", "Fetching info…", "Collecting reposts…", "Reading each reel…", "This can take a minute…")
                 },
@@ -802,11 +807,24 @@ private fun PersonStory(person: SavedPerson, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(vertical = 2.dp)
     ) {
-        Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
+        val unseen = person.hasUnseenStory
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "@" + person.username + if (unseen) ", has a new story" else ""
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            // A glowing ring means there is a story you haven't watched; a faint one means nothing new
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .border(2.5.dp, Brush.sweepGradient(listOf(Orange, Pink, Violet, Pink, Orange)), CircleShape)
+                    .border(
+                        if (unseen) 3.dp else 1.5.dp,
+                        if (unseen) Brush.sweepGradient(listOf(Orange, Pink, Violet, Pink, Orange)) else SolidColor(Color(0x55FFFFFF)),
+                        CircleShape
+                    )
             )
             Avatar(person.picUrl, 62.dp, initial = person.username, modifier = Modifier.border(3.dp, Slate950, CircleShape))
             if (person.alerts) {
@@ -964,6 +982,7 @@ private fun MediaViewerDialog(
             reposts = kind == StoryKind.REPOSTS,
             fallbackOwner = loaded?.profile?.username.orEmpty(),
             fallbackOwnerPic = loaded?.profile?.picUrl,
+            onViewed = { item -> if (kind == StoryKind.STORIES) viewModel.markStoryViewed(loaded?.profile?.username.orEmpty(), item.id) },
             saveStatus = { uiState.storyDownloads[it] },
             onSave = { viewModel.saveMediaItem(it) },
             onSaveAll = { if (kind == StoryKind.STORIES) viewModel.downloadAllStories() else viewModel.saveAllReposts() },

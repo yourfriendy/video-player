@@ -138,7 +138,11 @@ class InstagramStoryService(
         throw DownloadException("Connected, but Instagram wouldn't show your profile (" + notes.joinToString("; ") + "). Stories may still work.")
     }
 
-    suspend fun load(target: InstagramParser.StoryTarget): StoryResult = withContext(Dispatchers.IO) {
+    /** [onStage] is told what the loader is doing right now, for the loading screen. */
+    suspend fun load(
+        target: InstagramParser.StoryTarget,
+        onStage: (String) -> Unit = {}
+    ): StoryResult = withContext(Dispatchers.IO) {
         val cookies = sessionCookies()
         if (cookies == null || !cookies.contains("sessionid=")) {
             throw LoginRequiredException("Sign in to Instagram to view stories.")
@@ -146,6 +150,7 @@ class InstagramStoryService(
         val csrf = Regex("""csrftoken=([^;]+)""").find(cookies)?.groupValues?.get(1).orEmpty()
 
         // Method 1: ask Instagram's API directly.
+        onStage("Asking Instagram directly…")
         val directFailure: DownloadException = try {
             return@withContext loadDirect(target, cookies, csrf)
         } catch (e: LoginRequiredException) {
@@ -159,6 +164,7 @@ class InstagramStoryService(
         }
 
         // Method 2: let Instagram's own page ask, and read what it receives.
+        onStage("Opening Instagram's own page…")
         try {
             loadViaPage(target)
         } catch (e: NoStoriesException) {

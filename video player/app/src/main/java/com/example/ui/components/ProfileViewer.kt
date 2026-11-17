@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.example.R
 import androidx.compose.ui.res.stringResource
 import android.content.Intent
@@ -219,6 +221,7 @@ internal class ViewerHost(
     /** Whose name and photo to show when an item doesn't carry its own author. */
     val fallbackOwner: String,
     val fallbackOwnerPic: String?,
+    val onViewed: (InstagramParser.StoryItem) -> Unit = {},
     val saveStatus: (String) -> StoryItemDownload?,
     val onSave: (InstagramParser.StoryItem) -> Unit,
     val onSaveAll: (List<InstagramParser.StoryItem>) -> Unit,
@@ -239,6 +242,7 @@ internal fun ProfileViewerDialog(viewer: ProfileViewerState, state: ProfileUiSta
             inStories = timed && viewer.title == "Stories",
             fallbackOwner = state.details?.username ?: state.username,
             fallbackOwnerPic = state.details?.picUrl,
+            onViewed = { controller.reportViewed(it.id) },
             saveStatus = { state.saves[it] },
             onSave = controller::save,
             onSaveAll = controller::saveAll,
@@ -290,6 +294,9 @@ internal fun InstaViewer(host: ViewerHost) {
                 if (page > 0) pager.animateScrollToPage(page - 1) else photoProgress.snapTo(0f)
             }
         }
+
+        // Watching a story marks it seen (the person's ring in the people tray stops glowing)
+        LaunchedEffect(page) { if (inStories) host.onViewed(current) }
 
         // A new story starts from zero
         LaunchedEffect(page) {
@@ -383,6 +390,15 @@ internal fun InstaViewer(host: ViewerHost) {
             )
 
             val status = host.saveStatus(current.id)
+            // A short buzz the moment a save finishes (not when you open something already saved)
+            val haptics = LocalHapticFeedback.current
+            var previousStatus by remember { mutableStateOf(status) }
+            LaunchedEffect(status) {
+                if (previousStatus is StoryItemDownload.Downloading && status is StoryItemDownload.Done) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
+                previousStatus = status
+            }
             val owner = current.author ?: host.fallbackOwner
             val ownerPic = current.authorPic ?: host.fallbackOwnerPic
             val nowSec by produceState(System.currentTimeMillis() / 1000, page) {

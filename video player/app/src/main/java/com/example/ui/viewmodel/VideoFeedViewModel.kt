@@ -74,6 +74,8 @@ data class VideoFeedUiState(
     val downloaderTab: DownloaderTab = DownloaderTab.REELS,
     val storyInput: String = "",
     val storyState: StoryUiState = StoryUiState.Idle,
+    /** What the story lookup is doing right now, for the loading screen. */
+    val storyStage: String? = null,
     val storyDownloads: Map<String, StoryItemDownload> = emptyMap(),
     val isIgSignedIn: Boolean = false,
     val isIgLoginOpen: Boolean = false,
@@ -141,7 +143,9 @@ class VideoFeedViewModel(
             viewModelScope.launch { reloadLibrary(showLoading = false) }
             com.example.ui.components.Feedback.show("Saved to your library", "View") { showLibrary() }
         },
-        onProfileLoaded = { rememberPerson(it.username, it.picUrl, it.fullName) }
+        onProfileLoaded = { rememberPerson(it.username, it.picUrl, it.fullName) },
+        onStoryViewed = { name, id -> markStoryViewed(name, id) },
+        onLiveStories = { name, ids -> recordLiveStories(name, ids) }
     )
 
     internal var shuffledVideoIds: List<Long> = emptyList()

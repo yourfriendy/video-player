@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.example.ui.theme.Ds
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -251,6 +253,7 @@ internal fun UseCaseTabs(
     val tabs = listOf(DownloaderTab.STORIES, DownloaderTab.REELS, DownloaderTab.ANY)
     val shape = RoundedCornerShape(28.dp)
     val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
     val innerPad = 5.dp
     var outerWidthPx by remember { mutableIntStateOf(0) }
     val tabWidthPx = if (outerWidthPx > 0) (outerWidthPx - with(density) { (innerPad * 2).toPx() }) / tabs.size else 0f
@@ -288,7 +291,10 @@ internal fun UseCaseTabs(
                         .weight(1f)
                         .height(60.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .clickable { onSelect(tab) },
+                        .clickable {
+                            if (!active) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(tab)
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {

@@ -14,8 +14,14 @@ data class SavedPerson(
     val baselined: Boolean = false,
     /** Last known profile photo and display name, so saved people show their DP without opening them first. */
     val picUrl: String? = null,
+    /** Ids of the stories that are live right now, and which of them were actually watched here. */
+    val liveIds: Set<String> = emptySet(),
+    val viewedIds: Set<String> = emptySet(),
     val fullName: String = ""
-)
+) {
+    /** True when the person has a live story you have not watched: their ring lights up. */
+    val hasUnseenStory: Boolean get() = (liveIds - viewedIds).isNotEmpty()
+}
 
 /** Saved people, kept on the phone only. Shared by the app screens and the background alert worker. */
 class PeopleStore(context: Context) {
@@ -34,6 +40,8 @@ class PeopleStore(context: Context) {
                 seenIds = if (seen == null) emptySet() else (0 until seen.length()).map { seen.optString(it) }.toSet(),
                 baselined = o.optBoolean("baselined", false),
                 picUrl = o.optString("pic").takeIf { it.startsWith("http") },
+                liveIds = o.optJSONArray("live")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } ?: emptySet(),
+                viewedIds = o.optJSONArray("viewed")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } ?: emptySet(),
                 fullName = o.optString("name")
             )
         }
@@ -52,6 +60,8 @@ class PeopleStore(context: Context) {
                     .put("baselined", p.baselined)
                     .put("pic", p.picUrl ?: "")
                     .put("name", p.fullName)
+                    .put("live", JSONArray(p.liveIds.toList().takeLast(60)))
+                    .put("viewed", JSONArray(p.viewedIds.toList().takeLast(200)))
                     .put("seen", JSONArray(p.seenIds.toList().takeLast(200)))
             )
         }

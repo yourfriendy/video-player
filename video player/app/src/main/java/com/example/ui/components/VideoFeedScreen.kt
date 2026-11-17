@@ -187,6 +187,21 @@ fun VideoFeedScreen(
         }
     }
 
+    // First-run tour of the gestures (once per install), and again whenever asked from the hub
+    var showTour by remember { mutableStateOf(false) }
+    LaunchedEffect(filteredVideos.isNotEmpty()) {
+        if (filteredVideos.isNotEmpty() && GestureTourState.shouldShow(context)) {
+            kotlinx.coroutines.delay(2_500L)
+            showTour = true
+        }
+    }
+    if (showTour) {
+        GestureTourDialog(onDismiss = {
+            GestureTourState.markSeen(context)
+            showTour = false
+        })
+    }
+
     // Switching to the grid brings the controls back, and they stay while you browse
     LaunchedEffect(showGrid) {
         if (showGrid) viewModel.setControlsVisible(true)
@@ -422,6 +437,7 @@ fun VideoFeedScreen(
                 onToggleGridView = { viewModel.toggleGridView() },
                 onOpenSearch = { viewModel.openSearch() },
                 onOpenSettings = onOpenSettings,
+                onShowTour = { showTour = true },
                 onOpenDownloader = { viewModel.openDownloader() },
                 onRefresh = { viewModel.loadVideos() },
                 onOpenPopup = onEnterPiP,

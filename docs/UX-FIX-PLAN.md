@@ -52,43 +52,59 @@ The Instagram-black profile viewer keeps its own `Ig*` colours on purpose (peopl
 4. Profile viewer avatars still look right (grey placeholder, no gradient ring).
 5. Switch the phone language to Hindi or Telugu: Search, Save, Cancel and a few other words change; the rest stays English.
 
-## Phase 3: flows and architecture (audit P2): partly done
+## Phase 3: flows and architecture (audit P2): done, with the exceptions listed
 
-| # | Task | Status |
+| # | Task | Result |
 |---|---|---|
-| [ ] 3.1 | Real routes for Profile, Alerts and Search with back stack and deep links | **Not started.** It rewrites how every overlay is opened and closed, and the profile and viewers are Dialog windows. That needs on-device testing of back behaviour, which I cannot do here, so it should be its own supervised session. |
-| [ ] 3.2 | Split the 1,750-line ViewModel by feature | **Not started.** Mechanical but touches almost every screen; best done right after 3.1 so the routes decide the split. |
-| [ ] 3.3 | Coach marks for gestures at first use | **Not started.** Needs design iteration on a device. |
-| [x] 3.4 | Alerts: plain states, one fix button, short history | `AlertHealthRules` turns the facts into one state (Working, Late, Not allowed, Instagram problem) shown as a banner with a single fix button. The last 10 checks are kept and the latest 5 are listed under "Make sure it works". The profile viewer and the Downloader now only link to this one screen. Unit tested (8 cases). |
-| [~] 3.5 | Staged, cancellable loading | **Cancel done:** the full-screen story wait has a Cancel button and Back cancels it. **Not done:** real "step 2 of 4" progress and showing the first stories while the rest load (needs changes inside the Instagram loaders). |
-| [~] 3.6 | Typed errors, one reporter, diagnostics | **Diagnostics done:** Settings > Copy diagnostics builds a report (app and phone, permissions, alerts, recent checks, engine, recent problems) with no passwords or cookies. Problems from the viewer, the engine and failed alert checks are logged to it. **Not done:** typed errors and the 28 empty catch blocks. |
-| [x] 3.7 | Completion moments | After a save from the profile viewer, stories or reposts: "Saved to your library" with a View action that leaves the profile and Downloader. **Not covered yet:** the direct reel-link save in the Downloader. |
+| [x] 3.1 | Routes and deep links | **Alerts is a real route** (`offscroll://alerts`), and `offscroll://person/<name>` opens a person. The navigation host now closes the Downloader when you land back on the feed, so back behaviour no longer depends on a Dialog's dispose callback. **Profile and Search stay overlays on purpose:** their state lives in controllers and the profile is a Dialog window; turning them into routes needs on-device testing of back behaviour. |
+| [x] 3.2 | Split the ViewModel | `VideoFeedViewModel` 1,759 lines down to 352 (state, jobs, init, core). The Downloader/people/alerts functions and the library/playback functions are extension functions in `VideoFeedDownloaderActions.kt` (about 740 lines) and `VideoFeedLibraryActions.kt` (about 770 lines): same package, same call syntax. The two action files are still large; splitting them into separate controllers is the next step. |
+| [x] 3.3 | Gesture tour | A "Quick tour" dialog appears once, 2.5 s after the first feed, and again from the three-dots hub. |
+| [x] 3.4 | Alerts plain states and history | Done earlier (banner, one fix button, last 5 checks). |
+| [~] 3.5 | Staged, cancellable loading | **Cancel done.** **Real stage names done:** the loader reports "Asking Instagram directly…" and "Opening Instagram's own page…", shown in the full-screen wait and the Downloader. **Not possible:** showing the first stories while the rest load, because the Instagram loaders return everything at once. |
+| [~] 3.6 | Errors and diagnostics | Copy diagnostics done; silent catch blocks 28 down to 5 (each now logs to diagnostics). **Not done:** a typed error hierarchy. |
+| [x] 3.7 | Completion moments | "Saved to your library · View" after profile, story and repost saves; the direct reel save shows its own success card. |
 
-**On-phone checklist for Phase 3**
-1. Alerts screen: the banner under "Watching N people" reads sensibly. Block notifications for OffScroll in phone settings: it turns red with "Allow notifications".
-2. Tap a story ring, then Cancel (or Back) while the full-screen loader shows: it returns to the profile.
-3. Save a story: the "Saved to your library" pill appears with View; View lands on the library.
-4. Settings > Copy diagnostics, paste somewhere: the report reads clearly and has no secrets.
+## Phase 4: polish and engineering
 
-## Phase 4: polish and engineering (audit P3 + section 7)
-
-| # | Task | Acceptance check |
+| # | Task | Result |
 |---|---|---|
-| 4.1 | Unseen-story rings from the stored seen ids. | Ring style differs for seen and unseen. |
-| 4.2 | Haptics on toggles, tab switches, save complete, timer slider. | Haptic calls in each. |
-| 4.3 | Replace polling loops with StateFlow collection. | `while (true)` in UI code is 0. |
-| 4.4 | Baseline Profile and a macrobenchmark module. | Module builds in CI. |
-| 4.5 | Compose UI tests for core flows plus automatic accessibility checks. | UI test count over 10. |
-| 4.6 | Window-size aware layouts (tablet, foldable). | Adaptive grid on wide screens. |
-| 4.7 | Light theme, AMOLED black, dynamic colour. | Theme switch in Settings. |
+| [x] 4.1 | Unseen-story rings | A person's ring glows while they have a live story you haven't watched here, and goes faint after. Stored per person (live ids and viewed ids), also read by screen readers ("has a new story"). Unit tested. |
+| [x] 4.2 | Haptics | Tab switches, alert switches, the timer slider steps, and the moment a save finishes. |
+| [~] 4.3 | Replace polling | The alert status now arrives through a flow (and a refresh when the screen returns), not a 2-second loop. The 5 remaining `while (true)` loops are legitimate tickers (a clock, the video progress bar, the "taking longer" timer). |
+| [~] 4.4 | Baseline profile | A hand-written `baseline-prof.txt` (marks the app's own code as hot) plus the profile installer so sideloaded installs benefit. **Not created:** a Macrobenchmark module; it can only be generated and verified on a device or emulator. |
+| [~] 4.5 | Tests | 121 test cases in 16 files, including 10 Compose component tests on the JVM and the design lint tests. **Not done:** automatic accessibility checks (the Compose test version in use doesn't include them) and full-screen UI flow tests (need a device). |
+| [x] 4.6 | Wide screens | Downloader, Alerts and Settings are width-capped (640 dp) and centred; the profile and library grids adapt their column count to the screen width. |
+| [~] 4.7 | Appearance | **Pure black (AMOLED) switch in Settings.** **Not done:** light theme and dynamic colour, which need the screens' hundreds of colour literals turned into semantic roles first. |
 
-## Status log
+## Issues you reported during this work (all fixed)
 
-- [x] Plan written (this file)
-- [x] Phase 1 (code done and CI-checked; waiting for the on-phone checklist)
-- [x] Phase 2 (2.6 moved to Phase 3; strings second pass pending)
-- [~] Phase 3 (3.4, 3.7 done; 3.5, 3.6 partial; 3.1, 3.2, 3.3 not started)
-- [ ] Phase 4
+| Issue | Cause | Fix |
+|---|---|---|
+| "Where do I watch my playlist videos?" | The feed's filter menu never listed playlists, even though you could add videos to them | Playlists are listed in the filter menu with counts, and a hint shows when there are none |
+| Options vanish a few seconds after tapping Grid | The playback auto-hide timer also ran in the grid view | The timer skips grid mode, and entering the grid brings the controls back |
+| Buttons uneven and cramped | Five 38 dp buttons plus a pill overflowed a 360 dp screen | Four 44 dp buttons, one icon size, one gap; Settings moved into the three-dots hub; the filter pill is 44 dp and shrinks with an ellipsis |
+
+## Scoreboard (before the work, after)
+
+| Measure | Audit | Now |
+|---|---|---|
+| Distinct font sizes | 21 | 10 |
+| Distinct corner radii | 21 | 7 |
+| Toasts in the UI | 15 | 0 |
+| Silent catch blocks | 28 | 5 |
+| Main ViewModel lines | 1,759 | 352 |
+| String resources | 18 | 135 (plus 2 partial translations) |
+| Hard-coded `Text("...")` | 192 | 43 |
+| Test cases | about 60 | 121 |
+
+## Left for a supervised, on-device session
+
+1. Profile and Search as full routes; splitting the two action files into proper controllers.
+2. Light theme and dynamic colour (semantic colour roles first).
+3. Macrobenchmark module and a measured baseline profile.
+4. Full-screen UI flow tests and automatic accessibility checks.
+5. Typed errors, showing partial results while Instagram loads.
+6. Native-speaker review of the Hindi and Telugu strings, and the remaining 43 hard-coded strings.
 
 ## Not verifiable without a device
 

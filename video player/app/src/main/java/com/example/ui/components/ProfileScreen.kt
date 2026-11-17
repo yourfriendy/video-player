@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.example.ui.viewmodel.openHighlight
 import com.example.R
 import androidx.compose.ui.res.stringResource
@@ -215,7 +217,8 @@ fun ProfileOverlay(
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false)
         ) {
             FullScreenFetching(
-                steps = listOf("Fetching info…", "Looking for @$who's stories…", "Reading the story reel…", "Loading the first story…"),
+                steps = state.viewerStage?.let { listOf(it) }
+                    ?: listOf("Fetching info…", "Looking for @$who's stories…"),
                 avatar = { size -> ProfileAvatar(state.details?.picUrl, Modifier.size(size)) },
                 onCancel = controller::cancelViewerLoading
             )
@@ -483,6 +486,7 @@ private val LocalOpenAlertSettings = androidx.compose.runtime.staticCompositionL
 @Composable
 private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var waitingForPermission by remember { mutableStateOf(false) }
 
     fun openNotificationSettings() {
@@ -551,7 +555,10 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             Switch(
                 checked = on,
-                onCheckedChange = { if (it) turnOn() else onSet(false) },
+                onCheckedChange = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    if (it) turnOn() else onSet(false)
+                },
                 colors = SwitchDefaults.colors(checkedTrackColor = IgBlue)
             )
         }

@@ -198,7 +198,7 @@ class StoryAlertRun(private val context: Context) {
                 person.username
             )
         }
-        store.update(person.username) { it.copy(seenIds = it.seenIds + nowIds, baselined = true) }
+        store.update(person.username) { it.copy(seenIds = it.seenIds + nowIds, baselined = true, liveIds = nowIds) }
     }
 
     /**
@@ -244,6 +244,9 @@ class StoryAlertRun(private val context: Context) {
 /** The result line of the latest alert check, plus a short history of earlier ones. */
 object StoryAlertStatus {
     private const val PREFS = "story_alert_status"
+
+    /** Ticks every time a check result is recorded, so screens refresh from a flow instead of polling. */
+    val changes = kotlinx.coroutines.flow.MutableStateFlow(0)
     private const val KEEP = 10
 
     fun record(context: Context, line: String) {
@@ -257,6 +260,7 @@ object StoryAlertStatus {
             .putString("line", line)
             .putString("history", history)
             .apply()
+        changes.value = changes.value + 1
         if (!line.startsWith("checking ") && (line.contains("Couldn't read") || line.contains("not signed in"))) {
             com.example.data.Diagnostics.log("alerts", line)
         }

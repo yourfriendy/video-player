@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.layout.widthIn
 import com.example.ui.theme.Ds
 import com.example.data.download.AlertHealth
@@ -98,12 +100,25 @@ internal fun AlertsScreen(
 ) {
     val context = LocalContext.current
 
-    // Phone-side facts (permission, battery, instant access, last check) change outside the app: re-read them often
+    val haptics = LocalHapticFeedback.current
+
+    // New check results arrive through a flow. Phone-side facts (permission, battery, instant access) can only
+    // change while the user is in Settings, so they are re-read whenever this screen comes back to the front.
     var tick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) { StoryAlertStatus.changes.collect { tick++ } }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) tick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    // The "last check 3 min ago" wording only needs a slow clock
+    val clock by androidx.compose.runtime.produceState(System.currentTimeMillis()) {
         while (true) {
-            kotlinx.coroutines.delay(2_000L)
-            tick++
+            kotlinx.coroutines.delay(30_000L)
+            value = System.currentTimeMillis()
         }
     }
     val notificationsOk = remember(tick) { !StoryAlertWorker.notificationsBlocked(context) }
@@ -111,7 +126,7 @@ internal fun AlertsScreen(
     val instantOn = remember(tick) { InstagramNotificationListener.isEnabled(context) }
     val lastCheck = remember(tick) { StoryAlertStatus.read(context) }
     val history = remember(tick) { StoryAlertStatus.history(context) }
-    val nowMs = remember(tick) { System.currentTimeMillis() }
+    val nowMs = remember(tick, clock) { System.currentTimeMillis() }
     var minutes by remember { mutableIntStateOf(StoryAlertSettings.intervalMinutes(context)) }
     val watching = people.count { it.alerts }
     val live = minutes <= StoryAlertSettings.LIVE_MAX_MINUTES
@@ -301,7 +316,10 @@ internal fun AlertsScreen(
                                 }
                                 Switch(
                                     checked = person.alerts,
-                                    onCheckedChange = { setPerson(person.username, it) },
+                                    onCheckedChange = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        setPerson(person.username, it)
+                                    },
                                     colors = SwitchDefaults.colors(checkedTrackColor = DlPink, checkedThumbColor = Color.White),
                                     modifier = Modifier.testTag("alert_switch_${person.username}")
                                 )
@@ -328,7 +346,11 @@ internal fun AlertsScreen(
                     }
                     Slider(
                         value = minutes.toFloat(),
-                        onValueChange = { minutes = it.roundToInt() },
+                        onValueChange = {
+                            val value = it.roundToInt()
+                            if (value != minutes) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            minutes = value
+                        },
                         onValueChangeFinished = { applyMinutes(context, minutes) },
                         valueRange = StoryAlertSettings.MIN_MINUTES.toFloat()..StoryAlertSettings.MAX_MINUTES.toFloat(),
                         steps = StoryAlertSettings.MAX_MINUTES - StoryAlertSettings.MIN_MINUTES - 1,

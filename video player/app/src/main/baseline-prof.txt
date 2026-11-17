@@ -1,0 +1,6 @@
+# Baseline profile (hand-written start-up rules).
+# Marks OffScroll's own classes and methods as hot so ART compiles them ahead of time, which makes the first
+# launch and the first scrolls smoother, even for apps installed outside the Play Store (androidx.profileinstaller
+# installs this at first run). Regenerate with a Macrobenchmark on a real device for a tighter profile.
+HSPLcom/example/**;->**(**)**
+Lcom/example/**;

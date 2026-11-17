@@ -1,5 +1,7 @@
 package com.example.ui.theme
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.app.ActivityManager
 import android.content.Context
 import android.provider.Settings
@@ -94,4 +96,28 @@ fun motionEnabled(context: Context): Boolean {
 fun rememberMotionEnabled(): Boolean {
     val context = LocalContext.current
     return remember { motionEnabled(context) }
+}
+
+
+/**
+ * The person's appearance choices. [amoled] swaps the app's deep navy base for pure black, which saves battery on
+ * OLED screens. It is snapshot state, so every screen that draws the base colour updates the moment it changes.
+ * (A light theme is a separate, larger job: the screens still hold hundreds of colours that would have to become
+ * semantic roles first. See docs/UX-FIX-PLAN.md.)
+ */
+object Appearance {
+    private const val PREFS = "offscroll_prefs"
+    private const val KEY_AMOLED = "appearance_amoled"
+
+    var amoled by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
+    fun load(context: Context) {
+        amoled = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AMOLED, false)
+    }
+
+    fun setAmoled(context: Context, on: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_AMOLED, on).apply()
+        amoled = on
+    }
 }

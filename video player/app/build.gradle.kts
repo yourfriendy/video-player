@@ -77,6 +77,8 @@ secrets {
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  // Installs src/main/baseline-prof.txt on first launch (needed for sideloaded installs)
+  implementation("androidx.profileinstaller:profileinstaller:1.4.1")
   implementation(platform(libs.androidx.compose.bom))
   // implementation(platform(libs.firebase.bom))  // Firebase is no longer used
 

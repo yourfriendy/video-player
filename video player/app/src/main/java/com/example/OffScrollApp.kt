@@ -14,6 +14,7 @@ import coil.memory.MemoryCache
 class OffScrollApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        com.example.ui.theme.Appearance.load(this)
         com.example.data.download.StoryAlertScheduler.sync(this)
     }
 
