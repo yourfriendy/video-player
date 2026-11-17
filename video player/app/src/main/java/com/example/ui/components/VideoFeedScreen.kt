@@ -437,7 +437,6 @@ fun VideoFeedScreen(
                 onToggleGridView = { viewModel.toggleGridView() },
                 onOpenSearch = { viewModel.openSearch() },
                 onOpenSettings = onOpenSettings,
-                onShowTour = { showTour = true },
                 onOpenDownloader = { viewModel.openDownloader() },
                 onRefresh = { viewModel.loadVideos() },
                 onOpenPopup = onEnterPiP,
@@ -538,6 +537,7 @@ fun VideoFeedScreen(
                 onAddToPlaylist = { v -> viewModel.openAddToPlaylist(v) },
                 onClearHistory = { viewModel.clearWatchHistory() },
                 onOpenSettings = onOpenSettings,
+                onShowTour = { showTour = true },
                 onDismiss = { isAllFeaturesOpen = false }
             )
         }
