@@ -542,7 +542,6 @@ fun VideoFeedScreen(
                 onToggleGridView = { viewModel.toggleGridView() },
                 onSelectSort = { sort -> viewModel.selectSort(sort) },
                 onSelectFilter = { filter -> viewModel.selectFilter(filter) },
-                onFilterMenuToggle = { filterMenuOpen = it },
                 onEnterPiP = onEnterPiP,
                 onRefreshLibrary = { viewModel.loadVideos() },
                 onOpenInfo = { v -> viewModel.openMetadata(v) },
