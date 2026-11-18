@@ -169,6 +169,9 @@ fun VideoFeedScreen(
         onDispose { playerPool.release() }
     }
 
+    // The filter / folder menu lives inside the top bar and reports here when it is open
+    var filterMenuOpen by remember { mutableStateOf(false) }
+
     val hasOverlay = isAllFeaturesOpen ||
         uiState.playlistForVideo != null ||
         uiState.optionsForVideo != null ||
@@ -178,10 +181,17 @@ fun VideoFeedScreen(
     // Auto-hide only during uninterrupted playback; scrubbing, sheets and search reset/suspend it
     LaunchedEffect(
         uiState.isPlaying, uiState.areControlsVisible, pagerState.currentPage,
-        uiState.isSearchOpen, interactionTick, hasOverlay, showGrid
+        uiState.isSearchOpen, interactionTick, hasOverlay, showGrid, filterMenuOpen
     ) {
-        // The grid is a browsing screen, not playback: its controls must stay put
-        if (uiState.isPlaying && uiState.areControlsVisible && !uiState.isSearchOpen && !hasOverlay && !showGrid) {
+        if (shouldAutoHideControls(
+                isPlaying = uiState.isPlaying,
+                controlsVisible = uiState.areControlsVisible,
+                searchOpen = uiState.isSearchOpen,
+                hasOverlay = hasOverlay,
+                showGrid = showGrid,
+                filterMenuOpen = filterMenuOpen
+            )
+        ) {
             delay(3500L)
             viewModel.setControlsVisible(false)
         }
@@ -432,6 +442,7 @@ fun VideoFeedScreen(
                 totalStorageFormatted = uiState.totalStorageFormatted,
                 // The ViewModel issues the scroll requests, so no manual scrollToPage(0) here
                 onSelectFilter = { filter -> viewModel.selectFilter(filter) },
+                onFilterMenuToggle = { filterMenuOpen = it },
                 onSelectSort = { sort -> viewModel.selectSort(sort) },
                 onToggleShuffle = { viewModel.toggleShuffleMode() },
                 onToggleGridView = { viewModel.toggleGridView() },
@@ -531,6 +542,7 @@ fun VideoFeedScreen(
                 onToggleGridView = { viewModel.toggleGridView() },
                 onSelectSort = { sort -> viewModel.selectSort(sort) },
                 onSelectFilter = { filter -> viewModel.selectFilter(filter) },
+                onFilterMenuToggle = { filterMenuOpen = it },
                 onEnterPiP = onEnterPiP,
                 onRefreshLibrary = { viewModel.loadVideos() },
                 onOpenInfo = { v -> viewModel.openMetadata(v) },
@@ -625,3 +637,18 @@ private fun SearchActiveChip(
         }
     }
 }
+
+
+/**
+ * The playback controls (top bar, filter menu, buttons) fade away after a few seconds of uninterrupted playback.
+ * They must NOT fade while the person is choosing something: an open filter or folder menu, a sheet, the search, or
+ * the grid (which is for browsing, not watching).
+ */
+internal fun shouldAutoHideControls(
+    isPlaying: Boolean,
+    controlsVisible: Boolean,
+    searchOpen: Boolean,
+    hasOverlay: Boolean,
+    showGrid: Boolean,
+    filterMenuOpen: Boolean
+): Boolean = isPlaying && controlsVisible && !searchOpen && !hasOverlay && !showGrid && !filterMenuOpen

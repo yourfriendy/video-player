@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.PlaylistPlay
@@ -97,6 +99,8 @@ fun FeedTopBar(
     isGridView: Boolean,
     isSearchActive: Boolean,
     folders: List<String>,
+    /** Tells the screen when the filter / folder menu opens or closes, so the controls don't hide under it. */
+    onFilterMenuToggle: (Boolean) -> Unit = {},
     /** Your playlists, listed in the filter menu so you can actually watch them. */
     playlists: List<com.example.data.local.entity.PlaylistEntity> = emptyList(),
     playlistCounts: Map<Long, Int> = emptyMap(),
@@ -116,6 +120,8 @@ fun FeedTopBar(
     modifier: Modifier = Modifier
 ) {
     var isFilterMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(isFilterMenuExpanded) { onFilterMenuToggle(isFilterMenuExpanded) }
+    DisposableEffect(Unit) { onDispose { onFilterMenuToggle(false) } }
     var isSortMenuExpanded by remember { mutableStateOf(false) }
 
     // Smooth colour changes for the toggle buttons instead of abrupt swaps
