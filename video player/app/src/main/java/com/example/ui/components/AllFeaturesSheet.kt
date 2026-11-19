@@ -1,5 +1,12 @@
 package com.example.ui.components
 
+import com.example.ui.theme.bouncyClickable
+import com.example.ui.theme.Ds
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.Settings
 import com.example.R
@@ -432,27 +439,31 @@ fun AllFeaturesSheet(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     FeatureActionButton(
                         icon = Icons.Default.PlaylistAdd,
-                        title = "Add to Playlist",
+                        title = "Add to playlist",
+                        subtitle = "Keep it with others to watch later",
+                        tint = Ds.Palette.PinkSoft,
                         onClick = {
                             onDismiss()
                             onAddToPlaylist(currentVideo)
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
 
                     FeatureActionButton(
                         icon = Icons.Default.Info,
-                        title = "Details & Info",
+                        title = "Details and info",
+                        subtitle = "Size, length and location",
+                        tint = Ds.Palette.VioletSoft,
                         onClick = {
                             onDismiss()
                             onOpenInfo(currentVideo)
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                 }
 
@@ -469,50 +480,62 @@ fun AllFeaturesSheet(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FeatureActionButton(
-                    icon = Icons.Default.Refresh,
-                    title = "Rescan Library",
-                    onClick = {
-                        onRefreshLibrary()
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                FeatureActionButton(
-                    icon = Icons.Default.Delete,
-                    title = "Clear History",
-                    tint = Color(0xFFFB7185),
-                    onClick = {
-                        onClearHistory()
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                FeatureActionButton(
-                    icon = Icons.Default.Settings,
-                    title = "Settings",
-                    onClick = {
-                        onOpenSettings()
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                FeatureActionButton(
-                    icon = Icons.Default.Swipe,
-                    title = "Quick tour",
-                    onClick = {
-                        onShowTour()
-                        onDismiss()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+            // 2 x 2: two cards per row, equal heights, room for a name and a one-line explanation each
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FeatureActionButton(
+                        icon = Icons.Default.Refresh,
+                        title = "Rescan library",
+                        subtitle = "Find new videos on this phone",
+                        tint = Color(0xFFC084FC),
+                        onClick = {
+                            onRefreshLibrary()
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    FeatureActionButton(
+                        icon = Icons.Default.Delete,
+                        title = "Clear history",
+                        subtitle = "Forget what you watched",
+                        tint = Color(0xFFFB7185),
+                        onClick = {
+                            onClearHistory()
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FeatureActionButton(
+                        icon = Icons.Default.Settings,
+                        title = "Settings",
+                        subtitle = "Look, alerts and more",
+                        tint = Ds.Palette.Cyan,
+                        onClick = {
+                            onOpenSettings()
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    FeatureActionButton(
+                        icon = Icons.Default.Swipe,
+                        title = "Quick tour",
+                        subtitle = "Learn the gestures",
+                        tint = Ds.Palette.Orange,
+                        onClick = {
+                            onShowTour()
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(30.dp))
@@ -566,28 +589,44 @@ private fun FeatureToggleButton(
 private fun FeatureActionButton(
     icon: ImageVector,
     title: String,
-    tint: Color = Color(0xFFC084FC),
+    subtitle: String,
+    tint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = GlassBackground,
-        modifier = modifier.border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
+    val shape = RoundedCornerShape(Ds.Radius.Xl)
+    Column(
+        modifier = modifier
+            .heightIn(min = 108.dp)
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.18f), tint.copy(alpha = 0.04f))))
+            .border(1.dp, tint.copy(alpha = 0.38f), shape)
+            .bouncyClickable(pressedScale = 0.96f, onClick = onClick)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(tint.copy(alpha = 0.20f)),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = title,
                 color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                color = Color(0xFF94A3B8),
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                lineHeight = 16.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
