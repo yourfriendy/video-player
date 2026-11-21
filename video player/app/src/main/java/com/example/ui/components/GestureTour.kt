@@ -38,7 +38,7 @@ fun GestureTourDialog(onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 GestureHelpCard(Icons.Default.Swipe, "Swipe up or down", "Go to the next or previous video")
-                GestureHelpCard(Icons.Default.TouchApp, "Tap, and double tap", "Tap to show the controls, again to pause; double tap anywhere to like")
+                GestureHelpCard(Icons.Default.TouchApp, "Tap, and double tap", "Tap to show the controls, tap again for full screen; double tap anywhere to pause or play")
                 GestureHelpCard(Icons.Default.Gesture, "Drag left or right", "Seek forward or back, with a live time readout")
                 GestureHelpCard(Icons.Default.Swipe, "Left edge", "Slide up or down along the left edge to change brightness")
                 GestureHelpCard(Icons.Default.Swipe, "Right edge", "Slide up or down along the right edge to change volume")

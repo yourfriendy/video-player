@@ -371,7 +371,7 @@ fun VideoFeedScreen(
                                 currentTotalMs = tot
                             }
                         },
-                        // First tap reveals controls, next tap plays/pauses
+                        // Tap shows the controls, the next tap hides them (full screen). Pause/play is the double tap.
                         onSingleTap = { viewModel.onVideoTapped() },
                         // Double tap pauses / resumes. Likes come only from the like button.
                         onDoubleTap = { viewModel.togglePlayPause() }
