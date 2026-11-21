@@ -1,0 +1,8 @@
+#!/bin/sh
+# AI BRAIN pre-commit: fresh index, no secrets, STRUCTURE.md honest. (Audit warnings are shown but never block.)
+cd "$(git rev-parse --show-toplevel)" || exit 0
+python3 brain/brain.py index >/dev/null 2>&1 && git add symbols.idx AI_GUIDE.md 2>/dev/null
+python3 brain/brain.py secrets --staged || { echo "commit blocked: possible secret (see above)"; exit 1; }
+python3 brain/brain.py structure || { echo "commit blocked: update STRUCTURE.md (python3 brain/brain.py structure --draft)"; exit 1; }
+python3 brain/brain.py audit --quiet || echo "(audit found broken references; run: python3 brain/brain.py audit)"
+exit 0
