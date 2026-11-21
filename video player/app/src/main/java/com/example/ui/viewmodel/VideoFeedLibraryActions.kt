@@ -676,7 +676,7 @@ fun VideoFeedViewModel.confirmDelete(video: LocalVideo) {
                 _uiState.update {
                     it.copy(
                         videoToDelete = null,
-                        toastMessage = "Video removed from feed"
+                        toastMessage = "Video deleted"
                     )
                 }
             }
@@ -701,18 +701,35 @@ fun VideoFeedViewModel.confirmDelete(video: LocalVideo) {
     }
 }
 
-fun VideoFeedViewModel.onDeletePermissionGranted(videoUri: String?) {
-    // The system confirmed the delete: only now is it safe to drop the video's favourites/playlists/etc.
-    if (videoUri != null) {
-        viewModelScope.launch { repository.cleanupVideoRecords(videoUri) }
+/**
+ * The system's delete screen has closed. Whatever button was pressed, check the file itself: only if it is really
+ * gone do we drop it from the feed and clear its favourites, playlists and history. Otherwise the video stays and
+ * the message says so, instead of pretending it was deleted.
+ */
+fun VideoFeedViewModel.onDeletePermissionGranted(videoUri: String?, userAllowed: Boolean = true) {
+    if (videoUri == null) {
+        _uiState.update { it.copy(pendingDeleteIntentSender = null, pendingDeleteVideoUri = null) }
+        return
     }
-    _uiState.update { state ->
-        val updatedAll = state.allVideos.filterNot { it.uri.toString() == videoUri }
-        removeFromLists(state, updatedAll).copy(
-            pendingDeleteIntentSender = null,
-            pendingDeleteVideoUri = null,
-            toastMessage = "Video deleted"
-        )
+    viewModelScope.launch {
+        val gone = repository.finishDelete(android.net.Uri.parse(videoUri))
+        _uiState.update { state ->
+            if (gone) {
+                removeFromLists(state, state.allVideos.filterNot { it.uri.toString() == videoUri }).copy(
+                    videoToDelete = null,
+                    pendingDeleteIntentSender = null,
+                    pendingDeleteVideoUri = null,
+                    toastMessage = "Video deleted"
+                )
+            } else {
+                state.copy(
+                    videoToDelete = null,
+                    pendingDeleteIntentSender = null,
+                    pendingDeleteVideoUri = null,
+                    toastMessage = if (userAllowed) "Could not delete this video" else "Deletion cancelled"
+                )
+            }
+        }
     }
 }
 

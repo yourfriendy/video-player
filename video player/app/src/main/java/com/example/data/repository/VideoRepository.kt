@@ -394,6 +394,31 @@ class VideoRepository(
         }
     }
 
+    /**
+     * Called when the system's delete screen closes. On Android 11+ the system deletes the file itself; on Android 10
+     * it only grants us permission, so we delete again here. Either way we then check the file is really gone, and only
+     * then clean up favourites, playlists and history. Returns true only if the file no longer exists.
+     */
+    suspend fun finishDelete(uri: android.net.Uri): Boolean = withContext(Dispatchers.IO) {
+        if (isPresent(uri) && Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
+            try {
+                contentResolver.delete(uri, null, null)
+            } catch (e: Exception) {
+                // Still there: reported below
+            }
+        }
+        val gone = !isPresent(uri)
+        if (gone) cleanupVideoRecords(uri.toString())
+        gone
+    }
+
+    /** True while the video is still in the media library. If we cannot tell, assume it is (never claim a delete). */
+    private fun isPresent(uri: android.net.Uri): Boolean = try {
+        contentResolver.query(uri, arrayOf(MediaStore.Video.Media._ID), null, null, null)?.use { it.moveToFirst() } ?: false
+    } catch (e: Exception) {
+        true
+    }
+
     /** Removes favourites, history, playlists, etc. for a video. Call only once the file is really deleted. */
     suspend fun cleanupVideoRecords(videoUri: String) = withContext(Dispatchers.IO) {
         favoriteDao.removeFavorite(videoUri)
