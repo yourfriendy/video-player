@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -746,7 +747,8 @@ private fun DetailsPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.8f)
+            // As tall as its content, up to 85% of the screen, so a short list no longer leaves a big empty panel
+            .heightIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.85f).dp)
             .clip(shape)
             .background(VPanel)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { /* keep taps inside the panel */ }
@@ -767,7 +769,7 @@ private fun DetailsPanel(
         }
         Column(
             modifier = Modifier
-                .weight(1f)
+                .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
