@@ -15,6 +15,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -52,6 +54,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.LocalVideo
+import com.example.ui.model.smartTitle
+import com.example.ui.theme.Ds
 import com.example.ui.theme.GlassBackground
 import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.GlassBorderSubtle
@@ -72,6 +76,7 @@ fun VideoInfoOverlay(
     var scrubRatio by remember { mutableFloatStateOf(0f) }
     var barWidthPx by remember { mutableFloatStateOf(1f) }
     val haptics = LocalHapticFeedback.current
+    val smart = remember(video.displayName) { smartTitle(video.displayName) }
 
     val safeTotal = if (totalDurationMs > 0) totalDurationMs else video.durationMs.coerceAtLeast(1L)
     val currentRatio = if (isScrubbing) {
@@ -132,6 +137,7 @@ fun VideoInfoOverlay(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            smart.kind?.let { KindChip(it) }
             if (video.width >= 1080 || video.height >= 1080) {
                 Icon(
                     imageVector = Icons.Default.Hd,
@@ -148,28 +154,44 @@ fun VideoInfoOverlay(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // The title is the main thing on screen: big, tight, and readable over any frame
-        Text(
-            text = video.displayName.substringBeforeLast('.', video.displayName),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 18.sp,
-                lineHeight = 23.sp,
-                letterSpacing = (-0.3).sp,
-                shadow = Shadow(color = Color(0x99000000), blurRadius = 8f)
-            ),
-            color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        // The title is the main thing on screen: big and tight, with an accent bar, readable over any frame
+        Row(modifier = Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF5EEAD4), Color(0xFF8B5CF6))))
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = smart.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = Ds.Type.TitleLarge,
+                    lineHeight = 26.sp,
+                    letterSpacing = (-0.4).sp,
+                    shadow = Shadow(color = Color(0x99000000), blurRadius = 8f)
+                ),
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        // Facts as small tags (they are separate facts, not one sentence)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            InfoTag(video.formattedSize)
-            InfoTag(video.formattedDuration)
-            if (video.formattedDateShort.isNotBlank()) InfoTag(video.formattedDateShort)
+        // Facts as small tinted chips. The date chip shrinks with an ellipsis rather than pushing past the action rail.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            InfoChip("💾", video.formattedSize, Color(0xFF5EEAD4))
+            InfoChip("⏱", video.formattedDuration, Color(0xFFA78BFA))
+            if (video.formattedDateShort.isNotBlank()) {
+                InfoChip("📅", video.formattedDateShort, Color(0xFFFBBF24), Modifier.weight(1f, fill = false))
+            }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -287,16 +309,41 @@ private val TimeStyle = TextStyle(
 )
 
 @Composable
-private fun InfoTag(text: String) {
+private fun InfoChip(icon: String, text: String, tint: Color, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .background(tint.copy(alpha = 0.14f), CircleShape)
+            .border(1.dp, tint.copy(alpha = 0.30f), CircleShape)
+            .padding(horizontal = 9.dp, vertical = 4.dp)
+    ) {
+        Text(icon, fontSize = Ds.Type.Caption)
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = text,
+            color = Color(0xE6FFFFFF),
+            fontSize = Ds.Type.Caption,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+    }
+}
+
+/** Where the file came from (Camera, Screen recording, WhatsApp), shown beside the folder chip. */
+@Composable
+private fun KindChip(label: String) {
     Text(
-        text = text,
-        color = Color(0xCCFFFFFF),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
+        text = label,
+        color = Color(0xFFDDD6FE),
+        fontSize = Ds.Type.Caption,
+        fontWeight = FontWeight.SemiBold,
         maxLines = 1,
         modifier = Modifier
-            .background(Color(0x1FFFFFFF), RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .background(Color(0x338B5CF6), CircleShape)
+            .border(1.dp, Color(0x558B5CF6), CircleShape)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     )
 }
 

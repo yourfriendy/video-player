@@ -256,7 +256,7 @@ private fun VideoGridCard(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = video.displayName,
+                text = remember(video.displayName) { com.example.ui.model.smartTitle(video.displayName).title },
                 color = Color(0xFFE2E8F0),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
