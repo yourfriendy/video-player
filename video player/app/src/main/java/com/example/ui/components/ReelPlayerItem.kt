@@ -120,9 +120,6 @@ fun ReelPlayerItem(
     val coroutineScope = rememberCoroutineScope()
     var isBuffering by remember { mutableStateOf(false) }
     var hasPlaybackError by remember { mutableStateOf(false) }
-    var showPlayPauseBadge by remember { mutableStateOf(false) }
-    var lastObservedTrigger by remember { mutableLongStateOf(0L) }
-    var doubleTapHeartOffset by remember { mutableStateOf<Offset?>(null) }
     var playerDuration by remember { mutableLongStateOf(video.durationMs) }
     var isAppInForeground by remember { mutableStateOf(true) }
     var isTemporarilyFastForwarding by remember { mutableStateOf(false) }
@@ -297,15 +294,6 @@ fun ReelPlayerItem(
     }
 
     // Play/Pause icon badge: ONLY show on explicit user action trigger, NEVER on scroll!
-    LaunchedEffect(userActionTrigger) {
-        if (userActionTrigger > 0L && userActionTrigger != lastObservedTrigger) {
-            lastObservedTrigger = userActionTrigger
-            showPlayPauseBadge = true
-            delay(650L)
-            showPlayPauseBadge = false
-        }
-    }
-
     val resizeModeEnum = when (displayMode) {
         VideoDisplayMode.CROP -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         VideoDisplayMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -333,7 +321,7 @@ fun ReelPlayerItem(
                         latestOnSingleTap()
                     },
                     onDoubleTap = { offset ->
-                        doubleTapHeartOffset = offset
+                        // Double tap pauses or resumes. Liking is only done with the like button.
                         latestOnDoubleTap(offset)
                     }
                 )
@@ -462,51 +450,11 @@ fun ReelPlayerItem(
             }
         }
 
-        // Center Animated Play / Pause transient badge with Frosted Glass look
-        AnimatedVisibility(
-            visible = showPlayPauseBadge,
-            enter = fadeIn(tween(120)) + scaleIn(
-                androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 420f),
-                initialScale = 0.45f
-            ),
-            exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 1.25f),
-            modifier = Modifier.align(Alignment.Center)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(86.dp)
-                    .background(
-                        ComposeColor(0x55000000),
-                        shape = androidx.compose.foundation.shape.CircleShape
-                    )
-                    .border(
-                        1.5.dp,
-                        Brush.linearGradient(
-                            listOf(ComposeColor(0x99C4B5FD), ComposeColor(0x33F43F5E))
-                        ),
-                        shape = androidx.compose.foundation.shape.CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Default.PlayArrow else Icons.Default.Pause,
-                    contentDescription = if (isPlaying) "Playing" else "Paused",
-                    tint = ComposeColor.White,
-                    modifier = Modifier.size(46.dp)
-                )
-            }
-        }
+        // Pause / resume feedback: veil, glass button, ripple
+        PlayPauseFeedback(isPlaying = isPlaying, isCurrentPage = isCurrentPage, userActionTrigger = userActionTrigger)
 
         // Brightness / volume level indicator
         SideGestureHud(state = sideGestureState)
-
-        // Double tap floating heart animation
-        doubleTapHeartOffset?.let { offset ->
-            FloatingDoubleTapHeart(
-                offset = offset,
-                onDismiss = { doubleTapHeartOffset = null }
-            )
-        }
 
         // VLC-Style Horizontal Drag Seek Overlay
         AnimatedVisibility(
@@ -520,70 +468,6 @@ fun ReelPlayerItem(
                 deltaMs = dragSeekDeltaMs,
                 targetPosMs = dragTargetPosMs,
                 totalDurationMs = totalMs
-            )
-        }
-    }
-}
-
-@Composable
-fun FloatingDoubleTapHeart(
-    offset: Offset,
-    onDismiss: () -> Unit
-) {
-    val scale = remember { Animatable(0.25f) }
-    val alpha = remember { Animatable(1f) }
-    val yOffset = remember { Animatable(0f) }
-    val rotation = remember { Animatable(-10f) }
-
-    LaunchedEffect(Unit) {
-        launch {
-            scale.animateTo(1.35f, animationSpec = tween(200, easing = FastOutSlowInEasing))
-            scale.animateTo(1.05f, animationSpec = tween(120))
-        }
-        launch {
-            rotation.animateTo(6f, animationSpec = tween(220))
-            rotation.animateTo(0f, animationSpec = tween(120))
-        }
-        delay(220L)
-        launch {
-            yOffset.animateTo(-80f, animationSpec = tween(340, easing = LinearEasing))
-        }
-        alpha.animateTo(0f, animationSpec = tween(340))
-        onDismiss()
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Box(
-            modifier = Modifier
-                .graphicsLayer {
-                    translationX = offset.x - 120f
-                    translationY = offset.y - 120f + yOffset.value
-                    scaleX = scale.value
-                    scaleY = scale.value
-                    rotationZ = rotation.value
-                    this.alpha = alpha.value
-                }
-        ) {
-            // Radiant glow aura
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = null,
-                tint = ComposeColor(0x77FB7185),
-                modifier = Modifier
-                    .size(96.dp)
-                    .graphicsLayer {
-                        scaleX = 1.2f
-                        scaleY = 1.2f
-                    }
-            )
-            // Vibrant neon heart
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = "Favorited",
-                tint = ComposeColor(0xFFFB7185),
-                modifier = Modifier.size(96.dp)
             )
         }
     }

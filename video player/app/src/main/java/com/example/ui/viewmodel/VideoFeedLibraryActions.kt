@@ -620,16 +620,6 @@ fun VideoFeedViewModel.toggleFavorite(video: LocalVideo) {
     }
 }
 
-fun VideoFeedViewModel.likeVideo(video: LocalVideo) {
-    val alreadyFavorite = _uiState.value.allVideos.firstOrNull { it.uri == video.uri }?.isFavorite
-        ?: video.isFavorite
-    if (!alreadyFavorite) {
-        toggleFavorite(video)
-    } else {
-        _uiState.update { it.copy(toastMessage = "Already in your Favorites ❤️") }
-    }
-}
-
 fun VideoFeedViewModel.toggleWatchLater(video: LocalVideo) {
     val uri = video.uri.toString()
     val isSaved = _uiState.value.watchLaterUris.contains(uri)

@@ -25,7 +25,7 @@ import com.example.ui.viewmodel.onVideoTapped
 import com.example.ui.viewmodel.onPageChanged
 import com.example.ui.viewmodel.onDeletePermissionGranted
 import com.example.ui.viewmodel.loadDemoClips
-import com.example.ui.viewmodel.likeVideo
+import com.example.ui.viewmodel.togglePlayPause
 import com.example.ui.viewmodel.createPlaylistAndAdd
 import com.example.ui.viewmodel.consumeScrollRequest
 import com.example.ui.viewmodel.confirmDelete
@@ -373,7 +373,8 @@ fun VideoFeedScreen(
                         },
                         // First tap reveals controls, next tap plays/pauses
                         onSingleTap = { viewModel.onVideoTapped() },
-                        onDoubleTap = { viewModel.likeVideo(video) }
+                        // Double tap pauses / resumes. Likes come only from the like button.
+                        onDoubleTap = { viewModel.togglePlayPause() }
                     )
 
                     // Right Side Action Rail (Clean, minimal, thumb-friendly)
