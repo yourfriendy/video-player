@@ -177,7 +177,7 @@ fun SettingsScreen(
                     GestureHelpCard(
                         icon = Icons.Default.TouchApp,
                         title = "Tap & Double Tap",
-                        description = "Tap once to show the controls, tap again to play or pause; double tap anywhere to like a video"
+                        description = "Tap once to show the controls, tap again to hide them for full screen; double tap anywhere to pause or play"
                     )
                     GestureHelpCard(
                         icon = Icons.Default.Swipe,

@@ -444,13 +444,12 @@ fun VideoFeedViewModel.resumePlayback() {
     }
 }
 
-/** Tap on the video: first tap reveals the controls, tap with controls visible toggles play/pause. */
+/**
+ * Tap on the video: shows the controls, and the next tap hides them for a clean full-screen view. It never pauses;
+ * pause and play are a double tap (see ReelPlayerItem).
+ */
 fun VideoFeedViewModel.onVideoTapped() {
-    if (!_uiState.value.areControlsVisible) {
-        setControlsVisible(true)
-    } else {
-        togglePlayPause()
-    }
+    toggleControlsVisibility()
 }
 
 fun VideoFeedViewModel.toggleControlsVisibility() {
