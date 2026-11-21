@@ -159,3 +159,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `video player/metadata.json` — metadata (describe me)
 - `video player/public/assets/aistudio/.gitignore` — .gitignore (describe me)
 - `video player/settings.gradle.kts` — settings.gradle (describe me)
+
+### Added 2026-11-21 (replace every "describe me")
+- `.github/workflows/brain-check.yml` — Runs on every push and pull request: keeps the AI brain honest (no secrets committed,
