@@ -162,3 +162,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 
 ### Added 2026-11-21 (replace every "describe me")
 - `.github/workflows/brain-check.yml` — Runs on every push and pull request: keeps the AI brain honest (no secrets committed,
+
+### Added 2026-11-21 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ui/components/FolderPickerSheet.kt` — FolderPickerSheet The folder/filter picker bottom sheet: quick views, playlists and folders as cover cards with search; replaces the old drop-down.

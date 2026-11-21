@@ -99,6 +99,8 @@ fun FeedTopBar(
     isGridView: Boolean,
     isSearchActive: Boolean,
     folders: List<String>,
+    /** The same folders with video counts and a cover video, for the picker's cover cards. */
+    folderInfos: List<FolderInfo> = emptyList(),
     /** Tells the screen when the filter / folder menu opens or closes, so the controls don't hide under it. */
     onFilterMenuToggle: (Boolean) -> Unit = {},
     /** Your playlists, listed in the filter menu so you can actually watch them. */
@@ -222,120 +224,16 @@ fun FeedTopBar(
                         )
                     }
 
-                    // Filter Dropdown Menu
-                    DropdownMenu(
-                        expanded = isFilterMenuExpanded,
-                        onDismissRequest = { isFilterMenuExpanded = false },
-                        modifier = Modifier
-                            .background(Color(0xF00F172A))
-                            .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
-                            .testTag("filter_dropdown_menu")
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.all_videos), color = Color.White, fontWeight = FontWeight.Medium) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFFA78BFA))
-                            },
-                            onClick = {
-                                onSelectFilter(FeedFilter.All)
-                                isFilterMenuExpanded = false
-                            }
+                    // Folder / filter picker: a bottom sheet with cover cards instead of a plain list
+                    if (isFilterMenuExpanded) {
+                        FolderPickerSheet(
+                            currentFilter = currentFilter,
+                            folders = folderInfos.ifEmpty { folders.map { FolderInfo(it, 0, null) } },
+                            playlists = playlists,
+                            playlistCounts = playlistCounts,
+                            onSelectFilter = onSelectFilter,
+                            onDismiss = { isFilterMenuExpanded = false }
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.favorites), color = Color.White, fontWeight = FontWeight.Medium) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Favorite, contentDescription = null, tint = FrostedRose)
-                            },
-                            onClick = {
-                                onSelectFilter(FeedFilter.Favorites)
-                                isFilterMenuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.recently_added), color = Color.White, fontWeight = FontWeight.Medium) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFF38BDF8))
-                            },
-                            onClick = {
-                                onSelectFilter(FeedFilter.RecentlyAdded)
-                                isFilterMenuExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.recently_played), color = Color.White, fontWeight = FontWeight.Medium) },
-                            leadingIcon = {
-                                Icon(Icons.Default.History, contentDescription = null, tint = Color(0xFF34D399))
-                            },
-                            onClick = {
-                                onSelectFilter(FeedFilter.RecentlyPlayed)
-                                isFilterMenuExpanded = false
-                            }
-                        )
-
-                        HorizontalDivider(
-                            color = GlassBorderSubtle,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.playlists_section),
-                            color = Color(0xFF94A3B8),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
-                        )
-                        if (playlists.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.no_playlists_hint),
-                                color = Color(0xFF94A3B8),
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                modifier = Modifier.widthIn(max = 240.dp).padding(horizontal = 14.dp, vertical = 8.dp)
-                            )
-                        } else {
-                            playlists.forEach { playlist ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = playlist.name + (playlistCounts[playlist.id]?.let { "  ($it)" } ?: ""),
-                                            color = Color(0xFFE2E8F0),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
-                                    leadingIcon = { Text(playlist.emojiOrIcon ?: "📁", fontSize = 18.sp) },
-                                    onClick = {
-                                        onSelectFilter(FeedFilter.Playlist(playlist.id, playlist.name))
-                                        isFilterMenuExpanded = false
-                                    }
-                                )
-                            }
-                        }
-
-                        if (folders.isNotEmpty()) {
-                            HorizontalDivider(
-                                color = GlassBorderSubtle,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                            Text(
-                                text = stringResource(R.string.folders),
-                                color = Color(0xFF94A3B8),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
-                            )
-                            folders.forEach { folderName ->
-                                DropdownMenuItem(
-                                    text = { Text(folderName, color = Color(0xFFE2E8F0)) },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Folder, contentDescription = null, tint = Color(0xFFFBBF24))
-                                    },
-                                    onClick = {
-                                        onSelectFilter(FeedFilter.ByFolder(folderName))
-                                        isFilterMenuExpanded = false
-                                    }
-                                )
-                            }
-                        }
                     }
                 }
 
