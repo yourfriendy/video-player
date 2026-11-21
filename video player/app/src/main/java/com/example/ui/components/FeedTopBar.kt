@@ -128,12 +128,12 @@ fun FeedTopBar(
 
     // Smooth colour changes for the toggle buttons instead of abrupt swaps
     val searchBg by animateColorAsState(
-        targetValue = if (isSearchActive) Color(0xCC7C3AED) else GlassBackground,
+        targetValue = if (isSearchActive) Color(0xCC7C3AED) else Color.Transparent,
         animationSpec = tween(280),
         label = "search_bg"
     )
     val gridBg by animateColorAsState(
-        targetValue = if (isGridView) Color(0xCC38BDF8) else GlassBackground,
+        targetValue = if (isGridView) Color(0xCC38BDF8) else Color.Transparent,
         animationSpec = tween(280),
         label = "grid_bg"
     )
@@ -237,91 +237,38 @@ fun FeedTopBar(
                     }
                 }
 
-                // Right Action Icons Row (Organized: Search, Grid Switcher, and 3-Dots Master Hub)
+                // Right: one glass capsule holds the four actions, so they read as a group (not four loose circles)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier
+                        .height(48.dp)
+                        .shadow(6.dp, CircleShape)
+                        .background(GlassBackground, CircleShape)
+                        .border(1.dp, GlassBorder, CircleShape)
+                        .padding(horizontal = 2.dp)
                 ) {
-                    // 1. Search Button
-                    IconButton(
-                        onClick = onOpenSearch,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .shadow(4.dp, CircleShape)
-                            .background(searchBg, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
-                            .testTag("feed_search_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search videos",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // 2. Grid View / Reels Feed Switcher
-                    IconButton(
-                        onClick = onToggleGridView,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .shadow(4.dp, CircleShape)
-                            .background(gridBg, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
-                            .testTag("feed_grid_toggle_button")
-                    ) {
-                        Icon(
-                            imageVector = if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
-                            contentDescription = if (isGridView) "Reels View" else "Grid View",
-                            tint = gridTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Save from Instagram
-                    IconButton(
-                        onClick = onOpenDownloader,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .shadow(4.dp, CircleShape)
-                            .background(GlassBackground, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
-                            .testTag("feed_download_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Save from Instagram",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // 3. 3-Dots Master Features Hub (Holds all features & controls in one place)
-                    IconButton(
-                        onClick = onOpenAllFeatures,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .shadow(6.dp, CircleShape)
-                            .background(Color(0xE61E1B4B), CircleShape)
-                            .border(1.dp, Color(0x66A78BFA), CircleShape)
-                            .testTag("feed_more_features_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "All Features & Controls",
-                            tint = Color(0xFFE0E7FF),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    BarIcon(Icons.Default.Search, "Search videos", searchBg, Color.White, onOpenSearch, "feed_search_button")
+                    BarIcon(
+                        if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
+                        if (isGridView) "Reels View" else "Grid View",
+                        gridBg, gridTint, onToggleGridView, "feed_grid_toggle_button"
+                    )
+                    BarIcon(Icons.Default.Download, "Save from Instagram", Color.Transparent, Color.White, onOpenDownloader, "feed_download_button")
+                    BarIcon(
+                        Icons.Default.MoreVert, "All Features & Controls",
+                        Color(0x558B5CF6), Color(0xFFE0E7FF), onOpenAllFeatures, "feed_more_features_button"
+                    )
                 }
             }
 
-            // Sub-bar: Compact, sleek status capsule
+            // Sub-bar: the vault status on the left, position and storage in one capsule on the right.
+            // The right side shrinks with an ellipsis, so the two never overlap on a narrow phone or a big font.
             if (totalVideosCount > 0) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -341,33 +288,21 @@ fun FeedTopBar(
                             text = stringResource(R.string.offline_vault),
                             color = Color(0xFF6EE7B7),
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
                         )
                     }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "$totalVideosCount reels • $totalStorageFormatted",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                    Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .background(GlassBackground, CircleShape)
-                                .border(1.dp, GlassBorderSubtle, CircleShape)
-                                .padding(horizontal = 9.dp, vertical = 3.dp)
-                        )
-
-                        if (!isGridView) {
-                            Box(
-                                modifier = Modifier
-                                    .background(Color(0x337C3AED), CircleShape)
-                                    .border(1.dp, Color(0x44C4B5FD), CircleShape)
-                                    .clip(CircleShape)
-                                    .padding(horizontal = 9.dp, vertical = 3.dp)
-                            ) {
+                                .background(Color(0x337C3AED), CircleShape)
+                                .border(1.dp, Color(0x44C4B5FD), CircleShape)
+                                .clip(CircleShape)
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                        ) {
+                            if (!isGridView) {
                                 // The position number rolls up or down as you swipe
                                 AnimatedContent(
                                     targetState = (currentIndex + 1).coerceAtMost(totalVideosCount),
@@ -385,10 +320,28 @@ fun FeedTopBar(
                                         text = "$position / $totalVideosCount",
                                         color = Color(0xFFE2E8F0),
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
                                     )
                                 }
+                            } else {
+                                Text(
+                                    text = "$totalVideosCount reels",
+                                    color = Color(0xFFE2E8F0),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
                             }
+                            Text(
+                                text = "  ·  $totalStorageFormatted",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
                         }
                     }
                 }
@@ -397,4 +350,23 @@ fun FeedTopBar(
     }
 }
 
-
+/** One round action inside the top bar's glass capsule. A tinted background marks it as switched on. */
+@Composable
+private fun BarIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    background: Color,
+    tint: Color,
+    onClick: () -> Unit,
+    tag: String
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(44.dp)
+            .background(background, CircleShape)
+            .testTag(tag)
+    ) {
+        Icon(imageVector = icon, contentDescription = description, tint = tint, modifier = Modifier.size(20.dp))
+    }
+}

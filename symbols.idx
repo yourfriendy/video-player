@@ -49,6 +49,7 @@ buildNotification	fn	video player/app/src/main/java/com/example/service/Download
 buildsQualityListBestFirst	fn	video player/app/src/test/java/com/example/data/universal/EngineInfoParserTest.kt:26
 buttonsAreAtLeastAsTallAsAFingerTip	fn	video player/app/src/test/java/com/example/ui/components/DesignSystemComposeTest.kt:49
 ByFolder	class	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:15
+cameraNamesBecomeADate	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:11
 cancel	fn	video player/app/src/main/java/com/example/data/universal/UniversalDownloader.kt:121
 cancel	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:277
 cancel	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:113
@@ -155,6 +156,7 @@ DurationRange	class	video player/app/src/main/java/com/example/ui/model/FeedFilt
 durationText	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:200
 elapsedText	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:139
 elapsedTextShowsEveryUnitDownToTheSecond	fn	video player/app/src/test/java/com/example/ui/components/ProfileViewerHelpersTest.kt:15
+emptyNameFallsBackToTheOriginal	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:42
 emptySectionsAreLeftOutOfTheReport	fn	video player/app/src/test/java/com/example/data/DiagnosticsTest.kt:30
 enableAlerts	fn	video player/app/src/main/java/com/example/ui/components/DownloaderScreen.kt:368
 enc	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:406
@@ -249,7 +251,7 @@ formatDuration	fn	video player/app/src/main/java/com/example/data/universal/Univ
 formatDuration	fn	video player/app/src/main/java/com/example/ui/components/SharePopup.kt:715
 FormatInfo	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:10
 formatSeconds	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:469
-formatTime	fn	video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt:303
+formatTime	fn	video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt:350
 formattingHelpers	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:194
 formatToJson	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:172
 formatVlcTime	fn	video player/app/src/main/java/com/example/ui/components/ReelPlayerItem.kt:765
@@ -294,6 +296,8 @@ highlightItemsAreMatchedByHighlightId	fn	video player/app/src/test/java/com/exam
 highlights	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:322
 history	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:277
 HttpFailure	class	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:37
+humanize	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:61
+humanNamesAreTidiedNotReplaced	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:30
 identify	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:102
 Idle	class	video player/app/src/main/java/com/example/ui/model/DownloadStatus.kt:7
 Idle	class	video player/app/src/main/java/com/example/ui/model/StoryModels.kt:23
@@ -304,6 +308,7 @@ ignoresOtherPeoplesStoriesAndPosts	fn	video player/app/src/test/java/com/example
 ignoresTextWithoutInstagramLink	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:23
 IgPageCapture	class	video player/app/src/main/java/com/example/data/download/IgPageCapture.kt:36
 IgWebFetcher	class	video player/app/src/main/java/com/example/data/download/IgWebFetcher.kt:31
+impossibleDatesAreLeftAlone	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:37
 info	fn	video player/app/src/test/java/com/example/data/update/UpdateParserTest.kt:92
 infoToJson	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:151
 insertPlaylist	fn	video player/app/src/main/java/com/example/data/local/dao/PlaylistDao.kt:20
@@ -483,7 +488,7 @@ pick	fn	video player/app/src/main/java/com/example/ui/components/FolderPickerShe
 plainGet	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:553
 platformNamesAreFriendly	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:124
 Platforms	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:198
-PlayedVideoTracker	class	video player/app/src/main/java/com/example/ui/components/VideoFeedScreen.kt:115
+PlayedVideoTracker	class	video player/app/src/main/java/com/example/ui/components/VideoFeedScreen.kt:117
 playerFor	fn	video player/app/src/main/java/com/example/ui/components/PlayerPool.kt:21
 PlayerPool	class	video player/app/src/main/java/com/example/ui/components/PlayerPool.kt:18
 Playlist	class	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:9
@@ -619,6 +624,7 @@ scanForUrl	fn	video player/app/src/main/java/com/example/data/download/Instagram
 scanRepost	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:688
 scanRepostTime	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:547
 scheduleNext	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:315
+screenRecordingIsRecognised	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:18
 ScrollRequest	class	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedViewModel.kt:45
 scrollTo	fn	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedViewModel.kt:165
 SearchEntry	class	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedViewModel.kt:124
@@ -651,7 +657,7 @@ setStatus	fn	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedDo
 SettingsManager	class	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:11
 ShareDownloadActivity	class	video player/app/src/main/java/com/example/ShareDownloadActivity.kt:19
 ShareDownloads	class	video player/app/src/main/java/com/example/service/ShareDownloads.kt:33
-shareVideo	fn	video player/app/src/main/java/com/example/ui/components/VideoFeedScreen.kt:576
+shareVideo	fn	video player/app/src/main/java/com/example/ui/components/VideoFeedScreen.kt:583
 shimmerBrush	fn	video player/app/src/main/java/com/example/ui/components/LoadingKit.kt:102
 short	fn	video player/app/src/main/java/com/example/ui/components/ProfileScreen.kt:1243
 shortOrEmptyNamesNeverMatchEverything	fn	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:29
@@ -669,9 +675,13 @@ sizeFallsBackToBitrateTimesDuration	fn	video player/app/src/test/java/com/exampl
 sizeIsVideoPlusTheBestAudioStream	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:59
 skipsNullVideoUrlAndKeepsLooking	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:64
 slide	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:1191
+SmartTitle	class	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:11
+smartTitle	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:22
+SmartTitleTest	class	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:9
 song	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:445
 speedAndEtaAreShownTogether	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:188
 spotsStoryLinks	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:141
+stampLabel	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:41
 start	fn	video player/app/src/main/java/com/example/data/download/StoryWatchService.kt:139
 start	fn	video player/app/src/main/java/com/example/service/DownloadKeepAliveService.kt:54
 startDownload	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:180
@@ -770,6 +780,7 @@ WatchHistoryDao	class	video player/app/src/main/java/com/example/data/local/dao/
 WatchLater	class	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:8
 WatchLaterDao	class	video player/app/src/main/java/com/example/data/local/dao/WatchLaterDao.kt:11
 WatchLaterEntity	class	video player/app/src/main/java/com/example/data/local/entity/WatchLaterEntity.kt:7
+whatsappIsRecognisedAndKeepsOnlyTheDate	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:23
 whoAmI	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:93
 withParent	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:187
 workDirFor	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:146

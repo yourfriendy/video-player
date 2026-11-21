@@ -62,6 +62,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -419,6 +421,8 @@ fun VideoFeedScreen(
             }
         }
 
+        // The real height of the top bar, so the search chip sits just under it at any font size
+        var topBarHeightPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
         // Top Navigation & Filter Bar
         androidx.compose.animation.AnimatedVisibility(
             visible = uiState.areControlsVisible,
@@ -429,6 +433,7 @@ fun VideoFeedScreen(
                 .padding(top = statusBarPadding)
         ) {
             FeedTopBar(
+                modifier = Modifier.onSizeChanged { topBarHeightPx = it.height },
                 currentFilter = uiState.selectedFilter,
                 selectedSort = uiState.selectedSort,
                 isShuffleMode = uiState.isShuffleMode,
@@ -458,7 +463,9 @@ fun VideoFeedScreen(
 
         // "Search active" chip. The ✕ returns to the full feed on the SAME video that is playing now.
         val chipTop by animateDpAsState(
-            targetValue = if (uiState.areControlsVisible) statusBarPadding + 108.dp else statusBarPadding + 10.dp,
+            targetValue = if (uiState.areControlsVisible) {
+                statusBarPadding + (if (topBarHeightPx > 0) with(LocalDensity.current) { topBarHeightPx.toDp() } else 96.dp) + 6.dp
+            } else statusBarPadding + 10.dp,
             label = "searchChipTop"
         )
         androidx.compose.animation.AnimatedVisibility(
