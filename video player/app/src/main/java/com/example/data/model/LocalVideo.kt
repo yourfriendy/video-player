@@ -66,6 +66,13 @@ data class LocalVideo(
             return sdf.format(Date(dateAddedSec * 1000L))
         }
 
+    /** Short date for info chips, e.g. "Nov 21, 2026". Blank when the date is unknown. */
+    val formattedDateShort: String
+        get() {
+            if (dateAddedSec <= 0) return ""
+            return SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(dateAddedSec * 1000L))
+        }
+
     val fileExtension: String
         get() = displayName.substringAfterLast('.', "").uppercase()
 }

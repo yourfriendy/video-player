@@ -169,7 +169,7 @@ fun VideoInfoOverlay(
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             InfoTag(video.formattedSize)
             InfoTag(video.formattedDuration)
-            if (video.formattedResolution.isNotBlank()) InfoTag(video.formattedResolution)
+            if (video.formattedDateShort.isNotBlank()) InfoTag(video.formattedDateShort)
         }
 
         Spacer(modifier = Modifier.height(10.dp))
