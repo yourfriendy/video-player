@@ -169,3 +169,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 ### Added 2026-11-21 (replace every "describe me")
 - `video player/app/src/main/java/com/example/ui/model/SmartTitle.kt` — A date, optionally followed by a time: 20260121_153012, 2026-01-21-15-30-12, ... Not preceded by another digit.
 - `video player/app/src/test/java/com/example/ui/SmartTitleTest.kt` — SmartTitleTest Unit tests for smartTitle (not in CI's test filter; run locally).
+
+### Added 2026-11-21 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ui/components/PlayPauseFeedback.kt` — PlayPauseFeedback Pause/resume feedback on the reel: dark veil, glass play/pause button that morphs and breathes, ripple ring.
