@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -68,6 +70,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +79,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.VideoMetadataDetails
+import com.example.data.model.LocalVideo
+import com.example.ui.model.smartTitle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.GlassBorderSubtle
 import kotlinx.coroutines.delay
@@ -130,8 +137,7 @@ fun MetadataBottomSheet(
 
             Reveal(1) {
                 HeroCard(
-                    name = video.displayName,
-                    extension = video.fileExtension,
+                    video = video,
                     folder = video.relativePath.ifEmpty { video.bucketDisplayName },
                     onCopy = { copyToClipboard(context, "File name", video.displayName) }
                 )
@@ -239,60 +245,96 @@ private fun TopBar(onDismiss: () -> Unit) {
     }
 }
 
+/**
+ * The first thing in the sheet: a big cover frame of the video with its friendly title, real file name, folder
+ * and length laid over a dark fade. It fills the top of the sheet with the video itself instead of an icon.
+ */
 @Composable
-private fun HeroCard(name: String, extension: String, folder: String, onCopy: () -> Unit) {
+private fun HeroCard(video: LocalVideo, folder: String, onCopy: () -> Unit) {
+    val context = LocalContext.current
+    val smart = remember(video.displayName) { smartTitle(video.displayName) }
     val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .aspectRatio(1.6f)
             .clip(shape)
             .background(Brush.linearGradient(listOf(Color(0xFF3B2A7A), Color(0xFF1E2A5E), Color(0xFF0F3A47))))
             .border(1.dp, Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x14FFFFFF))), shape)
-            .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .background(Brush.linearGradient(listOf(Color(0x66A78BFA), Color(0x335EEAD4))), RoundedCornerShape(20.dp))
-                    .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
+        AsyncImage(
+            model = ImageRequest.Builder(context).data(video.uri).crossfade(true).build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to Color(0xF2020617)))
+        )
+        Row(
+            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Chip(video.fileExtension.uppercase(Locale.getDefault()), Teal)
+            smart.kind?.let { Chip(it, Violet) }
+        }
+        IconButton(
+            onClick = onCopy,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .size(38.dp)
+                .background(Color(0x66000000), CircleShape)
+                .border(1.dp, Color(0x44FFFFFF), CircleShape)
+        ) {
+            Icon(Icons.Default.ContentCopy, contentDescription = "Copy file name", tint = Color.White, modifier = Modifier.size(18.dp))
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 14.dp)
+        ) {
+            Text(
+                text = smart.title,
+                color = Color.White,
+                fontSize = Ds.Type.TitleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (smart.title != video.displayName) {
                 Text(
-                    text = name,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
+                    text = video.displayName,
+                    color = Color(0xB3FFFFFF),
+                    fontSize = Ds.Type.Small,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Chip(extension.uppercase(Locale.getDefault()), Teal)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = folder,
-                        color = Color(0xB3FFFFFF),
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                }
             }
-            Spacer(Modifier.width(8.dp))
-            IconButton(
-                onClick = onCopy,
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(Color(0x33FFFFFF), CircleShape)
-                    .border(1.dp, Color(0x44FFFFFF), CircleShape)
-            ) {
-                Icon(Icons.Default.ContentCopy, contentDescription = "Copy file name", tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Folder, contentDescription = null, tint = Amber, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = folder,
+                    color = Color(0xCCFFFFFF),
+                    fontSize = Ds.Type.Caption,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = video.formattedDuration,
+                    color = Color.White,
+                    fontSize = Ds.Type.Caption,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(Color(0x99000000), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                )
             }
         }
     }
