@@ -21,7 +21,8 @@ permissions:
 concurrency:
   # One build per branch, so a feature-branch build never cancels (or replaces) a main build
   group: build-apk-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a main build: it is the one that publishes the release (two quick merges used to cancel the first)
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -82,11 +83,22 @@ jobs:
             echo "Register this fingerprint with the package name in the Android Developer Console (see docs/VERIFY-WITH-GOOGLE.md)."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Cache Robolectric's Android jars (a failed download of these used to fail the build, so no release)
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ runner.os }}-${{ hashFiles('video player/gradle/libs.versions.toml', 'video player/app/build.gradle*') }}
+          restore-keys: robolectric-${{ runner.os }}-
+
       - name: Unit tests, then build the release APK (R8-optimised)
         working-directory: video player
         run: |
           set -o pipefail
-          gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --tests "com.example.data.universal.*" :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+          run_build() {
+            gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --tests "com.example.data.universal.*" :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+          }
+          # One automatic retry: a flaky dependency download must not stop a build from reaching Releases
+          run_build || { echo "::warning title=Build retried::First attempt failed (often a flaky download). Trying once more."; run_build; }
 
       - name: Surface build errors as annotations
         if: failure()
@@ -109,9 +121,31 @@ jobs:
           name: OffScroll-apk
           path: OffScroll.apk
 
-      - name: Branch build (public release left untouched)
+      - name: Publish branch build to Releases (pre-release; the in-app updater only follows "latest")
         if: github.ref != 'refs/heads/main'
-        run: echo "::notice title=APK built::Download it from this run's Artifacts (OffScroll-apk). The public latest release is only updated from main."
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          TAG="build-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
+          cat > release-notes.md <<NOTES
+          ## Branch build: ${GITHUB_REF_NAME}
+
+          Test build, not the public release. Install **OffScroll.apk** to try this branch.
+          It is replaced by the next build of the same branch. The stable app is the "latest" release.
+
+          - Run number: ${GITHUB_RUN_NUMBER}
+          - Commit: \`${SHORT_SHA}\`
+          - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
+          - Signing certificate SHA-256: \`${CERT_SHA256}\`
+          NOTES
+          sed -i 's/^          //' release-notes.md
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" OffScroll.apk \
+            --title "Branch build: ${GITHUB_REF_NAME} (#${GITHUB_RUN_NUMBER})" \
+            --notes-file release-notes.md \
+            --target "$GITHUB_SHA" \
+            --prerelease
 
       - name: Publish to the repo's Releases (shows on the main page)
         if: github.ref == 'refs/heads/main'
