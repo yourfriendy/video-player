@@ -72,15 +72,18 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 
 ## 8. Auto-generated map (do not edit)
 <!-- AUTO:START (rewritten by `python3 brain/brain.py index`; keep this block small) -->
-_2026-11-21: 175 files, 31,767 lines, 775 symbols. Biggest areas:_
+_2026-11-21: 175 files, 31,813 lines, 775 symbols. Biggest areas:_
 
 | Area | Files | Lines |
 |---|---:|---:|
 | `video player` | 147 | 28,292 |
 | `brain` | 7 | 1,501 |
-| `(root)` | 7 | 1,280 |
-| `.github` | 4 | 378 |
-| `docs` | 5 | 206 |
+| `(root)` | 7 | 1,283 |
+| `.github` | 4 | 420 |
+| `docs` | 5 | 207 |
 | `.claude` | 4 | 102 |
 | `.githooks` | 1 | 8 |
 <!-- AUTO:END -->
+
+## Rule: every build goes to Releases
+main -> the public `latest` release; any other branch -> pre-release `build-<branch>`. Never cancel a main build; keep the one retry in build-apk.yml. If a build is not in Releases, read the run's annotations first (a flaky Robolectric download was the last cause).

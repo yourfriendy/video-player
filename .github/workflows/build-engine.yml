@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: build-engine-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   engine:
@@ -109,9 +109,17 @@ jobs:
           name: OffScroll-Engine-apk
           path: OffScroll-Engine.apk
 
-      - name: Branch build (public release left untouched)
+      - name: Attach to this branch's pre-release
         if: github.ref != 'refs/heads/main'
-        run: echo "::notice title=Engine built::Download it from this run's Artifacts (OffScroll-Engine-apk). The public latest release is only updated from main."
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
+          for i in 1 2 3 4 5 6; do
+            gh release view "$TAG" > /dev/null 2>&1 && break
+            echo "$TAG release not there yet, waiting..."; sleep 20
+          done
+          gh release upload "$TAG" OffScroll-Engine.apk --clobber || echo "::notice title=Engine built::No branch release to attach to; download it from this run's Artifacts (OffScroll-Engine-apk)."
 
       - name: Attach to the latest release
         if: github.ref == 'refs/heads/main'
