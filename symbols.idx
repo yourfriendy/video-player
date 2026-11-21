@@ -102,7 +102,7 @@ consumeLibraryDirty	fn	video player/app/src/main/java/com/example/service/ShareD
 consumeToast	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:492
 Contract	class	video player/app/src/main/java/com/example/IgLoginActivity.kt:236
 copy	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:617
-copyToClipboard	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:514
+copyToClipboard	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:515
 countsLine	fn	video player/app/src/main/java/com/example/ui/components/DownloaderScreen.kt:696
 createPlaylist	fn	video player/app/src/main/java/com/example/data/repository/VideoRepository.kt:325
 currentBrightness	fn	video player/app/src/main/java/com/example/ui/components/SideGestureControls.kt:61
@@ -245,12 +245,12 @@ FolderInfo	class	video player/app/src/main/java/com/example/ui/components/Folder
 format	fn	video player/app/src/main/java/com/example/data/Diagnostics.kt:29
 format	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineInfoParser.kt:48
 formatBytes	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:373
-formatBytes	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:500
+formatBytes	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:501
 formatCount	fn	video player/app/src/main/java/com/example/ui/components/DownloaderSheet.kt:280
 formatDuration	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:384
 formatDuration	fn	video player/app/src/main/java/com/example/ui/components/SharePopup.kt:715
 FormatInfo	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:10
-formatSeconds	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:510
+formatSeconds	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:511
 formatTime	fn	video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt:350
 formattingHelpers	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:194
 formatToJson	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:172
