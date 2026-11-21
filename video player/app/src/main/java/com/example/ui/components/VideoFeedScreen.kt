@@ -222,11 +222,11 @@ fun VideoFeedScreen(
     val deleteIntentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.onDeletePermissionGranted(uiState.pendingDeleteVideoUri)
-        } else {
-            viewModel.cancelDelete()
-        }
+        // Always check the file itself: some phones report "cancelled" even after a successful delete
+        viewModel.onDeletePermissionGranted(
+            uiState.pendingDeleteVideoUri,
+            userAllowed = result.resultCode == Activity.RESULT_OK
+        )
     }
 
     // Launch system delete consent dialog if needed
