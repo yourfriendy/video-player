@@ -435,6 +435,7 @@ fun VideoFeedScreen(
                 isGridView = uiState.isGridView,
                 isSearchActive = uiState.searchQuery.isNotBlank(),
                 folders = uiState.folders,
+                folderInfos = remember(uiState.allVideos) { buildFolderInfos(uiState.allVideos) },
                 playlists = uiState.playlists,
                 playlistCounts = uiState.playlistVideosMap.mapValues { it.value.size },
                 totalVideosCount = filteredVideos.size,
