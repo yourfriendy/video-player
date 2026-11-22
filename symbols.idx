@@ -259,7 +259,7 @@ fullCount	fn	video player/app/src/main/java/com/example/ui/components/ProfileVie
 garbageIsRejectedWithoutCrashing	fn	video player/app/src/test/java/com/example/data/update/UpdateParserTest.kt:76
 garbageRowsAreIgnored	fn	video player/app/src/test/java/com/example/data/download/StoryAlertHistoryTest.kt:25
 gcd	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:188
-GestureTourState	class	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:53
+GestureTourState	class	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:57
 get	fn	video player/app/src/main/java/com/example/data/download/IgWebFetcher.kt:118
 getAllFavorites	fn	video player/app/src/main/java/com/example/data/local/dao/FavoriteDao.kt:13
 getAllFavoriteUris	fn	video player/app/src/main/java/com/example/data/local/dao/FavoriteDao.kt:19
@@ -381,7 +381,7 @@ lookUp	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:1
 lookUp	fn	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:188
 lookupProfile	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:344
 MainActivity	class	video player/app/src/main/java/com/example/MainActivity.kt:52
-markSeen	fn	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:59
+markSeen	fn	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:63
 matches	fn	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:12
 matches	fn	video player/app/src/main/java/com/example/ui/model/SearchOptions.kt:11
 MediaExtras	class	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:161
@@ -653,7 +653,7 @@ ShareDownloads	class	video player/app/src/main/java/com/example/service/ShareDow
 shareVideo	fn	video player/app/src/main/java/com/example/ui/components/VideoFeedScreen.kt:584
 shimmerBrush	fn	video player/app/src/main/java/com/example/ui/components/LoadingKit.kt:102
 short	fn	video player/app/src/main/java/com/example/ui/components/ProfileScreen.kt:1243
-shouldShow	fn	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:57
+shouldShow	fn	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:61
 show	fn	video player/app/src/main/java/com/example/ui/components/Feedback.kt:65
 showStatus	fn	video player/app/src/main/java/com/example/IgLoginActivity.kt:197
 showVersion	fn	video player/engine/src/main/java/com/example/engine/EngineActivity.kt:83
