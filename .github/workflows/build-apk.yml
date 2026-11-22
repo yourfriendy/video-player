@@ -214,6 +214,17 @@ jobs:
             --target "$GITHUB_SHA" \
             $FLAGS
 
+      - name: "Verify the build is really in Releases (rule - every build goes to Releases)"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSETS=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+          echo "$ASSETS"
+          if ! echo "$ASSETS" | grep -qx "OffScroll.apk"; then
+            echo "::error title=Build not in Releases::OffScroll.apk is missing from the $RELEASE_TAG release. Every build must go to GitHub Releases."
+            exit 1
+          fi
+
       - name: Start the engine build (separate run, so this one is already done)
         if: success()
         env:

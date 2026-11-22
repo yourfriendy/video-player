@@ -55,6 +55,7 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 | Build / test the project | (fill in; also put them in `brain/brain.json` "commands") |
 
 ## 4. Rules and gotchas (learned the hard way - add one line each time something cost you time)
+- **RELEASE RULE: every build goes to GitHub Releases, never only to a workflow artifact.** main -> `nightly` pre-release; manual run of build-apk.yml with "Publish to latest" ticked, or a `v*` tag -> public `latest`; other branches -> `build-<branch>`. Keep the `Build number: <n>` line in the notes (UpdateModels.kt parses it). build-apk.yml fails the run if the APK is missing from its release. Never cancel a main build; keep the one retry. Notification-listener access (BIND_NOTIFICATION_LISTENER_SERVICE) was removed on purpose (Play Protect): do not add it back.
 - Generated files (never hand-edit): 
 - Places a new feature must be registered:
 - Naming / numbering / ordering conventions:
@@ -72,18 +73,15 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 
 ## 8. Auto-generated map (do not edit)
 <!-- AUTO:START (rewritten by `python3 brain/brain.py index`; keep this block small) -->
-_2026-11-22: 179 files, 32,377 lines, 778 symbols. Biggest areas:_
+_2026-11-22: 179 files, 32,397 lines, 778 symbols. Biggest areas:_
 
 | Area | Files | Lines |
 |---|---:|---:|
 | `video player` | 149 | 28,698 |
-| `brain` | 7 | 1,501 |
+| `brain` | 7 | 1,502 |
 | `(root)` | 7 | 1,300 |
-| `.github` | 5 | 515 |
-| `docs` | 6 | 253 |
+| `.github` | 5 | 526 |
+| `docs` | 6 | 261 |
 | `.claude` | 4 | 102 |
 | `.githooks` | 1 | 8 |
 <!-- AUTO:END -->
-
-## Rule: every build goes to Releases (only a deliberate one replaces `latest`)
-main -> pre-release `nightly`; manual run of build-apk.yml with "Publish to latest" ticked, or a `v*` tag -> the public `latest`; any other branch -> pre-release `build-<branch>`. Keep the `Build number: <n>` line in every release's notes (UpdateModels.kt parses it). Never cancel a main build; keep the one retry in build-apk.yml. If a build is not in Releases, read the run's annotations first (a flaky Robolectric download was the last cause). Notification-listener access (BIND_NOTIFICATION_LISTENER_SERVICE) was removed on purpose: it triggers Play Protect warnings. Do not add it back.

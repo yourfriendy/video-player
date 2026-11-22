@@ -9,8 +9,16 @@
 3. Work the next step of the plan. Small edits, own files, a test per feature.
 4. `python3 brain/brain.py check --changed` (index, structure, secrets, build, syntax, only the tests that cover your change). Run any command through `run "<cmd>"`.
 5. Update `STRUCTURE.md` (files), the plan (tick + Notes + log), `AI_GUIDE.md` section 7 (one line), `learn "..."` for anything that cost time. Unfinished? `handoff "state"`.
-6. Commit with the attribution lines, rebase, push, verify the remote. UI changes: screenshots first, wait for approval.
+6. Commit with the attribution lines, rebase, push, verify the remote. UI changes: screenshots first, wait for approval. **After the push, confirm the build reached GitHub Releases** (see the release rule below).
 7. Reply: what changed / what could not be verified / what the owner must decide.
+
+## Release rule (never skip)
+**Every build must go to GitHub Releases, never only to a workflow artifact.**
+- Push to `main` -> pre-release `nightly` (replaced on every push).
+- Manual run of `build-apk.yml` with *Publish this build as the public latest release* ticked, or a pushed `v*` tag -> the public `latest` release (what the README button and the in-app updater use).
+- Any other branch -> pre-release `build-<branch>`.
+- The release notes always keep the line `- Build number: <n>` (UpdateModels.kt reads it).
+- The workflow now fails the run if the APK is not in the release it should be in. If a build is missing from Releases, fixing that comes before any other work.
 
 ## Lessons learned (add a line every time something cost time)
 -
