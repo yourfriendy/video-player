@@ -10,4 +10,5 @@
 5. Finish: python3 brain/brain.py check --changed ; update STRUCTURE.md for added/moved files ; add a changelog line (AI_GUIDE section 7) ;
    python3 brain/brain.py learn "what cost time" --ref file ; python3 brain/brain.py handoff "state" if the work is unfinished.
 6. Before you commit: python3 brain/brain.py secrets --staged . Rebase on the base branch before every push. UI changes: screenshots first, wait for approval.
+7. RELEASE RULE: every build must reach GitHub Releases, never only a workflow artifact. main -> pre-release `nightly`; manual run of build-apk.yml with "Publish to latest" ticked, or a `v*` tag -> public `latest`; any other branch -> `build-<branch>`. Keep the `Build number: <n>` line in the notes. If a build is not in Releases, fixing that comes first.
 <!-- BRAIN:END -->
