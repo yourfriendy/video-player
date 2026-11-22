@@ -46,7 +46,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * The one way the app tells you something passing ("Link copied", "Saved", "Couldn't open that link"). Replaces the
+ * The one way the app tells you something passing ("Link copied", "Saved", "That link didn't open. Check it and try again."). Replaces the
  * mix of Toasts and Snackbars. A message can carry one action ("View", "Undo", "Open settings"), is announced to
  * screen readers, and stays up long enough to read: about 2 s plus 55 ms per character, between 3 and 7 s.
  *

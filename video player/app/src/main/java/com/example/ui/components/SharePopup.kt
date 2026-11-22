@@ -198,10 +198,10 @@ private fun PopupCard(
 ) {
     val (headline, sub) = when (state) {
         is ShareDownloads.State.Looking -> "Checking your link" to state.platform
-        is ShareDownloads.State.Choose -> "Ready to download" to state.info.platform
+        is ShareDownloads.State.Choose -> "Ready to save" to state.info.platform
         is ShareDownloads.State.Downloading -> "Saving" to state.platform
         is ShareDownloads.State.Saved -> "Saved" to state.platform
-        is ShareDownloads.State.Failed -> "Couldn't download" to state.platform
+        is ShareDownloads.State.Failed -> "Couldn't save" to state.platform
         is ShareDownloads.State.Idle -> "" to ""
     }
 

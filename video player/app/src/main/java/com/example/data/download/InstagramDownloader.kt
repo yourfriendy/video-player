@@ -140,9 +140,9 @@ class InstagramDownloader(private val context: Context) {
         try {
             call.execute().use { response ->
                 if (!response.isSuccessful) {
-                    throw DownloadException("Instagram refused the download (error ${response.code}). Try again in a moment.")
+                    throw DownloadException("Instagram didn't allow that save (code ${response.code}). Try again in a moment.")
                 }
-                val body = response.body ?: throw DownloadException("Instagram sent an empty response.")
+                val body = response.body ?: throw DownloadException("Instagram didn't send anything back. Try again in a moment.")
                 val type = body.contentType()?.toString().orEmpty()
                 if (type.startsWith("text/") || type.contains("json")) {
                     throw DownloadException("Instagram didn't return a file. The link may have expired.")
@@ -174,11 +174,11 @@ class InstagramDownloader(private val context: Context) {
                             }
                         }
                     }
-                    if (copied == 0L) throw DownloadException("The downloaded file was empty.")
+                    if (copied == 0L) throw DownloadException("Instagram sent an empty file. Try again in a moment.")
                 }
             }
         } catch (e: IOException) {
-            throw DownloadException("The download was interrupted. Check your connection and try again.")
+            throw DownloadException("The save was interrupted. Check your connection and try again.")
         } finally {
             call.cancel()
         }
@@ -218,10 +218,10 @@ class InstagramDownloader(private val context: Context) {
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val uri = resolver.insert(collection, values)
-                ?: throw DownloadException("Couldn't create the file on your phone.")
+                ?: throw DownloadException("Couldn't create the file on your phone. Check free space, then try again.")
             try {
                 resolver.openOutputStream(uri)?.use { writer(it) }
-                    ?: throw DownloadException("Couldn't write to your phone's storage.")
+                    ?: throw DownloadException("Couldn't save to your phone's storage. Check free space, then try again.")
                 values.clear()
                 values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)

@@ -653,7 +653,7 @@ fun VideoFeedViewModel.cancelDelete() {
         videoToDelete = null, 
         pendingDeleteIntentSender = null,
         pendingDeleteVideoUri = null,
-        toastMessage = "Deletion cancelled"
+        toastMessage = "Kept. Nothing was deleted."
     ) }
 }
 
@@ -715,7 +715,7 @@ fun VideoFeedViewModel.onDeletePermissionGranted(videoUri: String?, userAllowed:
                     videoToDelete = null,
                     pendingDeleteIntentSender = null,
                     pendingDeleteVideoUri = null,
-                    toastMessage = if (userAllowed) "Could not delete this video" else "Deletion cancelled"
+                    toastMessage = if (userAllowed) "Couldn't delete this video. It is still on your phone." else "Kept. Nothing was deleted."
                 )
             }
         }

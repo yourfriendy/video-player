@@ -622,7 +622,7 @@ private fun DetailsPanel(
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (e: Exception) {
-            Feedback.show("Couldn't open that link")
+            Feedback.show("That link didn't open. Check it and try again.")
         }
     }
     fun person(username: String) = DetailChip("@$username") { onClose(); host.onOpenUser(username) }
