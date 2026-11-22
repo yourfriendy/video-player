@@ -1258,6 +1258,6 @@ internal fun openLink(context: android.content.Context, url: String) {
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: Exception) {
-        Feedback.show("Couldn't open that link")
+        Feedback.show("That link didn't open. Check it and try again.")
     }
 }

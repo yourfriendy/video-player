@@ -150,10 +150,10 @@ class UniversalDownloader(context: Context) {
                     put(MediaStore.MediaColumns.IS_PENDING, 1)
                 }
                 val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                    ?: throw UniversalException("Couldn't create the file on your phone.")
+                    ?: throw UniversalException("Couldn't create the file on your phone. Check free space, then try again.")
                 try {
                     resolver.openOutputStream(uri)?.use { out -> stream.copyTo(out) }
-                        ?: throw UniversalException("Couldn't write to your phone's storage.")
+                        ?: throw UniversalException("Couldn't save to your phone's storage. Check free space, then try again.")
                     values.clear()
                     values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                     resolver.update(uri, values, null, null)

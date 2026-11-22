@@ -75,7 +75,7 @@ fun AppUpdateDialog(viewModel: AppUpdateViewModel) {
             dismissLabel = "Later",
             onDismiss = { viewModel.dismissPrompt() }
         ) {
-            UpdateBody("A newer OffScroll is ready to download.", describe(s.release))
+            UpdateBody("A newer OffScroll is ready.", describe(s.release))
         }
 
         is UpdateState.Downloading -> UpdateAlert(
@@ -107,7 +107,7 @@ fun AppUpdateDialog(viewModel: AppUpdateViewModel) {
         }
 
         is UpdateState.Failed -> UpdateAlert(
-            title = "Update problem",
+            title = "Update didn't finish",
             confirmLabel = if (s.release != null) "Try again" else null,
             onConfirm = { viewModel.startDownload() },
             dismissLabel = "Close",
@@ -179,9 +179,9 @@ fun AppUpdateCard(viewModel: AppUpdateViewModel, modifier: Modifier = Modifier) 
     }
 
     val status: String = when (s) {
-        is UpdateState.Idle -> "New builds are published on this app's GitHub releases page."
-        is UpdateState.Checking -> "Checking GitHub…"
-        is UpdateState.UpToDate -> "You're on the latest build."
+        is UpdateState.Idle -> "Updates come straight from the developer, not an app store."
+        is UpdateState.Checking -> "Checking for updates…"
+        is UpdateState.UpToDate -> "You're up to date."
         is UpdateState.Available -> "Update available: ${describe(s.release)}"
         is UpdateState.Downloading -> "Downloading… ${(s.progress * 100).toInt()}%"
         is UpdateState.ReadyToInstall -> if (s.needsPermission) PERMISSION_HINT else "Downloaded. $INSTALL_HINT"

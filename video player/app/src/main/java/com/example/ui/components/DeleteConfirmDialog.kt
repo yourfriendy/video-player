@@ -125,7 +125,7 @@ fun DeleteConfirmDialog(
                 border = BorderStroke(1.dp, GlassBorder),
                 modifier = Modifier.testTag("delete_cancel_button")
             ) {
-                Text(stringResource(R.string.cancel_2), color = Color(0xFFCBD5E1))
+                Text("Keep it", color = Color(0xFFCBD5E1))
             }
         },
         modifier = Modifier

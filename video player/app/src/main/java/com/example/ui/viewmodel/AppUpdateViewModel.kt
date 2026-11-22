@@ -122,7 +122,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
             } catch (e: UpdateException) {
                 _state.value = UpdateState.Failed(e.message ?: "The update failed.", release)
             } catch (e: IOException) {
-                _state.value = UpdateState.Failed("The download was interrupted. Check your connection and try again.", release)
+                _state.value = UpdateState.Failed("The save was interrupted. Check your connection and try again.", release)
             } catch (e: Exception) {
                 _state.value = UpdateState.Failed("The update failed (${e.javaClass.simpleName}).", release)
             }

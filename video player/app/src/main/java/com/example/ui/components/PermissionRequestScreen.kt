@@ -132,20 +132,20 @@ fun PermissionRequestScreen(
                 Column(modifier = Modifier.padding(18.dp)) {
                     PrivacyItem(
                         icon = Icons.Default.WifiOff,
-                        title = "100% Offline & Private",
-                        description = "No internet needed. Your videos remain strictly on device."
+                        title = "Plays offline, stays private",
+                        description = "Nothing is uploaded. Your videos stay on your phone."
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     PrivacyItem(
                         icon = Icons.Default.VideoLibrary,
-                        title = "Auto-Scans Gallery Folders",
-                        description = "Camera, WhatsApp, Downloads, Telegram, Screen records."
+                        title = "Finds your videos for you",
+                        description = "Camera, WhatsApp, Telegram, screen recordings: all in one feed."
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     PrivacyItem(
                         icon = Icons.Default.Lock,
-                        title = "Scoped Storage Compliant",
-                        description = "Safe file reading with standard Android permissions."
+                        title = "Only what you allow",
+                        description = "OffScroll reads videos only, and only after you say yes. Change it any time in Settings."
                     )
                 }
             }

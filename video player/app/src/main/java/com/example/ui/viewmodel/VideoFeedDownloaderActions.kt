@@ -94,7 +94,7 @@ fun VideoFeedViewModel.setDownloadUrl(text: String) {
 fun VideoFeedViewModel.handleSharedText(text: String?) {
     val url = InstagramParser.extractInstagramUrl(text)
     if (url == null) {
-        _uiState.update { it.copy(toastMessage = "No Instagram link found in what you shared") }
+        _uiState.update { it.copy(toastMessage = "That didn't include an Instagram link. Share a reel link and try again.") }
         return
     }
     if (InstagramParser.isStoryLink(url)) {

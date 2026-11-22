@@ -79,7 +79,7 @@ fun EmptyFeedView(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_empty_videos),
-                    contentDescription = "Empty Gallery",
+                    contentDescription = "No videos yet",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(110.dp)
@@ -92,7 +92,7 @@ fun EmptyFeedView(
             Text(
                 text = when {
                     isSearching -> "No results for \u201C${searchQuery.trim()}\u201D"
-                    isFavorites -> "No Favorites Yet"
+                    isFavorites -> "No favorites yet"
                     else -> "No Videos in ${filter.displayName}"
                 },
                 style = MaterialTheme.typography.titleLarge.copy(
@@ -110,9 +110,9 @@ fun EmptyFeedView(
                 text = if (isSearching) {
                     "Nothing in ${filter.displayName} matches that search. Try fewer words, or clear the search."
                 } else if (isFavorites) {
-                    "Tap the heart icon on any video in your feed to save it here for quick access."
+                    "Tap the heart on any video you love. It will wait for you here."
                 } else {
-                    "No local videos found for this folder or filter. Record or download some videos to your device gallery!"
+                    "This folder or filter has no videos. Pick another view, or record or save a video and it will show up on its own."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xCCFFFFFF),

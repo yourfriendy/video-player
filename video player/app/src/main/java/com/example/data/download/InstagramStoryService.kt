@@ -650,7 +650,7 @@ class InstagramStoryService(
         if (code == 401 || text.contains("login_required")) {
             throw LoginRequiredException("Your Instagram session has expired. Please sign in again.")
         }
-        if (code == 429) throw DownloadException("Instagram says you're going too fast. Wait a minute, then try again.")
+        if (code == 429) throw DownloadException("Instagram needs a short break. Wait a minute, then try again.")
         if (code !in 200..299) {
             throw DownloadException(
                 InstagramParser.parseErrorMessage(text) ?: "Instagram answered HTTP $code (${InstagramParser.describeReply(text)})."
