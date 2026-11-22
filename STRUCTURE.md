@@ -173,3 +173,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 
 ### Added 2026-11-22 (replace every "describe me")
 - `.github/workflows/all-tests.yml` — build-apk.yml only runs the data.download, data.update and data.universal tests (so a UI-only test can never
+
+### Added 2026-11-22 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ui/components/SettingsParts.kt` — SettingsParts Settings & Guide building blocks: hero card, stat tiles, section headers, phone gesture map, gesture cards, toggle row, tool tiles.
