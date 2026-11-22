@@ -74,7 +74,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.example.data.download.InstagramNotificationListener
 import com.example.data.download.PeopleStore
 import com.example.data.download.SavedPerson
 import com.example.data.download.StoryAlertScheduler
@@ -88,7 +87,7 @@ import kotlin.math.roundToInt
 
 /**
  * Everything about notifications, in one calm screen that matches the rest of the app (not the Instagram look of
- * the profile viewer): is it working, who to watch, how often, instant alerts, background reliability, testing.
+ * the profile viewer): is it working, who to watch, how often, background reliability, testing.
  */
 @Composable
 internal fun AlertsScreen(
@@ -123,7 +122,6 @@ internal fun AlertsScreen(
     }
     val notificationsOk = remember(tick) { !StoryAlertWorker.notificationsBlocked(context) }
     val batteryOk = remember(tick) { isIgnoringBattery(context) }
-    val instantOn = remember(tick) { InstagramNotificationListener.isEnabled(context) }
     val lastCheck = remember(tick) { StoryAlertStatus.read(context) }
     val history = remember(tick) { StoryAlertStatus.history(context) }
     val nowMs = remember(tick, clock) { System.currentTimeMillis() }
@@ -253,11 +251,6 @@ internal fun AlertsScreen(
                             label = if (batteryOk) "Background" else "Background limited",
                             ok = batteryOk, icon = if (batteryOk) Icons.Default.CheckCircle else Icons.Default.Warning,
                             onClick = { requestBatteryExemption(context) }
-                        )
-                        StatusChip(
-                            label = if (instantOn) "Instant" else "Instant off",
-                            ok = instantOn, icon = if (instantOn) Icons.Default.Bolt else Icons.Default.Warning,
-                            onClick = { openListenerSettings(context) }
                         )
                     }
                     Text(
@@ -391,43 +384,6 @@ internal fun AlertsScreen(
                     )
                 }
 
-                // ---------------- Instant ----------------
-                GlassCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        GradientTile(Icons.Default.Bolt, 40.dp, listOf(DlOrange, DlPink))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) { SectionTitle("Instant alerts", "Faster than any timer, for stories") }
-                        StatusChip(label = if (instantOn) "On" else "Off", ok = instantOn, icon = if (instantOn) Icons.Default.CheckCircle else Icons.Default.Warning)
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    listOf(
-                        "Open the Instagram app and go to their profile.",
-                        "Tap the bell and switch on Stories.",
-                        "Allow OffScroll to read Instagram's notifications. Only Instagram's are looked at."
-                    ).forEachIndexed { i, text ->
-                        Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                            Box(
-                                modifier = Modifier.size(22.dp).clip(CircleShape).background(Color(0x1FFFFFFF)),
-                                contentAlignment = Alignment.Center
-                            ) { Text("${i + 1}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text, color = DlSoftText, fontSize = 13.sp, lineHeight = 18.sp)
-                        }
-                    }
-                    if (!instantOn) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        GradientButton(text = "Allow instant alerts", icon = Icons.Default.Bolt, onClick = { openListenerSettings(context) })
-                        Text(
-                            "If Android says \"Restricted setting\": Settings > Apps > OffScroll > ⋮ > Allow restricted settings, then try again.",
-                            color = DlMuted, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.reposts_have_no_instagram_notification_so),
-                        color = DlMuted, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
                 // ---------------- Background ----------------
                 GlassCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -513,14 +469,6 @@ private fun openNotificationSettings(context: Context) {
     } catch (e: Exception) {
             com.example.data.Diagnostics.log("ignored", "AlertsScreen.kt:482 No settings screen to open")
         }
-}
-
-private fun openListenerSettings(context: Context) {
-    try {
-        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    } catch (e: Exception) {
-        Feedback.show("Open Settings > Notifications > Notification access and allow OffScroll")
-    }
 }
 
 private fun requestBatteryExemption(context: Context) {

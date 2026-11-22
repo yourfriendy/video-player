@@ -72,18 +72,18 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 
 ## 8. Auto-generated map (do not edit)
 <!-- AUTO:START (rewritten by `python3 brain/brain.py index`; keep this block small) -->
-_2026-11-21: 178 files, 32,087 lines, 788 symbols. Biggest areas:_
+_2026-11-22: 177 files, 32,008 lines, 778 symbols. Biggest areas:_
 
 | Area | Files | Lines |
 |---|---:|---:|
-| `video player` | 150 | 28,546 |
+| `video player` | 148 | 28,381 |
 | `brain` | 7 | 1,501 |
-| `(root)` | 7 | 1,303 |
-| `.github` | 4 | 420 |
+| `(root)` | 7 | 1,294 |
+| `.github` | 5 | 515 |
 | `docs` | 5 | 207 |
 | `.claude` | 4 | 102 |
 | `.githooks` | 1 | 8 |
 <!-- AUTO:END -->
 
-## Rule: every build goes to Releases
-main -> the public `latest` release; any other branch -> pre-release `build-<branch>`. Never cancel a main build; keep the one retry in build-apk.yml. If a build is not in Releases, read the run's annotations first (a flaky Robolectric download was the last cause).
+## Rule: every build goes to Releases (only a deliberate one replaces `latest`)
+main -> pre-release `nightly`; manual run of build-apk.yml with "Publish to latest" ticked, or a `v*` tag -> the public `latest`; any other branch -> pre-release `build-<branch>`. Keep the `Build number: <n>` line in every release's notes (UpdateModels.kt parses it). Never cancel a main build; keep the one retry in build-apk.yml. If a build is not in Releases, read the run's annotations first (a flaky Robolectric download was the last cause). Notification-listener access (BIND_NOTIFICATION_LISTENER_SERVICE) was removed on purpose: it triggers Play Protect warnings. Do not add it back.

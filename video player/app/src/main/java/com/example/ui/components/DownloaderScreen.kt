@@ -493,7 +493,7 @@ private fun PeoplePage(uiState: VideoFeedUiState, viewModel: VideoFeedViewModel,
                         Icon(Icons.Default.Notifications, contentDescription = null, tint = DlCyan, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Alerts are on for @$owner. Timer, instant alerts and tests are in Alerts ›",
+                            "Alerts are on for @$owner. Timer and tests are in Alerts ›",
                             color = DlCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
                         )
                     }

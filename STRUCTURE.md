@@ -32,7 +32,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `video player/app/src/main/java/com/example/data/download/IgPageCapture.kt` — IgPageCapture (describe me)
 - `video player/app/src/main/java/com/example/data/download/IgWebFetcher.kt` — IgWebFetcher (describe me)
 - `video player/app/src/main/java/com/example/data/download/InstagramDownloader.kt` — An error with a message that is safe to show to the user as-is.
-- `video player/app/src/main/java/com/example/data/download/InstagramNotificationListener.kt` — InstagramNotificationListener (describe me)
 - `video player/app/src/main/java/com/example/data/download/InstagramParser.kt` — Finds the first Instagram link in arbitrary text (a pasted link or a "Share" message).
 - `video player/app/src/main/java/com/example/data/download/InstagramProfileModels.kt` — A link from a profile's bio ("link in bio").
 - `video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt` — The saved Instagram session is missing or no longer valid: the user has to sign in again.
@@ -132,7 +131,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `video player/app/src/test/java/com/example/GreetingScreenshotTest.kt` — GreetingScreenshotTest (describe me)
 - `video player/app/src/test/java/com/example/data/DiagnosticsTest.kt` — DiagnosticsTest (describe me)
 - `video player/app/src/test/java/com/example/data/download/AlertHealthTest.kt` — AlertHealthTest (describe me)
-- `video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt` — InstagramNotificationListenerTest (describe me)
 - `video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt` — InstagramParserTest (describe me)
 - `video player/app/src/test/java/com/example/data/download/MediaExtrasTest.kt` — .trimIndent()
 - `video player/app/src/test/java/com/example/data/download/PeopleStoreTest.kt` — PeopleStoreTest (describe me)
@@ -172,3 +170,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 
 ### Added 2026-11-21 (replace every "describe me")
 - `video player/app/src/main/java/com/example/ui/components/PlayPauseFeedback.kt` — PlayPauseFeedback Pause/resume feedback on the reel: dark veil, glass play/pause button that morphs and breathes, ripple ring.
+
+### Added 2026-11-22 (replace every "describe me")
+- `.github/workflows/all-tests.yml` — build-apk.yml only runs the data.download, data.update and data.universal tests (so a UI-only test can never

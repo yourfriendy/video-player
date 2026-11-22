@@ -18,7 +18,7 @@ AppDatabase	class	video player/app/src/main/java/com/example/data/local/AppDatab
 Appearance	class	video player/app/src/main/java/com/example/ui/theme/DesignSystem.kt:108
 appendHistory	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:280
 applyBrightness	fn	video player/app/src/main/java/com/example/ui/components/SideGestureControls.kt:72
-applyMinutes	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:495
+applyMinutes	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:451
 AppUpdateService	class	video player/app/src/main/java/com/example/data/update/AppUpdateService.kt:31
 AppUpdateViewModel	class	video player/app/src/main/java/com/example/ui/viewmodel/AppUpdateViewModel.kt:42
 aReelIsTaggedReelAndAPlainVideoIsTaggedVideo	fn	video player/app/src/test/java/com/example/ui/components/ProfileViewerHelpersTest.kt:38
@@ -39,7 +39,7 @@ Block	class	video player/app/src/main/java/com/example/ui/components/ProfileView
 BrainMode	class	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:14
 brainModeMatches	fn	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:19
 brokenJsonGivesEmptyExtras	fn	video player/app/src/test/java/com/example/data/download/MediaExtrasTest.kt:74
-build	fn	video player/app/src/main/java/com/example/data/DiagnosticsReport.kt:23
+build	fn	video player/app/src/main/java/com/example/data/DiagnosticsReport.kt:22
 build	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:76
 build	fn	video player/app/src/main/java/com/example/ui/components/PlayerPool.kt:27
 build	fn	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedLibraryActions.kt:111
@@ -129,14 +129,13 @@ detailsFromBasic	fn	video player/app/src/main/java/com/example/data/download/Ins
 detailsScore	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:1151
 detectsLoginWall	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:106
 Diagnostics	class	video player/app/src/main/java/com/example/data/Diagnostics.kt:7
-DiagnosticsReport	class	video player/app/src/main/java/com/example/data/DiagnosticsReport.kt:21
+DiagnosticsReport	class	video player/app/src/main/java/com/example/data/DiagnosticsReport.kt:20
 DiagnosticsTest	class	video player/app/src/test/java/com/example/data/DiagnosticsTest.kt:8
 directDetails	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:683
 disconnect	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineClient.kt:168
 dismiss	fn	video player/app/src/main/java/com/example/ui/components/Feedback.kt:76
 dismiss	fn	video player/app/src/main/java/com/example/ui/components/SharePopup.kt:116
 dismissPrompt	fn	video player/app/src/main/java/com/example/ui/viewmodel/AppUpdateViewModel.kt:142
-doesNotMatchInsideAnotherUsername	fn	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:18
 Done	class	video player/app/src/main/java/com/example/ui/model/StoryModels.kt:38
 download	fn	video player/app/src/main/java/com/example/data/download/InstagramDownloader.kt:122
 download	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineManager.kt:41
@@ -241,7 +240,7 @@ findsProfileInsideAnyReply	fn	video player/app/src/test/java/com/example/data/do
 findsStoriesInsideAnyWrapper	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:251
 finishDelete	fn	video player/app/src/main/java/com/example/data/repository/VideoRepository.kt:402
 firstSrc	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:824
-fixNotifications	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:155
+fixNotifications	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:153
 FolderInfo	class	video player/app/src/main/java/com/example/ui/components/FolderPickerSheet.kt:86
 format	fn	video player/app/src/main/java/com/example/data/Diagnostics.kt:29
 format	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineInfoParser.kt:48
@@ -289,7 +288,7 @@ has	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels
 hasDataReply	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:408
 hasMediaPermission	fn	video player/app/src/main/java/com/example/MainActivity.kt:71
 hasStories	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:730
-HealthText	class	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:596
+HealthText	class	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:544
 heroCardShowsTitleAndSubtitle	fn	video player/app/src/test/java/com/example/ui/components/DesignSystemComposeTest.kt:110
 highlightedTitle	fn	video player/app/src/main/java/com/example/ui/components/SearchScreen.kt:1046
 HighlightInfo	class	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:203
@@ -315,8 +314,6 @@ infoToJson	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt
 insertPlaylist	fn	video player/app/src/main/java/com/example/data/local/dao/PlaylistDao.kt:20
 instagram	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:95
 InstagramDownloader	class	video player/app/src/main/java/com/example/data/download/InstagramDownloader.kt:38
-InstagramNotificationListener	class	video player/app/src/main/java/com/example/data/download/InstagramNotificationListener.kt:22
-InstagramNotificationListenerTest	class	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:7
 InstagramParser	class	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:7
 InstagramParserTest	class	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:9
 InstagramStoryService	class	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:30
@@ -329,17 +326,16 @@ intervalMinutes	fn	video player/app/src/main/java/com/example/data/download/Stor
 isAudioFile	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:352
 isBusy	fn	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:91
 isCode	fn	video player/app/src/test/java/com/example/ui/DesignTokensLintTest.kt:58
-isEnabled	fn	video player/app/src/main/java/com/example/data/download/InstagramNotificationListener.kt:66
 isEngineInstalled	fn	video player/app/src/main/java/com/example/data/universal/UniversalDownloader.kt:41
 isFavorite	fn	video player/app/src/main/java/com/example/data/local/dao/FavoriteDao.kt:16
 isGridView	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:68
-isIgnoringBattery	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:500
+isIgnoringBattery	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:456
 isInstalled	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineClient.kt:60
 isInstalled	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineManager.kt:31
 isLive	fn	video player/app/src/main/java/com/example/data/download/StoryWatchService.kt:54
 isLoopMode	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:84
 isMuted	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:47
-isNewer	fn	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:61
+isNewer	fn	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:63
 isPresent	fn	video player/app/src/main/java/com/example/data/repository/VideoRepository.kt:416
 isShareLink	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:27
 isShuffleMode	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:76
@@ -388,13 +384,10 @@ MainActivity	class	video player/app/src/main/java/com/example/MainActivity.kt:52
 markSeen	fn	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:59
 matches	fn	video player/app/src/main/java/com/example/ui/model/FeedFilter.kt:12
 matches	fn	video player/app/src/main/java/com/example/ui/model/SearchOptions.kt:11
-matchesTheDisplayNameWhenInstagramShowsThatInstead	fn	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:24
-matchesTheUsernameAsAWholeWord	fn	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:12
 MediaExtras	class	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:161
 MediaExtrasTest	class	video player/app/src/test/java/com/example/data/download/MediaExtrasTest.kt:8
 mediaInfo	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:312
 MediaInfo	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:54
-mentions	fn	video player/app/src/main/java/com/example/data/download/InstagramNotificationListener.kt:56
 mentionsOf	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:540
 mergeResolved	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:576
 Message	class	video player/app/src/main/java/com/example/ui/components/Feedback.kt:57
@@ -406,7 +399,7 @@ missingFieldsStayEmptyInsteadOfInventedValues	fn	video player/app/src/test/java/
 motionEnabled	fn	video player/app/src/main/java/com/example/ui/theme/DesignSystem.kt:85
 nameFor	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:222
 NeedsLogin	class	video player/app/src/main/java/com/example/ui/model/StoryModels.kt:25
-needsPermissionPrompt	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:152
+needsPermissionPrompt	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:150
 newestComesFirstAndOldOnesFallOff	fn	video player/app/src/test/java/com/example/data/download/StoryAlertHistoryTest.kt:9
 next	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:288
 noLaunchTimeBlockingPermissionGate	fn	video player/app/src/test/java/com/example/ui/DesignTokensLintTest.kt:49
@@ -437,8 +430,7 @@ open	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileControlle
 openAppSettings	fn	video player/app/src/main/java/com/example/MainActivity.kt:74
 openHighlight	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:335
 openLink	fn	video player/app/src/main/java/com/example/ui/components/ProfileScreen.kt:1257
-openListenerSettings	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:518
-openNotificationSettings	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:506
+openNotificationSettings	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:462
 openNotificationSettings	fn	video player/app/src/main/java/com/example/ui/components/ProfileScreen.kt:492
 openOffScroll	fn	video player/app/src/main/java/com/example/ShareDownloadActivity.kt:74
 openPeople	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:500
@@ -458,7 +450,7 @@ parseErrorMessage	fn	video player/app/src/main/java/com/example/data/download/In
 parseExtras	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:522
 parseHighlightsTray	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:593
 parseHistory	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:283
-parseLatestRelease	fn	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:32
+parseLatestRelease	fn	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:34
 parseLegacyStoryItems	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:803
 parseMediaInfo	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:569
 parsePageTokens	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:845
@@ -482,7 +474,6 @@ PeopleHarvest	class	video player/app/src/main/java/com/example/data/download/Ins
 PeopleStore	class	video player/app/src/main/java/com/example/data/download/PeopleStore.kt:27
 PeopleStoreTest	class	video player/app/src/test/java/com/example/data/download/PeopleStoreTest.kt:16
 person	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:628
-person	fn	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:9
 PersonPage	class	video player/app/src/main/java/com/example/data/download/InstagramProfileModels.kt:57
 PersonRow	class	video player/app/src/main/java/com/example/data/download/InstagramProfileModels.kt:48
 phaseLabel	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:345
@@ -588,7 +579,7 @@ repostMeta	fn	video player/app/src/main/java/com/example/data/download/Instagram
 repostToPost	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:248
 request	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:354
 request	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineClient.kt:68
-requestBatteryExemption	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:526
+requestBatteryExemption	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:474
 requireSession	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:577
 RequiresPermission	class	video player/app/src/main/java/com/example/data/repository/VideoRepository.kt:446
 reset	fn	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:317
@@ -649,7 +640,7 @@ setIntervalMinutes	fn	video player/app/src/main/java/com/example/data/download/S
 setLoopMode	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:88
 setMuted	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:51
 setPeopleQuery	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:517
-setPerson	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:160
+setPerson	fn	video player/app/src/main/java/com/example/ui/components/AlertsScreen.kt:158
 setPlaybackSpeed	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:43
 setRecentSearches	fn	video player/app/src/main/java/com/example/data/local/SettingsManager.kt:95
 setSave	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:434
@@ -662,7 +653,6 @@ ShareDownloads	class	video player/app/src/main/java/com/example/service/ShareDow
 shareVideo	fn	video player/app/src/main/java/com/example/ui/components/VideoFeedScreen.kt:584
 shimmerBrush	fn	video player/app/src/main/java/com/example/ui/components/LoadingKit.kt:102
 short	fn	video player/app/src/main/java/com/example/ui/components/ProfileScreen.kt:1243
-shortOrEmptyNamesNeverMatchEverything	fn	video player/app/src/test/java/com/example/data/download/InstagramNotificationListenerTest.kt:29
 shouldShow	fn	video player/app/src/main/java/com/example/ui/components/GestureTour.kt:57
 show	fn	video player/app/src/main/java/com/example/ui/components/Feedback.kt:65
 showStatus	fn	video player/app/src/main/java/com/example/IgLoginActivity.kt:197
@@ -752,7 +742,7 @@ updateEngine	fn	video player/app/src/main/java/com/example/data/universal/Univer
 updateEngine	fn	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:291
 updateEngineAndRetry	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:300
 UpdateException	class	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:18
-UpdateParser	class	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:27
+UpdateParser	class	video player/app/src/main/java/com/example/data/update/UpdateModels.kt:29
 UpdateParserTest	class	video player/app/src/test/java/com/example/data/update/UpdateParserTest.kt:11
 UpdateState	class	video player/app/src/main/java/com/example/ui/viewmodel/AppUpdateViewModel.kt:21
 updateTab	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:216
