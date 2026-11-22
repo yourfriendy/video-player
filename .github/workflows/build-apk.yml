@@ -3,16 +3,30 @@ name: Build APK
 # Fast path: this workflow builds and publishes ONLY the small OffScroll.apk (about 10 MB), then triggers
 # build-engine.yml as a separate run for the big OffScroll-Engine.apk (about 50 MB), so the app is
 # available minutes sooner instead of waiting for both.
+#
+# WHERE A BUILD IS PUBLISHED (GitHub Releases):
+#   - push to main                       -> pre-release "nightly" (replaced on every push)
+#   - manual run on main with "Publish to latest" ticked, or a pushed version tag v*  -> the public "latest" release
+#   - any other branch                   -> pre-release "build-<branch>"
+# The public "latest" file (what the README links to and the in-app updater follows) therefore stays the same
+# file between deliberate releases instead of being replaced on every commit, which keeps browsers' and
+# scanners' reputation for that download address.
 
 on:
   # Every push to ANY branch builds an APK (attached to the run as the "OffScroll-apk" artifact).
-  # Only pushes to main publish the public "latest" release. Docs-only pushes don't build.
+  # Docs-only pushes don't build.
   push:
     branches: ["**"]
     paths-ignore:
       - "**.md"
       - "docs/**"
+    tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish_latest:
+        description: "Publish this build as the public latest release (what the in-app updater follows)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -121,79 +135,91 @@ jobs:
           name: OffScroll-apk
           path: OffScroll.apk
 
-      - name: Publish branch build to Releases (pre-release; the in-app updater only follows "latest")
-        if: github.ref != 'refs/heads/main'
+      - name: Decide where this build is published
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            TAG=latest; KIND=stable
+          elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_latest }}" = "true" ]; then
+              TAG=latest; KIND=stable
+            else
+              TAG=nightly; KIND=nightly
+            fi
+          else
+            TAG="build-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"; KIND=branch
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_KIND=$KIND" >> "$GITHUB_ENV"
+          echo "### Release target: \`$TAG\` ($KIND)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          TAG="build-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
-          cat > release-notes.md <<NOTES
-          ## Branch build: ${GITHUB_REF_NAME}
+          BUILT="$(date -u +"%Y-%m-%d %H:%M UTC")"
+          note() { printf '%s\n' "$1" >> release-notes.md; }
+          : > release-notes.md
 
-          Test build, not the public release. Install **OffScroll.apk** to try this branch.
-          It is replaced by the next build of the same branch. The stable app is the "latest" release.
+          case "$RELEASE_KIND" in
+            stable)
+              TITLE="OffScroll – latest build"; FLAGS="--latest"
+              note "## OffScroll – latest build"
+              note ""
+              note "Install **OffScroll.apk** on your Android phone (Android 7.0+)."
+              note ""
+              note "Want to save from YouTube, Facebook, TikTok, Snapchat, X and 1000+ more sites? Also install"
+              note "**OffScroll-Engine.apk** (about 50 MB), or tap \"Download and install engine\" on the Any link tab"
+              note "inside OffScroll. It is optional: OffScroll itself stays small without it. A fresh engine build"
+              note "is attached a few minutes after the app (the previous one stays attached until then)."
+              ;;
+            nightly)
+              TITLE="OffScroll – nightly (test build #${GITHUB_RUN_NUMBER})"; FLAGS="--prerelease"
+              note "## OffScroll – nightly (test build)"
+              note ""
+              note "The newest code from \`main\`, published on every change. It may be rough: for the stable app use the"
+              note "[latest release](../../releases/latest). The in-app updater ignores this release."
+              ;;
+            *)
+              TITLE="Branch build: ${GITHUB_REF_NAME} (#${GITHUB_RUN_NUMBER})"; FLAGS="--prerelease"
+              note "## Branch build: ${GITHUB_REF_NAME}"
+              note ""
+              note "Test build, not the public release. Install **OffScroll.apk** to try this branch."
+              note "It is replaced by the next build of the same branch. The stable app is the \"latest\" release."
+              ;;
+          esac
+          note ""
+          # The app's in-app updater reads the "Build number:" line below to decide whether a "latest" release is
+          # newer than the installed one (build number = versionCode). Keep that exact line in every release.
+          note "- Build number: ${GITHUB_RUN_NUMBER}"
+          note "- Commit: \`${SHORT_SHA}\`"
+          note "- Built: ${BUILT}"
+          note "- Release build: optimised with R8 for smooth scrolling. Android may ask you to allow installs from your browser or file manager."
+          note "- Signing certificate SHA-256: \`${CERT_SHA256}\` (package \`com.aistudio.offscroll.vfeed\`; the engine is \`com.aistudio.offscroll.engine\`)"
+          if [ "$RELEASE_KIND" = "stable" ]; then
+            note "- Not from the Play Store? Play Protect may offer to scan the app first: tap More details, then Install anyway (or Scan app, then install). Every build is signed with the same key."
+          fi
 
-          - Run number: ${GITHUB_RUN_NUMBER}
-          - Commit: \`${SHORT_SHA}\`
-          - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
-          - Signing certificate SHA-256: \`${CERT_SHA256}\`
-          NOTES
-          sed -i 's/^          //' release-notes.md
-          gh release delete "$TAG" --yes --cleanup-tag || true
-          gh release create "$TAG" OffScroll.apk \
-            --title "Branch build: ${GITHUB_REF_NAME} (#${GITHUB_RUN_NUMBER})" \
-            --notes-file release-notes.md \
-            --target "$GITHUB_SHA" \
-            --prerelease
-
-      - name: Publish to the repo's Releases (shows on the main page)
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          # The app's in-app updater reads the "Build number:" line below to decide whether this
-          # release is newer than the installed one (build number = versionCode). Keep that line.
-          cat > release-notes.md <<NOTES
-          ## OffScroll – latest build
-
-          Install **OffScroll.apk** on your Android phone (Android 7.0+).
-
-          Want to save from YouTube, Facebook, TikTok, Snapchat, X and 1000+ more sites? Also install
-          **OffScroll-Engine.apk** (about 50 MB), or tap "Download and install engine" on the Any link tab
-          inside OffScroll. It is optional: OffScroll itself stays small without it. A fresh engine build
-          is attached a few minutes after the app (the previous one stays attached until then).
-
-          - Build number: ${GITHUB_RUN_NUMBER}
-          - Commit: \`${SHORT_SHA}\`
-          - Built: $(date -u +"%Y-%m-%d %H:%M UTC")
-          - Release build: optimised with R8 for smooth scrolling. Android may ask you to allow installs from your browser or file manager.
-          - Signing certificate SHA-256: \`${CERT_SHA256}\` (package \`com.aistudio.offscroll.vfeed\`; the engine is \`com.aistudio.offscroll.engine\`)
-          - Not from the Play Store? Play Protect may offer to scan the app first: tap More details, then Install anyway (or Scan app, then install). Every build is signed with the same key.
-          NOTES
-          sed -i 's/^          //' release-notes.md
-
-          # The release is recreated on every build, so keep the engine that is already attached
+          # The release is recreated, so keep the engine that is already attached to it
           # (the engine workflow replaces it with a fresh one a few minutes later)
           mkdir -p keep
-          gh release download latest -p OffScroll-Engine.apk -D keep 2>/dev/null || true
+          gh release download "$RELEASE_TAG" -p OffScroll-Engine.apk -D keep 2>/dev/null || true
           ASSETS="OffScroll.apk"
           [ -f keep/OffScroll-Engine.apk ] && ASSETS="$ASSETS keep/OffScroll-Engine.apk"
 
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest $ASSETS \
-            --title "OffScroll – latest build" \
+          gh release delete "$RELEASE_TAG" --yes --cleanup-tag || true
+          gh release create "$RELEASE_TAG" $ASSETS \
+            --title "$TITLE" \
             --notes-file release-notes.md \
             --target "$GITHUB_SHA" \
-            --latest
+            $FLAGS
 
       - name: Start the engine build (separate run, so this one is already done)
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh workflow run build-engine.yml --ref "$GITHUB_REF_NAME"; then
+          if gh workflow run build-engine.yml --ref "$GITHUB_REF_NAME" -f release_tag="$RELEASE_TAG"; then
             echo "::notice title=Engine build started::OffScroll-Engine.apk is building in its own run."
           else
             # Happens on a branch before build-engine.yml has been merged to main: the engine workflow's own

@@ -564,7 +564,7 @@ private fun AlertsRow(username: String, on: Boolean, onSet: (Boolean) -> Unit) {
         }
         val openAlertSettings = LocalOpenAlertSettings.current
         Text(
-            text = if (on) "Timer, instant alerts and tests: Alert settings ›" else "Alert settings ›",
+            text = if (on) "Timer and tests: Alert settings ›" else "Alert settings ›",
             color = IgBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier
                 .padding(top = 8.dp)

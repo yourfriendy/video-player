@@ -108,7 +108,8 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_file_paths" />
         </provider>
-            <!-- Live story alerts: a short timer (1-10 min) keeps a small ongoing notification so Android doesn't pause the checks -->
+
+        <!-- Live story alerts: a short timer (1-10 min) keeps a small ongoing notification so Android doesn't pause the checks -->
         <service
             android:name=".data.download.StoryWatchService"
             android:exported="false"
@@ -116,17 +117,6 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Checks the Instagram people the user chose for new stories and reposts on a timer the user sets" />
-        </service>
-
-        <!-- Instant story alerts: reacts to Instagram's own notifications (only Instagram's are looked at) -->
-        <service
-            android:name=".data.download.InstagramNotificationListener"
-            android:exported="true"
-            android:label="OffScroll instant alerts"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
         </service>
     </application>
 

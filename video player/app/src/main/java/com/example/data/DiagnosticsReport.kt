@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
-import com.example.data.download.InstagramNotificationListener
 import com.example.data.download.PeopleStore
 import com.example.data.download.StoryAlertSettings
 import com.example.data.download.StoryAlertStatus
@@ -50,7 +49,6 @@ object DiagnosticsReport {
                 val minutes = StoryAlertSettings.intervalMinutes(context)
                 add("Timer: every $minutes min (${if (StoryAlertSettings.isLive(context)) "live mode" else "normal mode"})")
             }
-            safe { add("Instant alerts access: " + if (InstagramNotificationListener.isEnabled(context)) "allowed" else "off") }
         }
 
         val checks = safe { StoryAlertStatus.history(context).map { (at, line) -> time.format(Date(at)) + "  " + line } }.orEmpty()

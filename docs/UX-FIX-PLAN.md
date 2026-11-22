@@ -11,7 +11,7 @@ This file is the single source of truth. Each phase ends with its boxes ticked h
 4. **No device here.** I can't run the app, so each merged phase ends with a short on-phone checklist for you. Findings that need a device are marked *(device)*.
 5. **Honest status.** Tasks I could not finish are left unticked with the reason, not quietly dropped.
 6. **Small visual risk first.** Mechanical, behaviour-neutral changes (tokens, descriptions) go before anything that changes layouts or flows.
-7. **Every build goes to Releases.** A build from `main` replaces the public `latest` release (what the in-app updater follows). A build from any other branch is published as a pre-release tagged `build-<branch>` (replaced by that branch's next build). A `main` build is never cancelled, and a flaky dependency download is retried once, so a good change always reaches Releases.
+7. **Every build goes to Releases, but only a deliberate one replaces `latest`.** A build from `main` is published as the `nightly` pre-release (replaced on every push). The public `latest` release (what the README button and the in-app updater use) changes only on a manual run of `build-apk.yml` with *Publish to latest* ticked, or on a pushed `v*` tag, so its download address and file stay stable between releases. Other branches publish `build-<branch>` pre-releases. A `main` build is never cancelled, and a flaky dependency download is retried once. Every release's notes keep the `Build number: <n>` line that `UpdateModels.kt` parses.
 
 ## Phase 1: trust and access (audit P0 + foundations): DONE, awaiting your on-phone check
 

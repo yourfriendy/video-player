@@ -117,7 +117,6 @@
     <string name="alerts">Alerts</string>
     <string name="be_told_the_moment_someone_posts">Be told the moment someone posts</string>
     <string name="no_one_saved_yet_open_watch">No one saved yet. Open Watch stories, search someone and tap Save.</string>
-    <string name="reposts_have_no_instagram_notification_so">Reposts have no Instagram notification, so they are caught by the timer.</string>
     <string name="phones_pause_apps_that_sit_idle">Phones pause apps that sit idle, which delays alerts. Allow OffScroll to run in the background so checks stay on time.</string>
     <string name="tip_in_instagram_tap_share_copy">Tip: in Instagram tap Share → Copy link, or share the reel straight to OffScroll and it downloads automatically. Works with public reels only.</string>
     <string name="connected_to_instagram_as">Connected to Instagram as</string>

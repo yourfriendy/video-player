@@ -21,7 +21,7 @@
 ## ✨ Why OffScroll?
 
 Your gallery is full of videos you never rewatch because a grid of thumbnails is a chore to browse.
-OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-tap to like, keep what you love, and move on.
+OffScroll turns that folder into a **full-screen vertical feed**: swipe, tap the heart to like, keep what you love, and move on.
 
 |  |  |
 |---|---|
@@ -38,8 +38,8 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, double-
 
 ### Watch
 - 📱 Full-screen **vertical swipe feed**
-- ❤️ **Double-tap to like**
-- ⏯️ Tap to reveal controls, tap again to play/pause
+- ❤️ **Like with the heart button**
+- ⏯️ Tap to show controls, tap again for full screen; **double-tap to pause / play**
 - 🎚️ **Scrub bar** and horizontal-drag seeking
 - 🔆 **Brightness** (left edge) and 🔊 **volume** (right edge) swipes with a live level indicator
 - ⏭️ Auto-advance to the next video when loop is off
@@ -139,8 +139,8 @@ Videos are saved to `Movies/OffScroll` (and appear in the feed); photos go to `P
 | Gesture | What it does |
 |---|---|
 | **Swipe up / down** | Next / previous video |
-| **Tap** | Show controls (tap again to play / pause) |
-| **Double-tap** | Like ❤️ |
+| **Tap** | Show controls (tap again to hide them for full screen) |
+| **Double-tap** | Pause / play ⏯️ |
 | **Slide along the left edge** | Brightness 🔆 |
 | **Slide along the right edge** | Volume 🔊 |
 | **Drag along the progress bar** | Scrub through the video |
@@ -182,7 +182,7 @@ gradle :app:assembleDebug
 
 ### 🤖 Automatic APK builds
 
-Every push to `main` runs [`build-apk.yml`](.github/workflows/build-apk.yml), which builds an **R8-optimised, release-signed** `OffScroll.apk` and replaces the **`latest`** release with it, so the newest build is always one tap away from the repo's front page. That run then starts [`build-engine.yml`](.github/workflows/build-engine.yml) as a separate run for the big optional `OffScroll-Engine.apk`, so the app is published minutes sooner; the engine is attached to the same release when it finishes (the previous engine stays attached in the meantime).
+Every push builds an **R8-optimised, release-signed** `OffScroll.apk` with [`build-apk.yml`](.github/workflows/build-apk.yml). Pushes to `main` are published as the **`nightly`** pre-release (a test build, replaced on every push; the in-app updater ignores it). The public **`latest`** release, which the download button above and the in-app updater use, is only replaced on purpose: run the workflow by hand with *Publish this build as the public latest release* ticked, or push a version tag such as `v1.2`. Other branches publish a `build-<branch>` pre-release. Every run then starts [`build-engine.yml`](.github/workflows/build-engine.yml) as a separate run for the big optional `OffScroll-Engine.apk`, which is attached to the same release when it finishes. [`all-tests.yml`](.github/workflows/all-tests.yml) runs every unit test on each push.
 
 ## 📁 Project layout
 
