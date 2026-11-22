@@ -153,9 +153,9 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max).staggeredEntrance(2),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    StatTile(Icons.Default.VideoLibrary, "${uiState.allVideos.size}", "Videos", Ds.Palette.VioletSoft, Modifier.weight(1f).fillMaxHeight())
-                    StatTile(Icons.Default.Storage, uiState.totalStorageFormatted, "On this phone", Ds.Palette.Cyan, Modifier.weight(1f).fillMaxHeight())
-                    StatTile(Icons.Default.Folder, "$folderCount", "Folders", Ds.Palette.Warn, Modifier.weight(1f).fillMaxHeight())
+                    LibraryStatTile(Icons.Default.VideoLibrary, "${uiState.allVideos.size}", "Videos", Ds.Palette.VioletSoft, Modifier.weight(1f).fillMaxHeight())
+                    LibraryStatTile(Icons.Default.Storage, uiState.totalStorageFormatted, "On this phone", Ds.Palette.Cyan, Modifier.weight(1f).fillMaxHeight())
+                    LibraryStatTile(Icons.Default.Folder, "$folderCount", "Folders", Ds.Palette.Warn, Modifier.weight(1f).fillMaxHeight())
                 }
             }
 

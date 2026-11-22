@@ -131,7 +131,7 @@ private fun HeroPill(text: String) {
 
 /** One number about the library: a tinted icon, the value and what it is. */
 @Composable
-internal fun StatTile(icon: ImageVector, value: String, label: String, tint: Color, modifier: Modifier = Modifier) {
+internal fun LibraryStatTile(icon: ImageVector, value: String, label: String, tint: Color, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(Ds.Radius.Xl)
     Column(
         modifier = modifier
