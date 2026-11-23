@@ -1,0 +1,58 @@
+name: Prepare the signing key
+description: >
+  Decodes the repository's release keystore (or makes a throw-away one when the secrets are missing), exports the
+  KEYSTORE_PATH / STORE_PASSWORD / KEY_PASSWORD / KEY_ALIAS variables for Gradle and prints the certificate
+  fingerprint. The app and the engine MUST be signed with the same key, so both use this one action.
+
+inputs:
+  keystore-base64:
+    description: ANDROID_KEYSTORE_BASE64 secret
+    required: false
+    default: ""
+  keystore-password:
+    description: ANDROID_KEYSTORE_PASSWORD secret
+    required: false
+    default: ""
+
+outputs:
+  cert-sha256:
+    description: SHA-256 fingerprint of the signing certificate
+    value: ${{ steps.key.outputs.cert }}
+
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        KS_B64: ${{ inputs.keystore-base64 }}
+        KS_PASS: ${{ inputs.keystore-password }}
+      run: |
+        KS="$RUNNER_TEMP/release.jks"
+        if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+          echo "Using the repository's signing key (updates install over older builds)"
+          echo "$KS_B64" | base64 -d > "$KS"
+          PASS="$KS_PASS"
+        else
+          echo "::warning::No ANDROID_KEYSTORE_* secrets found: using a throw-away key. Each build will have a different signature, so Android will refuse to update over an older install, and the engine will not work with the app."
+          PASS="offscroll-ci"
+          keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" \
+            -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=OffScroll,O=OffScroll,C=US"
+        fi
+        {
+          echo "KEYSTORE_PATH=$KS"
+          echo "STORE_PASSWORD=$PASS"
+          echo "KEY_PASSWORD=$PASS"
+          echo "KEY_ALIAS=upload"
+        } >> "$GITHUB_ENV"
+        # The fingerprint is what you register with Google, and what users can compare
+        FP=$(keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload 2>/dev/null | grep -m1 "SHA256:" | sed 's/.*SHA256: *//')
+        echo "cert=$FP" >> "$GITHUB_OUTPUT"
+        {
+          echo "### Signing certificate"
+          echo
+          echo "SHA-256: \`$FP\`"
+          echo
+          echo "Register this fingerprint with the package name in the Android Developer Console (see docs/VERIFY-WITH-GOOGLE.md)."
+        } >> "$GITHUB_STEP_SUMMARY"
