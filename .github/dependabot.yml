@@ -1,0 +1,23 @@
+# Keeps the pipeline current without anyone remembering to. Actions are pinned to exact commits (so a hijacked tag
+# can't change what runs); Dependabot opens a pull request when a newer version exists, and the pipeline tests it.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: gradle
+    directory: "/video player"
+    schedule:
+      interval: weekly
+    groups:
+      androidx-and-compose:
+        patterns: ["androidx.*", "org.jetbrains.kotlin*", "com.google.devtools.ksp*"]
+    open-pull-requests-limit: 3

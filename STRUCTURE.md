@@ -4,8 +4,7 @@ One line per file: ``- `path` — what it does``. `python3 brain/brain.py struct
 Rule: add/rename/move/delete a file => update this file in the same change. Do not read it whole: `brain.py map DIR`.
 
 ### Added 2026-11-21 (replace every "describe me")
-- `.github/workflows/build-apk.yml` — Fast path: this workflow builds and publishes ONLY the small OffScroll.apk (about 10 MB), then triggers
-- `.github/workflows/build-engine.yml` — The big one (about 50 MB: yt-dlp + Python + ffmpeg). It is started by build-apk.yml AFTER the small app
+- `.github/workflows/build-apk.yml` — The pipeline: tests, app and engine build in parallel, then one publish to GitHub Releases (nightly / latest / build-<branch>); fails if the APK is not in its release.
 - `.github/workflows/sign-registration-apk.yml` — Google's Android Developer Console asks you to prove you own the signing key by signing a dummy APK it gives you.
 - `.gitignore` — .gitignore (describe me)
 - `README.md` — ✨ Why OffScroll?
@@ -172,10 +171,14 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `video player/app/src/main/java/com/example/ui/components/PlayPauseFeedback.kt` — PlayPauseFeedback Pause/resume feedback on the reel: dark veil, glass play/pause button that morphs and breathes, ripple ring.
 
 ### Added 2026-11-22 (replace every "describe me")
-- `.github/workflows/all-tests.yml` — build-apk.yml only runs the data.download, data.update and data.universal tests (so a UI-only test can never
 
 ### Added 2026-11-22 (replace every "describe me")
 - `video player/app/src/main/java/com/example/ui/components/SettingsParts.kt` — SettingsParts Settings & Guide building blocks: hero card, stat tiles, section headers, phone gesture map, gesture cards, toggle row, tool tiles.
 
 ### Added 2026-11-22 (replace every "describe me")
 - `docs/COPY-GUIDE.md` — OffScroll copy guide
+
+### Added 2026-11-23 (replace every "describe me")
+- `.github/actions/setup-build/action.yml` — action Shared CI step: JDK 21, SDK licences, Gradle 9.3.1 with cache.
+- `.github/actions/signing-key/action.yml` — action Shared CI step: decodes the release keystore (app and engine must share it) and prints the certificate SHA-256.
+- `.github/dependabot.yml` — Keeps the pipeline current without anyone remembering to. Actions are pinned to exact commits (so a hijacked tag

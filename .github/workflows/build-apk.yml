@@ -1,20 +1,25 @@
 name: Build APK
 
-# Fast path: this workflow builds and publishes ONLY the small OffScroll.apk (about 10 MB), then triggers
-# build-engine.yml as a separate run for the big OffScroll-Engine.apk (about 50 MB), so the app is
-# available minutes sooner instead of waiting for both.
+# THE PIPELINE. Four jobs, three of them in parallel:
 #
-# WHERE A BUILD IS PUBLISHED (GitHub Releases):
-#   - push to main                       -> pre-release "nightly" (replaced on every push)
-#   - manual run on main with "Publish to latest" ticked, or a pushed version tag v*  -> the public "latest" release
-#   - any other branch                   -> pre-release "build-<branch>"
+#   test    every unit test (data.* and ui.*)   ─┐
+#   app     OffScroll.apk (R8 release build)     ├─> publish -> GitHub Releases
+#   engine  OffScroll-Engine.apk                ─┘   (app + engine + checksums + provenance, all at once)
+#
+# The release goes out when the tests and the app are green; a failing engine build never holds the app back
+# (the previous engine stays attached). Total time is the slowest of the three parallel jobs plus the publish.
+#
+# WHERE A BUILD IS PUBLISHED (rule: every build goes to GitHub Releases, never only to a workflow artifact):
+#   - push to main                                   -> pre-release "nightly" (replaced on every push)
+#   - manual run on main with "Publish to latest", or a pushed version tag v*  -> the public "latest" release
+#   - any other branch                               -> pre-release "build-<branch>"
 # The public "latest" file (what the README links to and the in-app updater follows) therefore stays the same
-# file between deliberate releases instead of being replaced on every commit, which keeps browsers' and
-# scanners' reputation for that download address.
+# file between deliberate releases, which keeps browsers' and scanners' reputation for that download address.
+# A nightly schedule rebuilds main without publishing, only to keep the Gradle caches warm (GitHub deletes caches
+# that are unused for 7 days, and a cold build is about 60% slower).
 
 on:
-  # Every push to ANY branch builds an APK (attached to the run as the "OffScroll-apk" artifact).
-  # Docs-only pushes don't build.
+  # Every push to ANY branch builds. Docs-only pushes don't.
   push:
     branches: ["**"]
     paths-ignore:
@@ -27,90 +32,91 @@ on:
         description: "Publish this build as the public latest release (what the in-app updater follows)"
         type: boolean
         default: false
+      skip_tests:
+        description: "Emergency only: publish without running the unit tests"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "17 3 * * *"
 
+# Least privilege: jobs that build can only read. Only "publish" can write releases and attestations.
 permissions:
-  contents: write
-  actions: write # lets this workflow start the engine build (gh workflow run)
+  contents: read
 
 concurrency:
-  # One build per branch, so a feature-branch build never cancels (or replaces) a main build
-  group: build-apk-${{ github.ref }}
-  # Never cancel a main build: it is the one that publishes the release (two quick merges used to cancel the first)
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # One build per branch, so a feature-branch build never cancels (or replaces) a main build. The schedule has its
+  # own group so it can never take the place of a push that is waiting to publish.
+  group: build-apk-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
+  # Never cancel a main build: it is the one that publishes the release
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'schedule' }}
 
 jobs:
-  build:
-    name: Build & publish OffScroll.apk
+  # ------------------------------------------------------------------------------------------------ tests
+  test:
+    name: Unit tests (all)
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_tests) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
-
+    timeout-minutes: 25
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
+      - uses: ./.github/actions/setup-build
 
-      - name: Accept Android SDK licenses (SDK is preinstalled on the runner)
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.3.1"
-
-      - name: Prepare signing key
-        env:
-          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          KS="$RUNNER_TEMP/release.jks"
-          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
-            echo "Using the repository's signing key (updates install over older builds)"
-            echo "$KS_B64" | base64 -d > "$KS"
-            PASS="$KS_PASS"
-          else
-            echo "::warning::No ANDROID_KEYSTORE_* secrets found: using a throw-away key. Each build will have a different signature, so Android will refuse to update over an older install (uninstall first)."
-            PASS="offscroll-ci"
-            keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" \
-              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=OffScroll,O=OffScroll,C=US"
-          fi
-          {
-            echo "KEYSTORE_PATH=$KS"
-            echo "STORE_PASSWORD=$PASS"
-            echo "KEY_PASSWORD=$PASS"
-            echo "KEY_ALIAS=upload"
-          } >> "$GITHUB_ENV"
-          # Print the certificate fingerprint: it is what you register with Google (and what users can compare)
-          FP=$(keytool -list -v -keystore "$KS" -storepass "$PASS" -alias upload 2>/dev/null | grep -m1 "SHA256:" | sed 's/.*SHA256: *//')
-          echo "CERT_SHA256=$FP" >> "$GITHUB_ENV"
-          {
-            echo "### Signing certificate"
-            echo
-            echo "SHA-256: \`$FP\`"
-            echo
-            echo "Register this fingerprint with the package name in the Android Developer Console (see docs/VERIFY-WITH-GOOGLE.md)."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Cache Robolectric's Android jars (a failed download of these used to fail the build, so no release)
-        uses: actions/cache@v4
+      - name: Cache Robolectric's Android jars (a failed download of these used to fail the build)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.m2/repository/org/robolectric
           key: robolectric-${{ runner.os }}-${{ hashFiles('video player/gradle/libs.versions.toml', 'video player/app/build.gradle*') }}
           restore-keys: robolectric-${{ runner.os }}-
 
-      - name: Unit tests, then build the release APK (R8-optimised)
+      - name: Run every unit test (one retry for a flaky dependency download)
         working-directory: video player
         run: |
           set -o pipefail
-          run_build() {
-            gradle :app:testDebugUnitTest --tests "com.example.data.download.*" --tests "com.example.data.update.*" --tests "com.example.data.universal.*" :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
-          }
+          run_tests() { gradle :app:testDebugUnitTest --stacktrace --no-daemon 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; }
+          run_tests || { echo "::warning title=Tests retried::First attempt failed (often a flaky download). Trying once more."; run_tests; }
+
+      - name: Surface failures as annotations
+        if: failure()
+        run: |
+          if [ -f build.log ]; then
+            ERR=$( { grep -E -A8 "What went wrong" build.log; grep -E "^e: |FAILED|AssertionError|ComparisonFailure|expected:" build.log; } | head -70 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Unit test failures::${ERR}"
+          fi
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unit-test-reports
+          path: video player/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # ------------------------------------------------------------------------------------------------ app
+  app:
+    name: Build OffScroll.apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      cert-sha256: ${{ steps.signing.outputs.cert-sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-build
+
+      - name: Prepare signing key
+        id: signing
+        uses: ./.github/actions/signing-key
+        with:
+          keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+      - name: Build the release APK (R8-optimised)
+        working-directory: video player
+        run: |
+          set -o pipefail
+          run_build() { gradle :app:assembleRelease --stacktrace --no-daemon 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; }
           # One automatic retry: a flaky dependency download must not stop a build from reaching Releases
           run_build || { echo "::warning title=Build retried::First attempt failed (often a flaky download). Trying once more."; run_build; }
 
@@ -118,7 +124,7 @@ jobs:
         if: failure()
         run: |
           if [ -f build.log ]; then
-            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED|expected:|AssertionError|ComparisonFailure" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            ERR=$( { grep -E -A8 "What went wrong" build.log; grep -E "^e: |FAILED|AssertionError|ComparisonFailure|expected:" build.log; } | head -70 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
             echo "::error title=Build errors::${ERR}"
           else
             echo "::error title=Build errors::no build.log (failed before the Gradle step)"
@@ -130,10 +136,85 @@ jobs:
           ls -l OffScroll.apk
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: OffScroll-apk
           path: OffScroll.apk
+          retention-days: 14
+
+  # ------------------------------------------------------------------------------------------------ engine
+  engine:
+    name: Build OffScroll-Engine.apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-build
+
+      # Must be the SAME key as the app: the engine only talks to apps signed like it
+      - name: Prepare signing key
+        uses: ./.github/actions/signing-key
+        with:
+          keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+      - name: Build the engine APK
+        working-directory: video player
+        run: |
+          set -o pipefail
+          run_build() { gradle :engine:assembleRelease --stacktrace --no-daemon 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; }
+          run_build || { echo "::warning title=Engine build retried::First attempt failed. Trying once more."; run_build; }
+
+      - name: Surface build errors as annotations
+        if: failure()
+        run: |
+          if [ -f build.log ]; then
+            ERR=$( { grep -E -A8 "What went wrong" build.log; grep -E "^e: |FAILED|AssertionError|ComparisonFailure|expected:" build.log; } | head -70 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Engine build errors::${ERR}"
+          fi
+
+      - name: Name the APK
+        run: |
+          cp "video player/engine/build/outputs/apk/release/engine-release.apk" OffScroll-Engine.apk
+          ls -l OffScroll-Engine.apk
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: OffScroll-Engine-apk
+          path: OffScroll-Engine.apk
+          retention-days: 14
+
+  # ------------------------------------------------------------------------------------------------ publish
+  publish:
+    name: Publish to Releases
+    needs: [test, app, engine]
+    # Runs when the app is built and the tests passed (or were deliberately skipped). A failed engine build does not
+    # stop it. The nightly schedule never publishes.
+    if: ${{ !cancelled() && github.event_name != 'schedule' && needs.app.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the build provenance
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download the app
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: OffScroll-apk
+          path: dist
+
+      - name: Download the engine (missing if its build failed)
+        if: needs.engine.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: OffScroll-Engine-apk
+          path: dist
 
       - name: Decide where this build is published
         run: |
@@ -150,11 +231,28 @@ jobs:
           fi
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
           echo "RELEASE_KIND=$KIND" >> "$GITHUB_ENV"
-          echo "### Release target: \`$TAG\` ($KIND)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prove where the build came from (signed provenance)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.apk
+
+      - name: Keep the previous engine if there is no fresh one
+        if: needs.engine.result != 'success'
+        run: |
+          gh release download "$RELEASE_TAG" -p OffScroll-Engine.apk -D dist 2>/dev/null \
+            && echo "::warning title=Engine not rebuilt::The engine build failed, so the previous engine stays attached." \
+            || echo "::warning title=No engine::The engine build failed and there is no previous engine to keep."
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum OffScroll*.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Publish to Releases
         env:
-          GH_TOKEN: ${{ github.token }}
+          CERT_SHA256: ${{ needs.app.outputs.cert-sha256 }}
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
           BUILT="$(date -u +"%Y-%m-%d %H:%M UTC")"
@@ -170,8 +268,7 @@ jobs:
               note ""
               note "Want to save from YouTube, Facebook, TikTok, Snapchat, X and 1000+ more sites? Also install"
               note "**OffScroll-Engine.apk** (about 50 MB), or tap \"Download and install engine\" on the Any link tab"
-              note "inside OffScroll. It is optional: OffScroll itself stays small without it. A fresh engine build"
-              note "is attached a few minutes after the app (the previous one stays attached until then)."
+              note "inside OffScroll. It is optional: OffScroll itself stays small without it."
               ;;
             nightly)
               TITLE="OffScroll – nightly (test build #${GITHUB_RUN_NUMBER})"; FLAGS="--prerelease"
@@ -196,17 +293,15 @@ jobs:
           note "- Built: ${BUILT}"
           note "- Release build: optimised with R8 for smooth scrolling. Android may ask you to allow installs from your browser or file manager."
           note "- Signing certificate SHA-256: \`${CERT_SHA256}\` (package \`com.aistudio.offscroll.vfeed\`; the engine is \`com.aistudio.offscroll.engine\`)"
+          note "- Verify: compare \`SHA256SUMS.txt\`, or run \`gh attestation verify OffScroll.apk --repo ${GITHUB_REPOSITORY}\` to check it was built by this repository's workflow."
           if [ "$RELEASE_KIND" = "stable" ]; then
             note "- Not from the Play Store? Play Protect may offer to scan the app first: tap More details, then Install anyway (or Scan app, then install). Every build is signed with the same key."
           fi
 
-          # The release is recreated, so keep the engine that is already attached to it
-          # (the engine workflow replaces it with a fresh one a few minutes later)
-          mkdir -p keep
-          gh release download "$RELEASE_TAG" -p OffScroll-Engine.apk -D keep 2>/dev/null || true
-          ASSETS="OffScroll.apk"
-          [ -f keep/OffScroll-Engine.apk ] && ASSETS="$ASSETS keep/OffScroll-Engine.apk"
+          ASSETS="dist/OffScroll.apk dist/SHA256SUMS.txt"
+          [ -f dist/OffScroll-Engine.apk ] && ASSETS="$ASSETS dist/OffScroll-Engine.apk"
 
+          # The release is recreated so its notes, commit and assets always match this build exactly
           gh release delete "$RELEASE_TAG" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" $ASSETS \
             --title "$TITLE" \
@@ -215,8 +310,6 @@ jobs:
             $FLAGS
 
       - name: "Verify the build is really in Releases (rule - every build goes to Releases)"
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           ASSETS=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
           echo "$ASSETS"
@@ -224,16 +317,18 @@ jobs:
             echo "::error title=Build not in Releases::OffScroll.apk is missing from the $RELEASE_TAG release. Every build must go to GitHub Releases."
             exit 1
           fi
+          echo "$ASSETS" | grep -qx "OffScroll-Engine.apk" || echo "::warning title=Engine missing::The $RELEASE_TAG release has no OffScroll-Engine.apk."
 
-      - name: Start the engine build (separate run, so this one is already done)
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Summary
         run: |
-          if gh workflow run build-engine.yml --ref "$GITHUB_REF_NAME" -f release_tag="$RELEASE_TAG"; then
-            echo "::notice title=Engine build started::OffScroll-Engine.apk is building in its own run."
-          else
-            # Happens on a branch before build-engine.yml has been merged to main: the engine workflow's own
-            # push trigger covers that case, so this must not fail the app build
-            echo "::warning title=Engine build not started from here::Couldn't dispatch build-engine.yml (normal on a new branch). It also starts by itself on pushes that touch the engine."
-          fi
+          {
+            echo "### Published to \`$RELEASE_TAG\` ($RELEASE_KIND)"
+            echo
+            echo "| File | Size | SHA-256 |"
+            echo "|---|---|---|"
+            for f in dist/OffScroll*.apk; do
+              echo "| $(basename "$f") | $(du -h "$f" | cut -f1) | \`$(sha256sum "$f" | cut -c1-16)…\` |"
+            done
+            echo
+            echo "Release: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
+          } >> "$GITHUB_STEP_SUMMARY"
