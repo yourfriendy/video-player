@@ -80,7 +80,7 @@ jobs:
         if: failure()
         run: |
           if [ -f build.log ]; then
-            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|FAILED|expected:|AssertionError|ComparisonFailure" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            ERR=$( { grep -E -A8 "What went wrong" build.log; grep -E "^e: |FAILED|AssertionError|ComparisonFailure|expected:" build.log; } | head -70 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
             echo "::error title=Unit test failures::${ERR}"
           fi
 
@@ -124,7 +124,7 @@ jobs:
         if: failure()
         run: |
           if [ -f build.log ]; then
-            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            ERR=$( { grep -E -A8 "What went wrong" build.log; grep -E "^e: |FAILED|AssertionError|ComparisonFailure|expected:" build.log; } | head -70 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
             echo "::error title=Build errors::${ERR}"
           else
             echo "::error title=Build errors::no build.log (failed before the Gradle step)"
@@ -170,7 +170,7 @@ jobs:
         if: failure()
         run: |
           if [ -f build.log ]; then
-            ERR=$(grep -E "^e: |error:|What went wrong|Execution failed|Could not |not found|FAILED" build.log | head -40 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            ERR=$( { grep -E -A8 "What went wrong" build.log; grep -E "^e: |FAILED|AssertionError|ComparisonFailure|expected:" build.log; } | head -70 | cut -c1-400 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
             echo "::error title=Engine build errors::${ERR}"
           fi
 
