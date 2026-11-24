@@ -63,7 +63,7 @@ object InstagramParser {
     }
 
     fun extractTitle(html: String): String? =
-        metaContent(html, "og:title")?.take(80)?.takeIf { it.isNotBlank() }
+        metaContent(html, "og:title")?.let { HtmlText.take(it, 80) }?.takeIf { it.isNotBlank() }
 
     /** Does the page look like Instagram's login wall rather than the reel itself? */
     fun looksLikeLoginWall(html: String): Boolean =
@@ -106,9 +106,7 @@ object InstagramParser {
         return value?.let { decodeHtml(it) }
     }
 
-    private fun decodeHtml(s: String): String =
-        s.replace("&amp;", "&").replace("&quot;", "\"").replace("&#039;", "'").replace("&#x27;", "'")
-            .replace("&lt;", "<").replace("&gt;", ">")
+    private fun decodeHtml(s: String): String = HtmlText.decode(s)
 
     // ------------------------------------------------------------------------------------------
     // Stories
