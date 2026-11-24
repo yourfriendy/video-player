@@ -9,12 +9,13 @@ name: Build APK
 # The release goes out when the tests and the app are green; a failing engine build never holds the app back
 # (the previous engine stays attached). Total time is the slowest of the three parallel jobs plus the publish.
 #
-# WHERE A BUILD IS PUBLISHED (rule: every build goes to GitHub Releases, never only to a workflow artifact):
-#   - push to main                                   -> pre-release "nightly" (replaced on every push)
-#   - manual run on main with "Publish to latest", or a pushed version tag v*  -> the public "latest" release
-#   - any other branch                               -> pre-release "build-<branch>"
-# The public "latest" file (what the README links to and the in-app updater follows) therefore stays the same
-# file between deliberate releases, which keeps browsers' and scanners' reputation for that download address.
+# WHERE A BUILD IS PUBLISHED (rule: every update and every APK goes to a NEW GitHub Release, never only to a
+# workflow artifact, and never by overwriting an older release):
+#   - every push to main (and every manual run on main) -> a NEW release "v<version>.<build>", e.g. v1.1.114, marked
+#                                                          Latest. The older releases are left exactly as they were.
+#   - a pushed version tag v*                            -> a release for that tag, marked Latest
+#   - any other branch                                   -> pre-release "build-<branch>" (replaced by that branch's next build)
+# "Latest" (what the README button, /releases/latest and the in-app updater follow) is simply the newest release.
 # A nightly schedule rebuilds main without publishing, only to keep the Gradle caches warm (GitHub deletes caches
 # that are unused for 7 days, and a cold build is about 60% slower).
 
@@ -29,7 +30,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_latest:
-        description: "Publish this build as the public latest release (what the in-app updater follows)"
+        description: "No longer needed: every main build is published as a new release. Kept so older scripts still work."
         type: boolean
         default: false
       skip_tests:
@@ -203,6 +204,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
+      - name: Read the app version (for the release name)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: video player/app/build.gradle.kts
+          sparse-checkout-cone-mode: false
+
       - name: Download the app
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -218,19 +225,18 @@ jobs:
 
       - name: Decide where this build is published
         run: |
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' "video player/app/build.gradle.kts" | head -1)
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            TAG=latest; KIND=stable
+            TAG="$GITHUB_REF_NAME"; KIND=stable
           elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_latest }}" = "true" ]; then
-              TAG=latest; KIND=stable
-            else
-              TAG=nightly; KIND=nightly
-            fi
+            # A brand-new release for every update: v1.1.114, v1.1.115, ... Nothing older is touched.
+            TAG="v${VERSION:-1.0}.${GITHUB_RUN_NUMBER}"; KIND=stable
           else
             TAG="build-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"; KIND=branch
           fi
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
           echo "RELEASE_KIND=$KIND" >> "$GITHUB_ENV"
+          echo "APP_VERSION=${VERSION:-1.0}" >> "$GITHUB_ENV"
 
       - name: Prove where the build came from (signed provenance)
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -240,8 +246,8 @@ jobs:
       - name: Keep the previous engine if there is no fresh one
         if: needs.engine.result != 'success'
         run: |
-          gh release download "$RELEASE_TAG" -p OffScroll-Engine.apk -D dist 2>/dev/null \
-            && echo "::warning title=Engine not rebuilt::The engine build failed, so the previous engine stays attached." \
+          gh release download -p OffScroll-Engine.apk -D dist 2>/dev/null \
+            && echo "::warning title=Engine not rebuilt::The engine build failed, so the engine from the newest earlier release is attached." \
             || echo "::warning title=No engine::The engine build failed and there is no previous engine to keep."
 
       - name: Checksums
@@ -261,8 +267,8 @@ jobs:
 
           case "$RELEASE_KIND" in
             stable)
-              TITLE="OffScroll – latest build"; FLAGS="--latest"
-              note "## OffScroll – latest build"
+              TITLE="OffScroll ${APP_VERSION} (build ${GITHUB_RUN_NUMBER})"; FLAGS="--latest"
+              note "## OffScroll ${APP_VERSION} (build ${GITHUB_RUN_NUMBER})"
               note ""
               note "Install **OffScroll.apk** on your Android phone (Android 7.0+)."
               note ""
@@ -270,23 +276,16 @@ jobs:
               note "**OffScroll-Engine.apk** (about 50 MB), or tap \"Download and install engine\" on the Any link tab"
               note "inside OffScroll. It is optional: OffScroll itself stays small without it."
               ;;
-            nightly)
-              TITLE="OffScroll – nightly (test build #${GITHUB_RUN_NUMBER})"; FLAGS="--prerelease"
-              note "## OffScroll – nightly (test build)"
-              note ""
-              note "The newest code from \`main\`, published on every change. It may be rough: for the stable app use the"
-              note "[latest release](../../releases/latest). The in-app updater ignores this release."
-              ;;
             *)
               TITLE="Branch build: ${GITHUB_REF_NAME} (#${GITHUB_RUN_NUMBER})"; FLAGS="--prerelease"
               note "## Branch build: ${GITHUB_REF_NAME}"
               note ""
               note "Test build, not the public release. Install **OffScroll.apk** to try this branch."
-              note "It is replaced by the next build of the same branch. The stable app is the \"latest\" release."
+              note "It is replaced by the next build of the same branch. The newest stable app is the release marked Latest."
               ;;
           esac
           note ""
-          # The app's in-app updater reads the "Build number:" line below to decide whether a "latest" release is
+          # The app's in-app updater reads the "Build number:" line below to decide whether the Latest release is
           # newer than the installed one (build number = versionCode). Keep that exact line in every release.
           note "- Build number: ${GITHUB_RUN_NUMBER}"
           note "- Commit: \`${SHORT_SHA}\`"
@@ -301,7 +300,8 @@ jobs:
           ASSETS="dist/OffScroll.apk dist/SHA256SUMS.txt"
           [ -f dist/OffScroll-Engine.apk ] && ASSETS="$ASSETS dist/OffScroll-Engine.apk"
 
-          # The release is recreated so its notes, commit and assets always match this build exactly
+          # A new tag for every main build. Only a re-run of the SAME run (same build number) or a branch build
+          # replaces its own release, so its notes, commit and assets always match this exact build.
           gh release delete "$RELEASE_TAG" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" $ASSETS \
             --title "$TITLE" \
