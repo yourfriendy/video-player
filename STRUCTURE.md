@@ -182,3 +182,7 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `.github/actions/setup-build/action.yml` — action Shared CI step: JDK 21, SDK licences, Gradle 9.3.1 with cache.
 - `.github/actions/signing-key/action.yml` — action Shared CI step: decodes the release keystore (app and engine must share it) and prints the certificate SHA-256.
 - `.github/dependabot.yml` — Keeps the pipeline current without anyone remembering to. Actions are pinned to exact commits (so a hijacked tag
+
+### Added 2026-11-24 (replace every "describe me")
+- `video player/app/src/main/java/com/example/data/download/HtmlText.kt` — HtmlText Decodes HTML codes in Instagram page text (&#x1f337; -> emoji, &amp; -> &) and cuts text without splitting emoji.
+- `video player/app/src/test/java/com/example/data/download/HtmlTextTest.kt` — JIT🌷 on Instagram: "#TVアニメ『ONE PIECE』
