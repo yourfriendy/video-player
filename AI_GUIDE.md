@@ -55,7 +55,7 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 | Build / test the project | (fill in; also put them in `brain/brain.json` "commands") |
 
 ## 4. Rules and gotchas (learned the hard way - add one line each time something cost you time)
-- **RELEASE RULE: every build goes to GitHub Releases, never only to a workflow artifact.** main -> `nightly` pre-release; manual run of build-apk.yml with "Publish to latest" ticked, or a `v*` tag -> public `latest`; other branches -> `build-<branch>`. Keep the `Build number: <n>` line in the notes (UpdateModels.kt parses it). build-apk.yml fails the run if the APK is missing from its release. Never cancel a main build; keep the one retry. Notification-listener access (BIND_NOTIFICATION_LISTENER_SERVICE) was removed on purpose (Play Protect): do not add it back.
+- **RELEASE RULE: every update and every APK goes to a NEW GitHub Release, never only to a workflow artifact and never by overwriting an older release. Every push to main (or manual run on main) -> a new release `v<version>.<build>` (e.g. v1.1.114) marked Latest, with OffScroll.apk, OffScroll-Engine.apk and SHA256SUMS.txt; a pushed `v*` tag -> a release for that tag; any other branch -> pre-release `build-<branch>`. Keep the `Build number: <n>` line in the notes (UpdateModels.kt reads it). build-apk.yml fails the run if the APK is missing from its release. If a build is not in Releases, fixing that comes first. Never cancel a main build; keep the one retry. Notification-listener access (BIND_NOTIFICATION_LISTENER_SERVICE) was removed on purpose (Play Protect): do not add it back.
 - Generated files (never hand-edit): 
 - Places a new feature must be registered:
 - Naming / numbering / ordering conventions:

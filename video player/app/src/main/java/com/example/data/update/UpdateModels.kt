@@ -23,8 +23,8 @@ class UpdateException(message: String) : Exception(message)
  * CONTRACT with .github/workflows/build-apk.yml: the workflow writes a line `Build number: <n>`
  * into the release notes (n = GITHUB_RUN_NUMBER, which is also the APK's versionCode).
  * If that line ever disappears, the app can no longer tell whether a release is newer.
- * "latest" is only replaced by a deliberate release (manual run or a version tag); pushes to main go to the "nightly"
- * pre-release, which /releases/latest never returns.
+ * Every push to main becomes its own new release (v<version>.<build>) marked Latest, so /releases/latest is always the
+ * newest build. Branch builds are pre-releases, which /releases/latest never returns.
  */
 object UpdateParser {
     private val BUILD_NUMBER = Regex("""Build number:\s*(\d+)""", RegexOption.IGNORE_CASE)
