@@ -26,7 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeMute
@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.LocalVideo
+import com.example.ui.theme.Ds
 import com.example.ui.theme.FrostedRose
 import com.example.ui.theme.FrostedRoseLight
 import com.example.ui.theme.GlassBackgroundElevated
@@ -62,6 +63,13 @@ import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.bouncyClickable
 import kotlinx.coroutines.launch
 
+/**
+ * The buttons down the right edge of the video, in two tidy groups:
+ *  - Like: the one big heart (56 dp), with its label;
+ *  - one glass capsule holding the rest as equal 44 dp round buttons: playlist, sound, share, details, this video's options.
+ * Everything shares one centre line, one icon size and one spacing, and the whole stack is about 310 dp tall, so on a
+ * small phone it can never run up into the top bar. Switched-on states (muted, liked) glow in their own colour.
+ */
 @Composable
 fun ActionRail(
     video: LocalVideo,
@@ -75,52 +83,106 @@ fun ActionRail(
     onOpenDetails: () -> Unit = {}
 ) {
     Column(
-        modifier = modifier
-            .padding(end = 12.dp, bottom = 28.dp),
+        modifier = modifier.padding(end = 12.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Favorite / Like Heart Button (Cannot be unliked, addictive bounce)
-        FavoriteActionButton(
-            isFavorite = video.isFavorite,
-            onClick = onLike
-        )
+        FavoriteActionButton(isFavorite = video.isFavorite, onClick = onLike)
 
-        // 2. Add to Playlist Button (Replaces Watch Later)
-        ActionRailItem(
-            icon = Icons.Default.PlaylistAdd,
-            label = "Playlist",
-            tint = Color(0xFFC4B5FD),
-            testTag = "action_playlist_button",
-            onClick = onOpenPlaylist
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier
+                .shadow(10.dp, CircleShape)
+                .background(GlassBackgroundElevated, CircleShape)
+                .border(
+                    1.dp,
+                    Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x14FFFFFF))),
+                    CircleShape
+                )
+                .padding(horizontal = 4.dp, vertical = 6.dp)
+        ) {
+            RailButton(
+                icon = Icons.Default.PlaylistAdd,
+                description = "Add to playlist",
+                testTag = "action_playlist_button",
+                onClick = onOpenPlaylist
+            )
+            RailButton(
+                icon = if (isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                description = if (isMuted) "Sound is off. Tap to turn on" else "Sound is on. Tap to mute",
+                testTag = "action_mute_button",
+                glow = if (isMuted) Color(0xFFFBBF24) else null,
+                onClick = onToggleMute
+            )
+            RailButton(
+                icon = Icons.Default.Share,
+                description = "Share",
+                testTag = "action_share_button",
+                onClick = onShare
+            )
+            RailButton(
+                icon = Icons.Default.Info,
+                description = "Video details and storage",
+                testTag = "action_details_button",
+                accent = Brush.linearGradient(listOf(Color(0xCC8B5CF6), Color(0xCC22D3EE))),
+                onClick = onOpenDetails
+            )
+            // Horizontal dots = this video's options; the vertical dots in the top bar are the whole app's
+            RailButton(
+                icon = Icons.Default.MoreHoriz,
+                description = "More for this video",
+                testTag = "action_more_button",
+                onClick = onOpenMore
+            )
+        }
+    }
+}
 
-        // 3. Sound Mute / Unmute
-        ActionRailItem(
-            icon = if (isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
-            label = if (isMuted) "Muted" else "Sound",
-            tint = if (isMuted) Color(0xFFFBBF24) else Color.White,
-            testTag = "action_mute_button",
-            onClick = onToggleMute
-        )
-
-        // 4. Share Button
-        ActionRailItem(
-            icon = Icons.Default.Share,
-            label = "Share",
-            testTag = "action_share_button",
-            onClick = onShare
-        )
-
-        // 5. Details & storage (special gradient button, sits right above the 3 dots)
-        DetailsActionButton(onClick = onOpenDetails)
-
-        // 6. More Options (Speed, Display Aspect, Info, Delete)
-        ActionRailItem(
-            icon = Icons.Default.MoreVert,
-            label = "More",
-            testTag = "action_more_button",
-            onClick = onOpenMore
+/** One round 44 dp button in the capsule. [glow] tints it while switched on; [accent] gives it a gradient fill. */
+@Composable
+private fun RailButton(
+    icon: ImageVector,
+    description: String,
+    testTag: String,
+    onClick: () -> Unit,
+    glow: Color? = null,
+    accent: Brush? = null
+) {
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (glow != null) 1f else 0f,
+        animationSpec = tween(260),
+        label = "rail_glow"
+    )
+    val glowColor = glow ?: Color.Transparent
+    val iconTint by animateColorAsState(
+        targetValue = glow ?: Color.White,
+        animationSpec = tween(260),
+        label = "rail_icon_tint"
+    )
+    Box(
+        modifier = Modifier
+            .testTag(testTag)
+            .size(44.dp)
+            .bouncyClickable(pressedScale = 0.88f, onClick = onClick)
+            .then(
+                if (accent != null) {
+                    Modifier
+                        .shadow(8.dp, CircleShape, ambientColor = Color(0xFF8B5CF6), spotColor = Color(0xFF8B5CF6))
+                        .background(accent, CircleShape)
+                } else {
+                    Modifier.drawBehind {
+                        drawCircle(color = glowColor.copy(alpha = 0.18f * glowAlpha))
+                    }
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = iconTint,
+            modifier = Modifier.size(22.dp)
         )
     }
 }
@@ -163,7 +225,7 @@ private fun FavoriteActionButton(
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(56.dp)
                 .bouncyClickable(pressedScale = 0.86f, onClick = onClick)
                 .drawBehind {
                     val t = burst.value
@@ -175,7 +237,11 @@ private fun FavoriteActionButton(
                         )
                     }
                 }
-                .shadow(10.dp, CircleShape)
+                .shadow(
+                    if (isFavorite) 14.dp else 10.dp, CircleShape,
+                    ambientColor = if (isFavorite) FrostedRose else Color.Black,
+                    spotColor = if (isFavorite) FrostedRose else Color.Black
+                )
                 .background(
                     brush = if (isFavorite) {
                         Brush.linearGradient(listOf(Color(0x66FB7185), Color(0x66F43F5E)))
@@ -196,7 +262,7 @@ private fun FavoriteActionButton(
                 contentDescription = if (isFavorite) "Liked" else "Like video",
                 tint = iconColor,
                 modifier = Modifier
-                    .size(24.dp)
+                    .size(28.dp)
                     .graphicsLayer {
                         val s = if (isFavorite) pop.value * 1.15f else 1f
                         scaleX = s
@@ -208,105 +274,7 @@ private fun FavoriteActionButton(
         Text(
             text = if (isFavorite) "Liked" else "Like",
             color = if (isFavorite) FrostedRoseLight else Color(0xCCFFFFFF),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            style = androidx.compose.ui.text.TextStyle(
-                shadow = androidx.compose.ui.graphics.Shadow(
-                    color = Color.Black,
-                    blurRadius = 4f
-                )
-            )
-        )
-    }
-}
-
-@Composable
-private fun DetailsActionButton(onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.testTag("action_details_button")
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .bouncyClickable(pressedScale = 0.86f, onClick = onClick)
-                .shadow(12.dp, CircleShape, ambientColor = Color(0xFF8B5CF6), spotColor = Color(0xFF8B5CF6))
-                .background(
-                    Brush.linearGradient(listOf(Color(0xCC8B5CF6), Color(0xCC22D3EE))),
-                    CircleShape
-                )
-                .border(
-                    1.5.dp,
-                    Brush.verticalGradient(listOf(Color(0xAAFFFFFF), Color(0x22FFFFFF))),
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = "Video details and storage",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.details),
-            color = Color(0xFFE9D5FF),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            style = androidx.compose.ui.text.TextStyle(
-                shadow = androidx.compose.ui.graphics.Shadow(color = Color.Black, blurRadius = 4f)
-            )
-        )
-    }
-}
-
-@Composable
-private fun ActionRailItem(
-    icon: ImageVector,
-    label: String,
-    testTag: String,
-    tint: Color = Color.White,
-    onClick: () -> Unit
-) {
-    val animatedTint by animateColorAsState(
-        targetValue = tint,
-        animationSpec = tween(260),
-        label = "rail_tint"
-    )
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.testTag(testTag)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .bouncyClickable(pressedScale = 0.86f, onClick = onClick)
-                .shadow(8.dp, CircleShape)
-                .background(GlassBackgroundElevated, CircleShape)
-                .border(
-                    1.dp,
-                    Brush.verticalGradient(listOf(Color(0x66FFFFFF), Color(0x14FFFFFF))),
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Crossfade(targetState = icon, label = "rail_icon") { current ->
-                Icon(
-                    imageVector = current,
-                    contentDescription = label,
-                    tint = animatedTint,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            color = Color(0xCCFFFFFF),
-            fontSize = 11.sp,
+            fontSize = Ds.Type.Caption,
             fontWeight = FontWeight.SemiBold,
             style = androidx.compose.ui.text.TextStyle(
                 shadow = androidx.compose.ui.graphics.Shadow(

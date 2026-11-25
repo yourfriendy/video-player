@@ -180,7 +180,7 @@ fun FeedTopBar(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .height(44.dp)
+                            .height(48.dp)
                             .testTag("feed_filter_dropdown_button")
                             .shadow(6.dp, CircleShape)
                             .background(GlassBackground, CircleShape)
