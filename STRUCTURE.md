@@ -186,3 +186,9 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 ### Added 2026-11-24 (replace every "describe me")
 - `video player/app/src/main/java/com/example/data/download/HtmlText.kt` — HtmlText Decodes HTML codes in Instagram page text (&#x1f337; -> emoji, &amp; -> &) and cuts text without splitting emoji.
 - `video player/app/src/test/java/com/example/data/download/HtmlTextTest.kt` — JIT🌷 on Instagram: "#TVアニメ『ONE PIECE』
+
+### Added 2026-11-25 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ui/components/MovieModeControls.kt` — MovieModeControls Movie mode controls drawn over the landscape video: top bar, skip/play, seek bar, audio and subtitle picker, lock, +10 s flash.
+- `video player/app/src/main/java/com/example/ui/model/MovieMode.kt` — A horizontal video this long counts as a "movie" (5 minutes or more).
+- `video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedMovieActions.kt` — VideoFeedMovieActions Movie mode actions (enter, exit, lock, fit, setting) and applyMovieRules, which decides movie mode for each new video.
+- `video player/app/src/test/java/com/example/ui/MovieModeTest.kt` — MovieModeTest Tests for the movie mode rules, skip, time format and fit cycling.

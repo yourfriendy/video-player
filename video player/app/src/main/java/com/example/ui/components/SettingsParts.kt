@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -38,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -388,5 +390,36 @@ internal fun ToolTile(
         Spacer(Modifier.height(10.dp))
         Text(title, color = Color.White, fontSize = Ds.Type.Body, fontWeight = FontWeight.Bold)
         Text(hint, color = Ds.Palette.Muted, fontSize = Ds.Type.Small, lineHeight = 16.sp)
+    }
+}
+
+/** One option in a pick-one list: title, a sentence, and a check on the chosen one. */
+@Composable
+internal fun ChoiceCard(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(Ds.Radius.Xl)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .clickable(onClick = onClick)
+            .background(if (selected) Ds.Palette.Orange.copy(alpha = 0.12f) else GlassBackground)
+            .border(if (selected) 1.5.dp else 1.dp, if (selected) Ds.Palette.Orange else GlassBorder, shape)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = Ds.Type.Body, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = Ds.Palette.Muted, fontSize = Ds.Type.Small, lineHeight = 16.sp)
+        }
+        if (selected) {
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Default.Check, contentDescription = "Selected", tint = Ds.Palette.Orange, modifier = Modifier.size(20.dp))
+        }
     }
 }

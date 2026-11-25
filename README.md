@@ -47,6 +47,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, tap the
 - 🔁 Loop, mute and **playback speed**
 - 🖼️ Display modes: **Crop / Fit / Stretch**
 - 🪟 **Picture-in-picture**
+- 🎬 **Movie mode**: wide (horizontal) videos open in a landscape player with ±10 s skip, speed, fit / stretch / zoom, audio and subtitle choices and a controls lock. It starts by itself for horizontal videos of 5 minutes or more (change it in Settings: every wide video, or only when you tap the Movie mode chip)
 
 </td>
 <td width="50%" valign="top">
@@ -141,6 +142,7 @@ Videos are saved to `Movies/OffScroll` (and appear in the feed); photos go to `P
 | **Swipe up / down** | Next / previous video |
 | **Tap** | Show controls (tap again to hide them for full screen) |
 | **Double-tap** | Pause / play ⏯️ |
+| **Double-tap left / right side** (movie mode) | Back / forward 10 seconds; the middle pauses or plays |
 | **Slide along the left edge** | Brightness 🔆 |
 | **Slide along the right edge** | Volume 🔊 |
 | **Drag along the progress bar** | Scrub through the video |

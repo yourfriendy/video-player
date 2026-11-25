@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.LocalVideo
+import com.example.ui.model.isHorizontal
 import com.example.ui.model.smartTitle
 import com.example.ui.theme.Ds
 import com.example.ui.theme.GlassBackground
@@ -68,6 +70,7 @@ fun VideoInfoOverlay(
     totalDurationMs: Long,
     onSeek: (Float) -> Unit,
     onInteraction: () -> Unit = {},
+    onEnterMovieMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // Read in this scope so the 150ms progress ticks only recompose the overlay, not the whole feed
@@ -138,6 +141,7 @@ fun VideoInfoOverlay(
                 )
             }
             smart.kind?.let { KindChip(it) }
+            if (video.isHorizontal() && !video.isSample) MovieChip(onEnterMovieMode)
             if (video.width >= 1080 || video.height >= 1080) {
                 Icon(
                     imageVector = Icons.Default.Hd,
@@ -354,3 +358,20 @@ private fun formatTime(millis: Long): String {
     return String.format(Locale.getDefault(), "%d:%02d", min, sec)
 }
 
+/** Starts movie mode for a wide video (the landscape player with skip, speed, fit, audio/subtitles and a lock). */
+@Composable
+private fun MovieChip(onClick: () -> Unit) {
+    Text(
+        text = "🎬 Movie mode",
+        color = Color(0xFFFED7AA),
+        fontSize = Ds.Type.Caption,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .background(Color(0x33F97316), CircleShape)
+            .border(1.dp, Color(0x66F97316), CircleShape)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    )
+}

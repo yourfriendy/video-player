@@ -531,7 +531,7 @@ fun VideoFeedViewModel.onPageChanged(index: Int) {
     if (video != null) recordPlayback(video)
     _uiState.update { state ->
         if (video != null) {
-            state.copy(currentIndex = index, currentVideoId = video.id, isPlaying = true)
+            applyMovieRules(state.copy(currentIndex = index, currentVideoId = video.id, isPlaying = true), video)
         } else {
             state.copy(currentIndex = index)
         }

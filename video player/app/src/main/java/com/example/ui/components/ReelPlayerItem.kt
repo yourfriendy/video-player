@@ -108,6 +108,9 @@ fun ReelPlayerItem(
     userActionTrigger: Long = 0L,
     shouldPreload: Boolean = false,
     startPositionMs: Long = 0L,
+    isMovieMode: Boolean = false,
+    movieFit: com.example.ui.model.MovieFit = com.example.ui.model.MovieFit.FIT,
+    isMovieLocked: Boolean = false,
     onEnded: () -> Unit = {},
     onVolumeAdjusted: () -> Unit = {},
     onProgressUpdate: (currentMs: Long, totalMs: Long) -> Unit,
@@ -294,7 +297,19 @@ fun ReelPlayerItem(
     }
 
     // Play/Pause icon badge: ONLY show on explicit user action trigger, NEVER on scroll!
-    val resizeModeEnum = when (displayMode) {
+    // Movie mode (landscape player) has its own fit choice; everywhere else the feed's display mode applies
+    val inMovieMode = isMovieMode && isCurrentPage
+    val movieControlsLocked = inMovieMode && isMovieLocked
+    val latestInMovieMode by rememberUpdatedState(inMovieMode)
+    val latestMovieLocked by rememberUpdatedState(movieControlsLocked)
+    var skipEvent by remember { mutableStateOf<SkipEvent?>(null) }
+    val resizeModeEnum = if (inMovieMode) {
+        when (movieFit) {
+            com.example.ui.model.MovieFit.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+            com.example.ui.model.MovieFit.STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            com.example.ui.model.MovieFit.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        }
+    } else when (displayMode) {
         VideoDisplayMode.CROP -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
         VideoDisplayMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         VideoDisplayMode.STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -306,7 +321,7 @@ fun ReelPlayerItem(
             .background(ComposeColor.Black)
             .testTag("reel_player_item_${video.id}")
             .then(
-                if (isCurrentPage) {
+                if (isCurrentPage && !movieControlsLocked) {
                     Modifier.sideSwipeControls(
                         state = sideGestureState,
                         activity = hostActivity,
@@ -321,12 +336,31 @@ fun ReelPlayerItem(
                         latestOnSingleTap()
                     },
                     onDoubleTap = { offset ->
-                        // Double tap pauses or resumes. Liking is only done with the like button.
-                        latestOnDoubleTap(offset)
+                        if (latestInMovieMode) {
+                            // Movie mode: left third = back 10 s, right third = forward 10 s, middle = pause / play
+                            if (!latestMovieLocked) {
+                                val third = size.width / 3f
+                                when {
+                                    offset.x < third -> {
+                                        exoPlayer.seekTo(com.example.ui.model.skipTarget(exoPlayer.currentPosition, -com.example.ui.model.MOVIE_SKIP_MS, exoPlayer.duration.coerceAtLeast(0L)))
+                                        skipEvent = SkipEvent(forward = false, stamp = SystemClock.uptimeMillis())
+                                    }
+                                    offset.x > 2 * third -> {
+                                        exoPlayer.seekTo(com.example.ui.model.skipTarget(exoPlayer.currentPosition, com.example.ui.model.MOVIE_SKIP_MS, exoPlayer.duration.coerceAtLeast(0L)))
+                                        skipEvent = SkipEvent(forward = true, stamp = SystemClock.uptimeMillis())
+                                    }
+                                    else -> latestOnDoubleTap(offset)
+                                }
+                            }
+                        } else {
+                            // Double tap pauses or resumes. Liking is only done with the like button.
+                            latestOnDoubleTap(offset)
+                        }
                     }
                 )
             }
-            .pointerInput(video.id) {
+            .pointerInput(video.id, movieControlsLocked) {
+                if (movieControlsLocked) return@pointerInput
                 detectHorizontalDragGestures(
                     onDragStart = {
                         val current = if (video.isSample) {
@@ -452,6 +486,9 @@ fun ReelPlayerItem(
 
         // Pause / resume feedback: veil, glass button, ripple
         PlayPauseFeedback(isPlaying = isPlaying, isCurrentPage = isCurrentPage, userActionTrigger = userActionTrigger)
+
+        // Movie mode: "+10 s" / "-10 s" badge after a double tap on the side
+        if (inMovieMode) MovieSkipFlash(skipEvent)
 
         // Brightness / volume level indicator
         SideGestureHud(state = sideGestureState)

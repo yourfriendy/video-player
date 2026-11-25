@@ -64,6 +64,18 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import android.content.pm.ActivityInfo
+import androidx.activity.compose.BackHandler
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.example.ui.model.isHorizontal
+import com.example.ui.model.smartTitle
+import com.example.ui.viewmodel.cycleMovieFit
+import com.example.ui.viewmodel.cyclePlaybackSpeed
+import com.example.ui.viewmodel.enterMovieMode
+import com.example.ui.viewmodel.exitMovieMode
+import com.example.ui.viewmodel.toggleMovieLock
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -248,6 +260,26 @@ fun VideoFeedScreen(
         viewModel.consumeScrollRequest(request)
     }
 
+    // Movie mode: turn the screen to landscape and hide the system bars. Both are put back when it ends.
+    val movieActivity = remember(context) { context.findHostActivity() }
+    DisposableEffect(uiState.isMovieMode, movieActivity) {
+        val activity = movieActivity
+        if (uiState.isMovieMode && activity != null) {
+            val previousOrientation = activity.requestedOrientation
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            onDispose {
+                activity.requestedOrientation = previousOrientation
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+        } else {
+            onDispose { }
+        }
+    }
+    BackHandler(enabled = uiState.isMovieMode) { viewModel.exitMovieMode() }
+
     // Track which video is actually on screen (also fires when the list changes under the same page)
     LaunchedEffect(pagerState, showPager) {
         if (!showPager) return@LaunchedEffect
@@ -327,6 +359,7 @@ fun VideoFeedScreen(
             VerticalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
+                userScrollEnabled = !uiState.isMovieMode,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("vertical_video_pager"),
@@ -358,6 +391,9 @@ fun VideoFeedScreen(
                         userActionTrigger = uiState.playPauseUserActionTrigger,
                         shouldPreload = isNeighbour,
                         startPositionMs = resumeMs,
+                        isMovieMode = uiState.isMovieMode,
+                        movieFit = uiState.movieFit,
+                        isMovieLocked = uiState.isMovieLocked,
                         onEnded = {
                             // Loop is off: move on to the next video instead of stalling
                             val next = pagerState.currentPage + 1
@@ -379,7 +415,7 @@ fun VideoFeedScreen(
 
                     // Right Side Action Rail (Clean, minimal, thumb-friendly)
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = uiState.areControlsVisible,
+                        visible = uiState.areControlsVisible && !uiState.isMovieMode,
                         enter = androidx.compose.animation.fadeIn(),
                         exit = androidx.compose.animation.fadeOut(),
                         modifier = Modifier
@@ -400,7 +436,7 @@ fun VideoFeedScreen(
 
                     // Bottom Metadata & TikTok Scrubbing Progress Bar
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = uiState.areControlsVisible,
+                        visible = uiState.areControlsVisible && !uiState.isMovieMode,
                         enter = androidx.compose.animation.fadeIn(),
                         exit = androidx.compose.animation.fadeOut(),
                         modifier = Modifier
@@ -415,6 +451,33 @@ fun VideoFeedScreen(
                                 seekRatio = ratio
                                 interactionTick++
                             },
+                            onInteraction = { interactionTick++ },
+                            onEnterMovieMode = { viewModel.enterMovieMode() }
+                        )
+                    }
+
+                    // Movie mode: the landscape controls (skip, speed, fit, audio/subtitles, lock)
+                    if (isCurrentPage && uiState.isMovieMode) {
+                        val movieTitle = remember(video.displayName) { smartTitle(video.displayName).title }
+                        MovieModeOverlay(
+                            title = movieTitle,
+                            player = playerPool.playerFor(pageIndex),
+                            isPlaying = uiState.isPlaying,
+                            progressMsProvider = { currentProgressMs },
+                            durationMs = currentTotalMs,
+                            controlsVisible = uiState.areControlsVisible,
+                            locked = uiState.isMovieLocked,
+                            fit = uiState.movieFit,
+                            speed = uiState.playbackSpeed,
+                            onExit = { viewModel.exitMovieMode() },
+                            onTogglePlay = { viewModel.togglePlayPause() },
+                            onSeekRatio = { ratio ->
+                                seekRatio = ratio
+                                interactionTick++
+                            },
+                            onCycleSpeed = { viewModel.cyclePlaybackSpeed() },
+                            onCycleFit = { viewModel.cycleMovieFit() },
+                            onToggleLock = { viewModel.toggleMovieLock() },
                             onInteraction = { interactionTick++ }
                         )
                     }
@@ -426,7 +489,7 @@ fun VideoFeedScreen(
         var topBarHeightPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
         // Top Navigation & Filter Bar
         androidx.compose.animation.AnimatedVisibility(
-            visible = uiState.areControlsVisible,
+            visible = uiState.areControlsVisible && !uiState.isMovieMode,
             enter = androidx.compose.animation.fadeIn(),
             exit = androidx.compose.animation.fadeOut(),
             modifier = Modifier
