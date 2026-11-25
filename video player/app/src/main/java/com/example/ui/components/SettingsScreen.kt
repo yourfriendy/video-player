@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +68,8 @@ import com.example.ui.theme.staggeredEntrance
 import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.VideoFeedUiState
 import com.example.ui.viewmodel.VideoFeedViewModel
+import com.example.ui.model.MovieAutoMode
+import com.example.ui.viewmodel.setMovieAutoMode
 import com.example.ui.viewmodel.clearWatchHistory
 import com.example.ui.viewmodel.refreshVideos
 
@@ -204,6 +207,11 @@ fun SettingsScreen(
                         Ds.Palette.Cyan, 5
                     )
                     GestureHelpCard(
+                        Icons.Default.Movie, "Movie mode",
+                        "Wide videos open sideways with more controls. Double tap the left or right side to skip 10 seconds; the middle pauses or plays",
+                        Ds.Palette.Good
+                    )
+                    GestureHelpCard(
                         Icons.Default.Favorite, "Like",
                         "Tap the heart on the right to like or unlike. A double tap never likes, so nothing is liked by accident",
                         Ds.Palette.Pink
@@ -232,6 +240,38 @@ fun SettingsScreen(
                     onCheckedChange = { com.example.ui.theme.Appearance.setAmoled(context, it) },
                     modifier = Modifier.staggeredEntrance(9)
                 )
+            }
+
+            // Movie mode
+            item {
+                SectionHeader(
+                    "Movie mode", "Wide videos, the cinema way", Icons.Default.Movie, Ds.Palette.Orange,
+                    Modifier.staggeredEntrance(10)
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.staggeredEntrance(10)) {
+                    Text(
+                        "A landscape player with skip buttons, speed, fit, audio and subtitle choices and a lock. " +
+                            "Choose when it starts by itself.",
+                        color = Ds.Palette.Muted, fontSize = Ds.Type.Label
+                    )
+                    ChoiceCard(
+                        "Long wide videos", "Horizontal videos of 5 minutes or more. Recommended.",
+                        uiState.movieAutoMode == MovieAutoMode.LONG_ONLY,
+                        { viewModel.setMovieAutoMode(MovieAutoMode.LONG_ONLY) }
+                    )
+                    ChoiceCard(
+                        "Every wide video", "Any horizontal video, however short.",
+                        uiState.movieAutoMode == MovieAutoMode.ALL_HORIZONTAL,
+                        { viewModel.setMovieAutoMode(MovieAutoMode.ALL_HORIZONTAL) }
+                    )
+                    ChoiceCard(
+                        "Only when I choose", "Tap the Movie mode chip under a wide video.",
+                        uiState.movieAutoMode == MovieAutoMode.OFF,
+                        { viewModel.setMovieAutoMode(MovieAutoMode.OFF) }
+                    )
+                }
             }
 
             // Library tools

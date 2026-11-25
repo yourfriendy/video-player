@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Swipe
@@ -45,6 +46,7 @@ fun GestureTourDialog(onDismiss: () -> Unit) {
                 GestureHelpCard(Icons.Default.Gesture, "Drag left or right", "Seek forward or back, with a live time readout", Ds.Palette.PinkSoft)
                 GestureHelpCard(Icons.Default.LightMode, "Left edge", "Slide up or down along the left edge to change brightness", Ds.Palette.Warn)
                 GestureHelpCard(Icons.Default.VolumeUp, "Right edge", "Slide up or down along the right edge to change volume", Ds.Palette.Cyan)
+                GestureHelpCard(Icons.Default.Movie, "Movie mode", "Wide videos open sideways with skip, speed, audio and subtitles. Double tap the left or right side to skip 10 seconds", Ds.Palette.Good)
                 GestureHelpCard(Icons.Default.Favorite, "Like", "Tap the heart on the right. A double tap never likes", Ds.Palette.Pink)
             }
             Spacer(modifier = Modifier.height(14.dp))

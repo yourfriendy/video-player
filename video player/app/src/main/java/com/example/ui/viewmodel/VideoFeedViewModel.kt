@@ -25,6 +25,8 @@ import com.example.ui.model.FeedFilter
 import com.example.ui.model.SearchOptions
 import com.example.ui.model.SearchSort
 import com.example.ui.model.brainModeMatches
+import com.example.ui.model.MovieAutoMode
+import com.example.ui.model.MovieFit
 import com.example.ui.model.SortOption
 import com.example.ui.model.VideoDisplayMode
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +57,13 @@ data class VideoFeedUiState(
     val isGridView: Boolean = false,
     val isLoopMode: Boolean = true,
     val areControlsVisible: Boolean = true,
+    /** Movie mode: a landscape player with skip, speed, fit, audio/subtitle choices and a lock, for wide videos. */
+    val isMovieMode: Boolean = false,
+    val isMovieLocked: Boolean = false,
+    val movieFit: MovieFit = MovieFit.FIT,
+    val movieAutoMode: MovieAutoMode = MovieAutoMode.LONG_ONLY,
+    /** The video the user left movie mode on. They are not pulled back in until they swipe to another video. */
+    val movieOptOutVideoId: Long? = null,
     /** The search currently applied to the feed (shown as a chip). Empty = no search active. */
     val searchQuery: String = "",
     /** Feed is restricted to these video ids, in order, while a search is applied. */
@@ -183,7 +192,8 @@ class VideoFeedViewModel(
                 isShuffleMode = initialShuffle,
                 recentSearches = settingsManager.getRecentSearches(),
                 people = peopleStore.all(),
-                isLoopMode = initialLoop
+                isLoopMode = initialLoop,
+                movieAutoMode = settingsManager.getMovieAutoMode()
             )
         )
         uiState = _uiState.asStateFlow()

@@ -2,6 +2,7 @@ package com.example.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.ui.model.MovieAutoMode
 import com.example.ui.model.SortOption
 import com.example.ui.model.VideoDisplayMode
 
@@ -21,6 +22,7 @@ class SettingsManager(context: Context) {
         private const val KEY_IS_SHUFFLE_MODE = "is_shuffle_mode"
         private const val KEY_IS_LOOP_MODE = "is_loop_mode"
         private const val KEY_RECENT_SEARCHES = "recent_searches"
+        private const val KEY_MOVIE_AUTO_MODE = "movie_auto_mode"
     }
 
     fun getDisplayMode(): VideoDisplayMode {
@@ -87,6 +89,14 @@ class SettingsManager(context: Context) {
 
     fun setLoopMode(isLoop: Boolean) {
         prefs.edit().putBoolean(KEY_IS_LOOP_MODE, isLoop).apply()
+    }
+
+    fun getMovieAutoMode(): MovieAutoMode =
+        runCatching { MovieAutoMode.valueOf(prefs.getString(KEY_MOVIE_AUTO_MODE, null) ?: "") }
+            .getOrDefault(MovieAutoMode.LONG_ONLY)
+
+    fun setMovieAutoMode(mode: MovieAutoMode) {
+        prefs.edit().putString(KEY_MOVIE_AUTO_MODE, mode.name).apply()
     }
 
     fun getRecentSearches(): List<String> =
