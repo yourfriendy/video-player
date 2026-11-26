@@ -203,3 +203,6 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `video player/app/src/main/java/com/example/ui/model/MusicModels.kt` — One music file on the phone. Plain data (no Android types) so the sorting and grouping can be tested.
 - `video player/app/src/main/java/com/example/ui/viewmodel/MusicViewModel.kt` — MusicViewModel Music library and what the music screens have open (tab, search, album/artist, liked songs).
 - `video player/app/src/test/java/com/example/ui/MusicModelsTest.kt` — MusicModelsTest Tests for music sorting, search, album/artist grouping and text helpers.
+
+### Added 2026-11-26 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ui/components/MusicLeaveDialog.kt` — MusicLeaveDialog Pop-up shown when leaving the music tab while a song plays: Stay in music, or Switch to videos (pauses the music).

@@ -50,6 +50,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -118,6 +120,17 @@ fun MusicScreen(
     val detailArtist = ui.openArtist?.let { name -> allArtists.firstOrNull { it.name == name } }
     val listBottomPadding = if (player.hasQueue) 104.dp else 24.dp
 
+    // Leaving the music tab while a song plays asks first, so the videos never start by surprise
+    var showLeaveDialog by remember { mutableStateOf(false) }
+    val requestLeave: () -> Unit = {
+        if (player.isPlaying) {
+            showLeaveDialog = true
+        } else {
+            onBack()
+        }
+    }
+    BackHandler(enabled = !ui.nowPlayingOpen && !ui.queueOpen && ui.openAlbumId == null && ui.openArtist == null && !showLeaveDialog) { requestLeave() }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -130,7 +143,7 @@ fun MusicScreen(
                 title = detailAlbum?.name ?: detailArtist?.name ?: "Music",
                 isDetail = detailAlbum != null || detailArtist != null,
                 searchOpen = ui.searchOpen,
-                onBack = { if (detailAlbum != null || detailArtist != null) viewModel.closeDetail() else onBack() },
+                onBack = { if (detailAlbum != null || detailArtist != null) viewModel.closeDetail() else requestLeave() },
                 onSearch = { viewModel.toggleSearch() },
                 onRefresh = { viewModel.reload() },
                 showTools = ui.hasPermission && ui.songs.isNotEmpty() && detailAlbum == null && detailArtist == null
@@ -245,6 +258,18 @@ fun MusicScreen(
         }
 
         if (ui.queueOpen) MusicQueueSheet(player = player, onDismiss = { viewModel.setQueueOpen(false) })
+
+        if (showLeaveDialog) {
+            MusicLeaveDialog(
+                nowPlaying = player.current,
+                onStay = { showLeaveDialog = false },
+                onSwitchToVideos = {
+                    showLeaveDialog = false
+                    MusicPlayerManager.pauseNow()
+                    onBack()
+                }
+            )
+        }
     }
 }
 
