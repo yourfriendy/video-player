@@ -137,6 +137,7 @@ fun VideoFeedScreen(
     viewModel: VideoFeedViewModel,
     onEnterPiP: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenMusic: () -> Unit = {},
     /** Asks for video access (only when the person taps Allow on the welcome screen). */
     onRequestVideoAccess: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -259,6 +260,9 @@ fun VideoFeedScreen(
         }
         viewModel.consumeScrollRequest(request)
     }
+
+    // Video comes first: if music was playing when you came back to the feed, it pauses so the sounds never overlap
+    LaunchedEffect(Unit) { com.example.data.music.MusicPlayerManager.pauseNow() }
 
     // Movie mode: turn the screen to landscape and hide the system bars. Both are put back when it ends.
     val movieActivity = remember(context) { context.findHostActivity() }
@@ -518,6 +522,7 @@ fun VideoFeedScreen(
                 onToggleGridView = { viewModel.toggleGridView() },
                 onOpenSearch = { viewModel.openSearch() },
                 onOpenSettings = onOpenSettings,
+                onOpenMusic = onOpenMusic,
                 onOpenDownloader = { viewModel.openDownloader() },
                 onRefresh = { viewModel.loadVideos() },
                 onOpenPopup = onEnterPiP,

@@ -16,6 +16,7 @@ class OffScrollApp : Application(), ImageLoaderFactory {
         super.onCreate()
         com.example.ui.theme.Appearance.load(this)
         com.example.data.download.StoryAlertScheduler.sync(this)
+        com.example.data.music.MusicPlayerManager.init(this)
     }
 
     override fun newImageLoader(): ImageLoader =

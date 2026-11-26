@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
@@ -87,6 +88,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.model.FeedFilter
 import com.example.ui.model.SortOption
 import com.example.ui.theme.FrostedRose
+import com.example.ui.theme.Ds
 import com.example.ui.theme.GlassBackground
 import com.example.ui.theme.GlassBorder
 import com.example.ui.theme.GlassBorderSubtle
@@ -116,6 +118,7 @@ fun FeedTopBar(
     onOpenSearch: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDownloader: () -> Unit,
+    onOpenMusic: () -> Unit = {},
     onRefresh: () -> Unit,
     onOpenPopup: () -> Unit = {},
     onOpenAllFeatures: () -> Unit = {},
@@ -254,6 +257,7 @@ fun FeedTopBar(
                         if (isGridView) "Reels View" else "Grid View",
                         gridBg, gridTint, onToggleGridView, "feed_grid_toggle_button"
                     )
+                    BarIcon(Icons.Default.MusicNote, "Music player", Color.Transparent, Ds.Palette.PinkSoft, onOpenMusic, "feed_music_button")
                     BarIcon(Icons.Default.Download, "Save from Instagram", Color.Transparent, Color.White, onOpenDownloader, "feed_download_button")
                     BarIcon(
                         Icons.Default.MoreVert, "All Features & Controls",
