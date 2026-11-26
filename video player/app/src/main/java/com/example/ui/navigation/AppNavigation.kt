@@ -37,6 +37,9 @@ enum class NavRoute {
     Settings,
     Downloader,
 
+    /** The music player: songs, albums, artists, a mini player and the full Now playing screen. */
+    Music,
+
     /** Story and repost alerts: its own screen. Deep link: offscroll://alerts */
     Alerts
 }
@@ -118,8 +121,17 @@ fun AppNavigation(
                 onOpenSettings = {
                     navController.navigate(NavRoute.Settings.name) { launchSingleTop = true }
                 },
+                onOpenMusic = {
+                    navController.navigate(NavRoute.Music.name) { launchSingleTop = true }
+                },
                 modifier = Modifier.fillMaxSize(),
                 bottomOverlayPadding = systemNavInset + 16.dp
+            )
+        }
+        composable(NavRoute.Music.name) {
+            com.example.ui.components.MusicScreen(
+                onBack = { navController.popBackStack() },
+                modifier = Modifier.fillMaxSize()
             )
         }
         composable(NavRoute.Downloader.name) {

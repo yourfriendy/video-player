@@ -24,10 +24,14 @@
     <!-- "Any link" downloads: keep a long download alive (and show its progress) while the app is in the background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Music player: keeps music playing (with a notification and lock-screen controls) when the app is in the background -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- Live story alerts (timers of 10 minutes or less) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Music player: reads the music files on the phone (Android 13+). Older versions use READ_EXTERNAL_STORAGE below -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -92,6 +96,16 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
             android:exported="false"
             android:theme="@style/Theme.MyApplication" />
+
+        <!-- Music player: plays in the background with a media notification, lock-screen and Bluetooth controls -->
+        <service
+            android:name=".service.MusicPlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".service.DownloadKeepAliveService"

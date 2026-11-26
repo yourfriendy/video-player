@@ -192,3 +192,14 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 - `video player/app/src/main/java/com/example/ui/model/MovieMode.kt` — A horizontal video this long counts as a "movie" (5 minutes or more).
 - `video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedMovieActions.kt` — VideoFeedMovieActions Movie mode actions (enter, exit, lock, fit, setting) and applyMovieRules, which decides movie mode for each new video.
 - `video player/app/src/test/java/com/example/ui/MovieModeTest.kt` — MovieModeTest Tests for the movie mode rules, skip, time format and fit cycling.
+
+### Added 2026-11-26 (replace every "describe me")
+- `video player/app/src/main/java/com/example/data/music/MusicPlayerManager.kt` — One song in the play queue, as the music screens need it.
+- `video player/app/src/main/java/com/example/data/music/MusicRepository.kt` — Reads the phone's music files from MediaStore. Needs the music (audio) permission.
+- `video player/app/src/main/java/com/example/service/MusicPlaybackService.kt` — MusicPlaybackService Background music player (Media3 session service): notification, lock-screen and Bluetooth controls.
+- `video player/app/src/main/java/com/example/ui/components/MusicNowPlaying.kt` — MusicNowPlaying Full Now playing screen, seek bar, sleep timer and the queue sheet.
+- `video player/app/src/main/java/com/example/ui/components/MusicParts.kt` — MusicParts Music UI pieces: cover art, equalizer bars, song/album/artist rows, tabs and the mini player.
+- `video player/app/src/main/java/com/example/ui/components/MusicScreen.kt` — MusicScreen The music player tab: songs, albums, artists, liked, search, mini player, Now playing and queue.
+- `video player/app/src/main/java/com/example/ui/model/MusicModels.kt` — One music file on the phone. Plain data (no Android types) so the sorting and grouping can be tested.
+- `video player/app/src/main/java/com/example/ui/viewmodel/MusicViewModel.kt` — MusicViewModel Music library and what the music screens have open (tab, search, album/artist, liked songs).
+- `video player/app/src/test/java/com/example/ui/MusicModelsTest.kt` — MusicModelsTest Tests for music sorting, search, album/artist grouping and text helpers.
