@@ -74,13 +74,13 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 
 ## 8. Auto-generated map (do not edit)
 <!-- AUTO:START (rewritten by `python3 brain/brain.py index`; keep this block small) -->
-_2026-11-27: 196 files, 35,457 lines, 888 symbols. Biggest areas:_
+_2026-11-27: 196 files, 35,458 lines, 888 symbols. Biggest areas:_
 
 | Area | Files | Lines |
 |---|---:|---:|
 | `video player` | 165 | 31,624 |
 | `brain` | 7 | 1,502 |
-| `(root)` | 7 | 1,440 |
+| `(root)` | 7 | 1,441 |
 | `.github` | 6 | 520 |
 | `docs` | 6 | 261 |
 | `.claude` | 4 | 102 |
