@@ -26,7 +26,7 @@ import androidx.media3.ui.PlayerView
 
 /**
  * What Android opens when another app says "play this video with..." (Files, Gallery, WhatsApp, a browser...).
- * It is declared for ACTION_VIEW + video/* in the manifest, which is what makes OffScroll show up in those lists.
+ * It is declared for ACTION_VIEW with any video type in the manifest, which is what makes OffScroll show up in those lists.
  *
  * It is deliberately separate from [MainActivity]: the video you were handed is played as-is, straight away, even if
  * it is not in your library or the app has no permission to read your videos (the sender grants access to that one
