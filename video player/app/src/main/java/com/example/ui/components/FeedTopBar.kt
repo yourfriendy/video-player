@@ -13,6 +13,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureInPictureAlt
@@ -131,31 +133,25 @@ fun FeedTopBar(
 
     // Smooth colour changes for the toggle buttons instead of abrupt swaps
     val searchBg by animateColorAsState(
-        targetValue = if (isSearchActive) Color(0xCC7C3AED) else Color.Transparent,
+        targetValue = if (isSearchActive) Color(0x668B5CF6) else Color.Transparent,
         animationSpec = tween(280),
         label = "search_bg"
     )
-    val gridBg by animateColorAsState(
-        targetValue = if (isGridView) Color(0xCC38BDF8) else Color.Transparent,
-        animationSpec = tween(280),
-        label = "grid_bg"
-    )
-    val gridTint by animateColorAsState(
-        targetValue = if (isGridView) Color(0xFF0F172A) else Color.White,
-        animationSpec = tween(280),
-        label = "grid_tint"
-    )
-
-    // Gentle heartbeat on the "Offline Vault" status dot
-    val vaultPulse = rememberInfiniteTransition(label = "vault_pulse")
-    val vaultDotAlpha by vaultPulse.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "vault_dot_alpha"
+    val filterAccent = if (currentFilter is FeedFilter.Favorites) FrostedRose else Color(0xFFC4B5FD)
+    val filterIcon = when (currentFilter) {
+        is FeedFilter.All -> Icons.Default.Videocam
+        is FeedFilter.Favorites -> Icons.Default.Favorite
+        is FeedFilter.RecentlyAdded -> Icons.Default.Schedule
+        is FeedFilter.RecentlyPlayed -> Icons.Default.History
+        is FeedFilter.ByFolder -> Icons.Default.Folder
+        is FeedFilter.Playlist -> Icons.Default.PlaylistPlay
+        is FeedFilter.WatchLater -> Icons.Default.Schedule
+        else -> Icons.Default.Videocam
+    }
+    val chevronTurn by animateFloatAsState(
+        targetValue = if (isFilterMenuExpanded) 180f else 0f,
+        animationSpec = tween(240),
+        label = "filter_chevron"
     )
 
     Box(
@@ -170,60 +166,50 @@ fun FeedTopBar(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Main Top Bar Row
+            // Top row: the filter on the left takes all the room the four buttons do not need;
+            // the buttons sit together in one capsule on the right.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Left: Filter Selector Dropdown (shrinks with an ellipsis instead of pushing the buttons off screen)
-                Box(modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .height(48.dp)
                             .testTag("feed_filter_dropdown_button")
                             .shadow(6.dp, CircleShape)
-                            .background(GlassBackground, CircleShape)
-                            .border(1.dp, GlassBorder, CircleShape)
+                            .background(BarGlass, CircleShape)
+                            .border(1.dp, BarRim, CircleShape)
+                            .clip(CircleShape)
                             .clickable { isFilterMenuExpanded = true }
-                            .padding(horizontal = 14.dp)
+                            .padding(start = 8.dp, end = 10.dp)
                     ) {
-                        Icon(
-                            imageVector = when (currentFilter) {
-                                is FeedFilter.All -> Icons.Default.Videocam
-                                is FeedFilter.Favorites -> Icons.Default.Favorite
-                                is FeedFilter.RecentlyAdded -> Icons.Default.Schedule
-                                is FeedFilter.RecentlyPlayed -> Icons.Default.History
-                                is FeedFilter.ByFolder -> Icons.Default.Folder
-                                is FeedFilter.Playlist -> Icons.Default.PlaylistPlay
-                                is FeedFilter.WatchLater -> Icons.Default.Schedule
-                                else -> Icons.Default.Videocam
-                            },
-                            contentDescription = null,
-                            tint = when (currentFilter) {
-                                is FeedFilter.Favorites -> FrostedRose
-                                else -> Color(0xFFC4B5FD)
-                            },
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier.size(32.dp).background(filterAccent.copy(alpha = 0.18f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(filterIcon, contentDescription = null, tint = filterAccent, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = currentFilter.displayName,
                             color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontSize = Ds.Type.Body,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "▼",
-                            color = Color(0x99FFFFFF),
-                            fontSize = 11.sp
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = Color(0xB3FFFFFF),
+                            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = chevronTurn }
                         )
                     }
 
@@ -240,33 +226,25 @@ fun FeedTopBar(
                     }
                 }
 
-                // Right: one glass capsule holds the four actions, so they read as a group (not four loose circles)
+                // Right: four equal buttons in one dark-glass capsule. Only a switched-on button (search) is tinted.
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     modifier = Modifier
                         .height(48.dp)
                         .shadow(6.dp, CircleShape)
-                        .background(GlassBackground, CircleShape)
-                        .border(1.dp, GlassBorder, CircleShape)
+                        .background(BarGlass, CircleShape)
+                        .border(1.dp, BarRim, CircleShape)
                         .padding(horizontal = 2.dp)
                 ) {
                     BarIcon(Icons.Default.Search, "Search videos", searchBg, Color.White, onOpenSearch, "feed_search_button")
-                    BarIcon(
-                        if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
-                        if (isGridView) "Reels View" else "Grid View",
-                        gridBg, gridTint, onToggleGridView, "feed_grid_toggle_button"
-                    )
-                    BarIcon(Icons.Default.MusicNote, "Music player", Color.Transparent, Ds.Palette.PinkSoft, onOpenMusic, "feed_music_button")
+                    BarIcon(Icons.Default.MusicNote, "Music player", Color.Transparent, Color.White, onOpenMusic, "feed_music_button")
                     BarIcon(Icons.Default.Download, "Save from Instagram", Color.Transparent, Color.White, onOpenDownloader, "feed_download_button")
-                    BarIcon(
-                        Icons.Default.MoreVert, "All Features & Controls",
-                        Color(0x558B5CF6), Color(0xFFE0E7FF), onOpenAllFeatures, "feed_more_features_button"
-                    )
+                    BarIcon(Icons.Default.MoreVert, "All Features & Controls", Color.Transparent, Color.White, onOpenAllFeatures, "feed_more_features_button")
                 }
             }
 
-            // Sub-bar: the vault status on the left, position and storage in one capsule on the right.
+            // Sub-bar: how you are viewing (Reels or Grid) on the left, where you are in the library on the right.
             // The right side shrinks with an ellipsis, so the two never overlap on a narrow phone or a big font.
             if (totalVideosCount > 0) {
                 Row(
@@ -274,37 +252,18 @@ fun FeedTopBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(Color(0x2210B981), CircleShape)
-                            .border(1.dp, Color(0x3334D399), CircleShape)
-                            .padding(horizontal = 9.dp, vertical = 3.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .graphicsLayer { alpha = vaultDotAlpha }
-                                .background(Color(0xFF34D399), CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text(
-                            text = stringResource(R.string.offline_vault),
-                            color = Color(0xFF6EE7B7),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1
-                        )
-                    }
+                    ViewModeSwitch(isGridView = isGridView, onToggleGridView = onToggleGridView)
 
                     Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .background(Color(0x337C3AED), CircleShape)
-                                .border(1.dp, Color(0x44C4B5FD), CircleShape)
+                                .height(36.dp)
+                                .shadow(4.dp, CircleShape)
+                                .background(BarGlass, CircleShape)
+                                .border(1.dp, BarRim, CircleShape)
                                 .clip(CircleShape)
-                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                                .padding(horizontal = 14.dp)
                         ) {
                             if (!isGridView) {
                                 // The position number rolls up or down as you swipe
@@ -322,17 +281,17 @@ fun FeedTopBar(
                                 ) { position ->
                                     Text(
                                         text = "$position / $totalVideosCount",
-                                        color = Color(0xFFE2E8F0),
-                                        fontSize = 11.sp,
+                                        color = Color.White,
+                                        fontSize = Ds.Type.Label,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1
                                     )
                                 }
                             } else {
                                 Text(
-                                    text = "$totalVideosCount reels",
-                                    color = Color(0xFFE2E8F0),
-                                    fontSize = 11.sp,
+                                    text = "$totalVideosCount videos",
+                                    color = Color.White,
+                                    fontSize = Ds.Type.Label,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1
                                 )
@@ -340,7 +299,7 @@ fun FeedTopBar(
                             Text(
                                 text = "  ·  $totalStorageFormatted",
                                 color = Color(0xFF94A3B8),
-                                fontSize = 11.sp,
+                                fontSize = Ds.Type.Label,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -353,6 +312,62 @@ fun FeedTopBar(
         }
     }
 }
+
+/** Reels | Grid as one two-part switch. The chosen part is filled; the fill glides across when you switch. */
+@Composable
+private fun ViewModeSwitch(isGridView: Boolean, onToggleGridView: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .height(36.dp)
+            .shadow(4.dp, CircleShape)
+            .background(BarGlass, CircleShape)
+            .border(1.dp, BarRim, CircleShape)
+            .padding(3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ViewSegment(Icons.Default.ViewStream, "Reels view", selected = !isGridView, tag = "feed_reels_view_button") {
+            if (isGridView) onToggleGridView()
+        }
+        ViewSegment(Icons.Default.GridView, "Grid view", selected = isGridView, tag = "feed_grid_toggle_button") {
+            if (!isGridView) onToggleGridView()
+        }
+    }
+}
+
+@Composable
+private fun ViewSegment(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    selected: Boolean,
+    tag: String,
+    onClick: () -> Unit
+) {
+    val fill by animateColorAsState(
+        targetValue = if (selected) Color(0x668B5CF6) else Color.Transparent,
+        animationSpec = tween(260),
+        label = "segment_fill"
+    )
+    val tint by animateColorAsState(
+        targetValue = if (selected) Color.White else Color(0x99FFFFFF),
+        animationSpec = tween(260),
+        label = "segment_tint"
+    )
+    Box(
+        modifier = Modifier
+            .testTag(tag)
+            .height(30.dp)
+            .width(44.dp)
+            .clip(CircleShape)
+            .background(fill)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = description, tint = tint, modifier = Modifier.size(18.dp))
+    }
+}
+
+private val BarGlass = Color(0x99000000)
+private val BarRim = Brush.linearGradient(listOf(Color(0x59FFFFFF), Color(0x1FFFFFFF)))
 
 /** One round action inside the top bar's glass capsule. A tinted background marks it as switched on. */
 @Composable
