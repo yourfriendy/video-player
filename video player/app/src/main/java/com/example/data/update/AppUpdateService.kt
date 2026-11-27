@@ -49,19 +49,35 @@ class AppUpdateService(private val context: Context) {
 
     /** Asks GitHub for the newest published build. Throws [UpdateException] with a readable message. */
     suspend fun fetchLatest(): ReleaseInfo = withContext(Dispatchers.IO) {
+        // GitHub answers "304 Not Modified" to a repeat question when nothing changed, and a 304 does not count
+        // against its hourly limit for anonymous callers. That lets the app check often without being blocked.
+        val http = context.getSharedPreferences(HTTP_PREFS, Context.MODE_PRIVATE)
+        val cachedEtag = http.getString(KEY_ETAG, null)
+        val cachedBody = http.getString(KEY_BODY, null)
         val request = Request.Builder()
             .url(RELEASE_API)
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", USER_AGENT)
+            .apply { if (cachedEtag != null && cachedBody != null) header("If-None-Match", cachedEtag) }
             .build()
         client.newCall(request).execute().use { response ->
             when {
+                response.code == 304 && cachedBody != null -> Unit
                 response.code == 404 -> throw UpdateException("No build has been published on GitHub yet.")
                 response.code == 403 || response.code == 429 ->
                     throw UpdateException("GitHub is limiting update checks right now. Try again in a little while.")
                 !response.isSuccessful -> throw UpdateException("GitHub answered with an error (HTTP ${response.code}).")
             }
-            val body = response.body?.string().orEmpty()
+            val body = if (response.code == 304) {
+                cachedBody.orEmpty()
+            } else {
+                response.body?.string().orEmpty().also { fresh ->
+                    val etag = response.header("ETag")
+                    if (etag != null && fresh.isNotBlank()) {
+                        http.edit().putString(KEY_ETAG, etag).putString(KEY_BODY, fresh).apply()
+                    }
+                }
+            }
             val release = UpdateParser.parseLatestRelease(body)
                 ?: throw UpdateException("The latest GitHub release has no OffScroll.apk attached.")
             if (release.buildNumber == null) {
@@ -200,5 +216,8 @@ class AppUpdateService(private val context: Context) {
         private const val USER_AGENT = "OffScroll-updater"
         private const val APK_MIME = "application/vnd.android.package-archive"
         private const val UPDATES_DIR = "updates"
+        private const val HTTP_PREFS = "app_update_http"
+        private const val KEY_ETAG = "latest_etag"
+        private const val KEY_BODY = "latest_body"
     }
 }

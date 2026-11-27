@@ -206,3 +206,8 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 
 ### Added 2026-11-26 (replace every "describe me")
 - `video player/app/src/main/java/com/example/ui/components/MusicLeaveDialog.kt` — MusicLeaveDialog Pop-up shown when leaving the music tab while a song plays: Stay in music, or Switch to videos (pauses the music).
+
+### Added 2026-11-27 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ui/components/UpdateExtras.kt` — What's new card and expandable feature gallery shown under the update card in Settings
+- `video player/app/src/main/java/com/example/ui/model/FeatureCatalog.kt` — One thing OffScroll can do: a short name and one plain line that explains it.
+- `video player/app/src/test/java/com/example/ui/model/FeatureCatalogTest.kt` — Checks the feature list has unique groups and no blank text

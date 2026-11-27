@@ -54,9 +54,16 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
     private val _promptVisible = MutableStateFlow(false)
     val promptVisible: StateFlow<Boolean> = _promptVisible.asStateFlow()
 
+    /**
+     * The newest release GitHub told us about (what's new, build, time). Kept on disk so the Updates section can
+     * still show it with no connection. Null until the first good check.
+     */
+    private val _latest = MutableStateFlow(loadLatest())
+    val latest: StateFlow<ReleaseInfo?> = _latest.asStateFlow()
+
     private var job: Job? = null
 
-    /** Called whenever the app comes to the front. Cheap: it skips the network if it checked recently. */
+    /** Called when the app comes to the front and every few minutes while it stays open. Cheap: skips the network if it checked a moment ago. */
     fun checkOnLaunch() {
         val current = _state.value
         val canCheck = current is UpdateState.Idle ||
@@ -81,6 +88,7 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
             _state.value = UpdateState.Checking
             try {
                 val release = service.fetchLatest()
+                rememberLatest(release)
                 if (UpdateParser.isNewer(installedBuild, release)) {
                     _state.value = UpdateState.Available(release)
                     val alreadyDismissed = prefs.getInt(KEY_DISMISSED_BUILD, 0) == release.buildNumber
@@ -146,10 +154,40 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
         _promptVisible.value = false
     }
 
+    private fun rememberLatest(release: ReleaseInfo) {
+        _latest.value = release
+        prefs.edit()
+            .putInt(KEY_LATEST_BUILD, release.buildNumber ?: 0)
+            .putString(KEY_LATEST_BUILT, release.builtAt)
+            .putString(KEY_LATEST_TITLE, release.title)
+            .putString(KEY_LATEST_NOTES, release.whatsNew.joinToString("\n"))
+            .apply()
+    }
+
+    private fun loadLatest(): ReleaseInfo? {
+        val build = prefs.getInt(KEY_LATEST_BUILD, 0)
+        if (build <= 0) return null
+        return ReleaseInfo(
+            buildNumber = build,
+            apkUrl = "",
+            apkSize = 0L,
+            commit = null,
+            builtAt = prefs.getString(KEY_LATEST_BUILT, null),
+            whatsNew = prefs.getString(KEY_LATEST_NOTES, "").orEmpty().lines().filter { it.isNotBlank() },
+            title = prefs.getString(KEY_LATEST_TITLE, null)
+        )
+    }
+
     private companion object {
         const val PREFS = "app_update"
         const val KEY_LAST_GOOD_CHECK = "last_good_check_ms"
         const val KEY_DISMISSED_BUILD = "dismissed_build"
-        const val MIN_AUTO_CHECK_GAP_MS = 15 * 60 * 1000L
+        const val KEY_LATEST_BUILD = "latest_build"
+        const val KEY_LATEST_BUILT = "latest_built"
+        const val KEY_LATEST_TITLE = "latest_title"
+        const val KEY_LATEST_NOTES = "latest_notes"
+
+        /** Was 15 minutes, which hid a brand-new release for up to a quarter of an hour. */
+        const val MIN_AUTO_CHECK_GAP_MS = 2 * 60 * 1000L
     }
 }

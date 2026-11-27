@@ -96,4 +96,30 @@ class UpdateParserTest {
         // A release that doesn't state its build can never be called newer
         assertFalse(UpdateParser.isNewer(1, info(null)))
     }
+
+    @Test
+    fun whatsNewListIsReadFromTheReleaseNotes() {
+        val withNotes = """
+            ## OffScroll – latest build
+
+            ### What's new
+
+            - Faster update checks
+            - **New** Updates tab with a full feature list
+
+            - Build number: 21
+            - Built: 2026-11-27 09:41 UTC
+        """.trimIndent()
+        val info = UpdateParser.parseLatestRelease(release(withNotes, asset("OffScroll.apk")))!!
+        // Stops at the blank line, so the "Build number" bullets are not mistaken for changes
+        assertEquals(listOf("Faster update checks", "New Updates tab with a full feature list"), info.whatsNew)
+        assertEquals(21, info.buildNumber)
+    }
+
+    @Test
+    fun noWhatsNewHeadingMeansAnEmptyList() {
+        assertTrue(UpdateParser.parseWhatsNew(notes).isEmpty())
+        assertTrue(UpdateParser.parseWhatsNew("").isEmpty())
+        assertTrue(UpdateParser.parseWhatsNew("### What's new\n\nNothing listed as bullets").isEmpty())
+    }
 }

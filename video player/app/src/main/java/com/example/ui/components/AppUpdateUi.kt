@@ -2,7 +2,17 @@ package com.example.ui.components
 
 import com.example.ui.viewmodel.startDownload
 import com.example.ui.theme.Ds
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -75,7 +85,7 @@ fun AppUpdateDialog(viewModel: AppUpdateViewModel) {
             dismissLabel = "Later",
             onDismiss = { viewModel.dismissPrompt() }
         ) {
-            UpdateBody("A newer OffScroll is ready.", describe(s.release))
+            UpdateBody("A newer OffScroll is ready.", describe(s.release), s.release.whatsNew)
         }
 
         is UpdateState.Downloading -> UpdateAlert(
@@ -148,16 +158,46 @@ private fun UpdateAlert(
 }
 
 @Composable
-private fun UpdateBody(message: String, details: String) {
+private fun UpdateBody(message: String, details: String, whatsNew: List<String> = emptyList()) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(message, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp)
         Text(details, color = UpdateMuted, fontSize = 12.sp, lineHeight = 16.sp)
+        if (whatsNew.isNotEmpty()) {
+            Text("What's new", color = UpdateCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            whatsNew.take(4).forEach { note ->
+                Text("•  $note", color = Ds.Palette.SoftText, fontSize = 13.sp, lineHeight = 18.sp)
+            }
+        }
     }
 }
 
 // ------------------------------------------------------------------------------------------------
 // "App updates" card on the Settings screen
 // ------------------------------------------------------------------------------------------------
+
+/** The state at a glance: a coloured pill with an icon, so "up to date" or "update ready" reads before any sentence. */
+@Composable
+private fun StatusBadge(state: UpdateState) {
+    val (label, color, icon) = when (state) {
+        is UpdateState.Idle -> Triple("Not checked yet", UpdateMuted, Icons.Default.Schedule)
+        is UpdateState.Checking -> Triple("Checking", UpdateCyan, Icons.Default.Sync)
+        is UpdateState.UpToDate -> Triple("Up to date", Ds.Palette.Good, Icons.Default.CheckCircle)
+        is UpdateState.Available, is UpdateState.Downloading, is UpdateState.ReadyToInstall ->
+            Triple("Update ready", Ds.Palette.Warn, Icons.Default.NewReleases)
+        is UpdateState.Failed -> Triple("Needs attention", UpdateWarn, Icons.Default.ErrorOutline)
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .background(color.copy(alpha = 0.16f), CircleShape)
+            .border(1.dp, color.copy(alpha = 0.40f), CircleShape)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(text = label, color = color, fontSize = Ds.Type.Caption, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
 
 private class UpdateButtonSpec(val label: String, val enabled: Boolean, val onClick: () -> Unit)
 
@@ -202,14 +242,22 @@ fun AppUpdateCard(viewModel: AppUpdateViewModel, modifier: Modifier = Modifier) 
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Download,
-                    contentDescription = null,
-                    tint = Color(0xFF38BDF8),
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(Color(0xFF38BDF8), Ds.Palette.Violet))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "OffScroll ${viewModel.versionName}",
                         color = Color.White,
@@ -222,6 +270,8 @@ fun AppUpdateCard(viewModel: AppUpdateViewModel, modifier: Modifier = Modifier) 
                         fontSize = 13.sp
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                StatusBadge(s)
             }
 
             Text(text = status, color = statusColor, fontSize = 13.sp, lineHeight = 18.sp)

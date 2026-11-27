@@ -170,6 +170,16 @@ fun SettingsScreen(
                 )
             }
             item { Box(Modifier.staggeredEntrance(4)) { AppUpdateCard(viewModel = updateViewModel) } }
+            item { Box(Modifier.staggeredEntrance(4)) { WhatsNewCard(viewModel = updateViewModel) } }
+
+            // Everything the app does, so a new update's changes can be seen in context
+            item {
+                SectionHeader(
+                    "All features", "Everything OffScroll can do", Icons.Default.AutoAwesome, Ds.Palette.VioletSoft,
+                    Modifier.staggeredEntrance(4)
+                )
+            }
+            item { Box(Modifier.staggeredEntrance(4)) { FeatureCatalogCard() } }
 
             // The guide
             item {

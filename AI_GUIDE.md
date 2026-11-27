@@ -71,18 +71,19 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts 
 ## 7. State and changelog (newest last; keep it to ~25 lines, merge old ones)
 - repo brain installed.
 - UI polish: player overlay chips use vector icons (no emoji); Details sheet shows short resolution, fixes "This video708 KB", hides repeated Codec / Unknown frame rate, solid cards; Controls sheet uses one header style.
+- Updates: update check every 3 min while open (2 min gap, ETag); Settings > Updates shows What's new (from release notes) and the full feature list; release notes carry a `### What's new` list from the commit message.
 
 ## 8. Auto-generated map (do not edit)
 <!-- AUTO:START (rewritten by `python3 brain/brain.py index`; keep this block small) -->
-_2026-11-27: 196 files, 35,458 lines, 888 symbols. Biggest areas:_
+_2026-11-27: 199 files, 36,156 lines, 901 symbols. Biggest areas:_
 
 | Area | Files | Lines |
 |---|---:|---:|
-| `video player` | 165 | 31,624 |
+| `video player` | 168 | 32,286 |
 | `brain` | 7 | 1,502 |
-| `(root)` | 7 | 1,441 |
-| `.github` | 6 | 520 |
-| `docs` | 6 | 261 |
+| `(root)` | 7 | 1,460 |
+| `.github` | 6 | 536 |
+| `docs` | 6 | 262 |
 | `.claude` | 4 | 102 |
 | `.githooks` | 1 | 8 |
 <!-- AUTO:END -->

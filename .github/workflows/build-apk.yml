@@ -259,6 +259,8 @@ jobs:
       - name: Publish to Releases
         env:
           CERT_SHA256: ${{ needs.app.outputs.cert-sha256 }}
+          # Passed through the environment (never pasted into the script) so a commit message cannot run as code
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
           BUILT="$(date -u +"%Y-%m-%d %H:%M UTC")"
@@ -284,6 +286,20 @@ jobs:
               note "It is replaced by the next build of the same branch. The newest stable app is the release marked Latest."
               ;;
           esac
+          # "What's new" for the in-app Updates screen: this push's commit message, one bullet per line.
+          # The app reads the "### What's new" heading and the bullets under it (UpdateParser.parseWhatsNew). Keep both.
+          WHATS_NEW="$(printf '%s\n' "${COMMIT_MESSAGE:-}" | { grep -viE '^(Co-Authored-By|Claude-Session|Signed-off-by):' || true; } | sed '/^[[:space:]]*$/d' | head -12)"
+          if [ -n "$WHATS_NEW" ]; then
+            note ""
+            note "### What's new"
+            note ""
+            while IFS= read -r line; do
+              case "$line" in
+                "- "*|"* "*) note "$line" ;;
+                *) note "- $line" ;;
+              esac
+            done <<< "$WHATS_NEW"
+          fi
           note ""
           # The app's in-app updater reads the "Build number:" line below to decide whether the Latest release is
           # newer than the installed one (build number = versionCode). Keep that exact line in every release.

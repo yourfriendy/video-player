@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.PermissionRequestScreen
 import com.example.ui.components.VideoFeedScreen
@@ -48,6 +49,9 @@ import com.example.ui.viewmodel.AppUpdateViewModel
 import com.example.ui.viewmodel.UniversalDownloadViewModel
 import com.example.ui.viewmodel.VideoFeedViewModel
 import com.example.ui.viewmodel.VideoFeedViewModelFactory
+
+/** How often the open app asks GitHub whether a newer build exists. */
+private const val UPDATE_POLL_MS = 3 * 60 * 1000L
 
 class MainActivity : ComponentActivity() {
 
@@ -86,6 +90,17 @@ class MainActivity : ComponentActivity() {
 
         // Launched from Instagram's Share sheet? (Only on a fresh start; rotation must not re-trigger it.)
         if (savedInstanceState == null) handleShareIntent(intent)
+
+        // While the app is on screen, look for a new build every few minutes (the view model skips the network if it
+        // checked a moment ago), so a fresh release shows up without having to close and reopen the app.
+        androidx.lifecycle.lifecycleScope.launch {
+            androidx.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                while (true) {
+                    kotlinx.coroutines.delay(UPDATE_POLL_MS)
+                    updateViewModel.checkOnLaunch()
+                }
+            }
+        }
 
         setContent {
             MyApplicationTheme {
@@ -178,7 +193,7 @@ class MainActivity : ComponentActivity() {
         // The share pop-up saved a video while this app sat in the background: pick it up
         if (com.example.service.ShareDownloads.consumeLibraryDirty()) viewModel.refreshVideos()
         viewModel.resumePlayback()
-        // Looks for a newer build on GitHub (skips the network if it checked in the last 15 minutes)
+        // Looks for a newer build on GitHub (skips the network if it checked in the last 2 minutes)
         updateViewModel.checkOnLaunch()
         com.example.data.download.StoryAlertScheduler.catchUp(this)
     }
