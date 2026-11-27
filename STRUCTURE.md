@@ -206,3 +206,7 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
 
 ### Added 2026-11-26 (replace every "describe me")
 - `video player/app/src/main/java/com/example/ui/components/MusicLeaveDialog.kt` — MusicLeaveDialog Pop-up shown when leaving the music tab while a song plays: Stay in music, or Switch to videos (pauses the music).
+
+### Added 2026-11-27 (replace every "describe me")
+- `video player/app/src/main/java/com/example/ExternalVideoActivity.kt` — Standalone player opened from other apps' Open with / Play with; plays one handed-over video
+- `video player/app/src/test/java/com/example/ExternalVideoManifestTest.kt` — Guards the manifest filters that list OffScroll as a video player in other apps

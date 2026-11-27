@@ -47,6 +47,7 @@ OffScroll turns that folder into a **full-screen vertical feed**: swipe, tap the
 - 🔁 Loop, mute and **playback speed**
 - 🖼️ Display modes: **Crop / Fit / Stretch**
 - 🪟 **Picture-in-picture**
+- 📂 **Open with OffScroll**: pick OffScroll from "Open with" / "Play with" in Files, Gallery, WhatsApp or a browser link and the video plays right away in its own player (seek bar, audio and subtitle choices), even if it is not in your library. Your feed is left untouched
 - 🎵 **Music player** (the note icon in the top bar): the music files on your phone as Songs, Albums, Artists and Liked, with search, a mini player and a full Now playing screen (seek, shuffle, repeat, play queue, sleep timer). It keeps playing in the background with a notification and lock-screen controls. It plays local files only; nothing is streamed or uploaded. Needs the audio permission, asked only when you open it. If a song is playing when you leave the music tab, a pop-up asks whether to *Stay in music* or *Switch to videos* (which pauses the music), so the videos never start by surprise
 - 🎬 **Movie mode**: wide (horizontal) videos open in a landscape player with ±10 s skip, speed, fit / stretch / zoom, audio and subtitle choices and a controls lock. It starts by itself for horizontal videos of 5 minutes or more (change it in Settings: every wide video, or only when you tap the Movie mode chip)
 
