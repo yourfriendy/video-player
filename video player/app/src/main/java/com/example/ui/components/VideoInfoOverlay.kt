@@ -30,8 +30,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Hd
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -191,10 +196,10 @@ fun VideoInfoOverlay(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            InfoChip("💾", video.formattedSize, Color(0xFF5EEAD4))
-            InfoChip("⏱", video.formattedDuration, Color(0xFFA78BFA))
+            InfoChip(Icons.Default.Storage, video.formattedSize, Color(0xFF5EEAD4))
+            InfoChip(Icons.Default.Timer, video.formattedDuration, Color(0xFFA78BFA))
             if (video.formattedDateShort.isNotBlank()) {
-                InfoChip("📅", video.formattedDateShort, Color(0xFFFBBF24), Modifier.weight(1f, fill = false))
+                InfoChip(Icons.Default.CalendarMonth, video.formattedDateShort, Color(0xFFFBBF24), Modifier.weight(1f, fill = false))
             }
         }
 
@@ -313,7 +318,7 @@ private val TimeStyle = TextStyle(
 )
 
 @Composable
-private fun InfoChip(icon: String, text: String, tint: Color, modifier: Modifier = Modifier) {
+private fun InfoChip(icon: ImageVector, text: String, tint: Color, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -321,8 +326,9 @@ private fun InfoChip(icon: String, text: String, tint: Color, modifier: Modifier
             .border(1.dp, tint.copy(alpha = 0.30f), CircleShape)
             .padding(horizontal = 9.dp, vertical = 4.dp)
     ) {
-        Text(icon, fontSize = Ds.Type.Caption)
-        Spacer(modifier = Modifier.width(4.dp))
+        // A vector icon (not an emoji) so every chip is drawn the same way and takes the chip's colour
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
+        Spacer(modifier = Modifier.width(5.dp))
         Text(
             text = text,
             color = Color(0xE6FFFFFF),
@@ -361,17 +367,28 @@ private fun formatTime(millis: Long): String {
 /** Starts movie mode for a wide video (the landscape player with skip, speed, fit, audio/subtitles and a lock). */
 @Composable
 private fun MovieChip(onClick: () -> Unit) {
-    Text(
-        text = "🎬 Movie mode",
-        color = Color(0xFFFED7AA),
-        fontSize = Ds.Type.Caption,
-        fontWeight = FontWeight.SemiBold,
-        maxLines = 1,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(CircleShape)
             .clickable(onClick = onClick)
             .background(Color(0x33F97316), CircleShape)
             .border(1.dp, Color(0x66F97316), CircleShape)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    )
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Movie,
+            contentDescription = null,
+            tint = Color(0xFFFDBA74),
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = "Movie mode",
+            color = Color(0xFFFED7AA),
+            fontSize = Ds.Type.Caption,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+    }
 }

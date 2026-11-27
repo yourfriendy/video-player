@@ -95,7 +95,8 @@ private val Teal = Ds.Palette.Cyan
 private val Sky = Color(0xFF60A5FA)
 private val Amber = Ds.Palette.Warn
 private val Rose = Ds.Palette.Bad
-private val CardFill = Color(0x66020617)
+// Solid, so the cards stay clean and nothing from behind the sheet ghosts through them
+private val CardFill = Color(0xFF0E1426)
 private val Muted = Ds.Palette.Muted
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,7 +147,10 @@ fun MetadataBottomSheet(
             Reveal(2) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     StatTile(Icons.Default.Timer, video.formattedDuration, "Duration", Violet, Modifier.weight(1f))
-                    StatTile(Icons.Default.AspectRatio, video.formattedResolution, "Resolution", Sky, Modifier.weight(1f))
+                    // Just the numbers in the tile ("720×1280"): the old "720 × 1280 (Portrait)" was cut off with "..."
+                    // The orientation now has its own row in the Video card below, so nothing is lost.
+                    val resolutionShort = if (video.width > 0 && video.height > 0) "${video.width}×${video.height}" else "Unknown"
+                    StatTile(Icons.Default.AspectRatio, resolutionShort, "Resolution", Sky, Modifier.weight(1f))
                     StatTile(Icons.Default.DataUsage, video.formattedSize, "Size", Teal, Modifier.weight(1f))
                 }
             }
@@ -155,11 +159,21 @@ fun MetadataBottomSheet(
 
             Reveal(4) {
                 SectionCard("Video", Icons.Default.Videocam, Sky) {
-                    DetailRow("Codec", details.videoCodec)
-                    RowDivider()
+                    // When the phone cannot tell the real codec we only have the file type (video/mp4), which the
+                    // File card already shows as "Type", so the Codec row is left out instead of repeating it.
+                    if (details.videoCodec.isNotBlank() && !details.videoCodec.equals(video.mimeType, ignoreCase = true)) {
+                        DetailRow("Codec", details.videoCodec)
+                        RowDivider()
+                    }
                     DetailRow("Format", video.fileExtension)
-                    RowDivider()
-                    DetailRow("Frame rate", details.frameRate)
+                    if (video.width > 0 && video.height > 0) {
+                        RowDivider()
+                        DetailRow("Orientation", if (video.height >= video.width) "Portrait" else "Landscape")
+                    }
+                    if (!details.frameRate.equals("Unknown", ignoreCase = true)) {
+                        RowDivider()
+                        DetailRow("Frame rate", details.frameRate)
+                    }
                     if (details.captureFps.isNotBlank()) {
                         RowDivider()
                         DetailRow("Capture FPS", details.captureFps)
@@ -430,7 +444,8 @@ private fun StorageCard(fileBytes: Long) {
         }
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.this_video) + formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            // The string resource ends in spaces that Android trims, which printed "This video708 KB"
+            Text(stringResource(R.string.this_video).trim() + " · " + formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Text(formatBytes(freeBytes) + " free of " + formatBytes(totalBytes), color = Muted, fontSize = 12.sp)
         }
         Spacer(Modifier.height(10.dp))

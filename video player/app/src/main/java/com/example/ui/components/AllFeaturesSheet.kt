@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.PictureInPictureAlt
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shuffle
@@ -230,13 +232,7 @@ fun AllFeaturesSheet(
             Spacer(modifier = Modifier.height(14.dp))
 
             // Quick Toggle Row: Grid View, Mute, Loop, Shuffle
-            Text(
-                text = stringResource(R.string.quick_toggles),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF94A3B8),
-                letterSpacing = 1.sp
-            )
+            SectionHeader(Icons.Default.Tune, stringResource(R.string.quick_toggles), Color(0xFF38BDF8))
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(
@@ -283,20 +279,8 @@ fun AllFeaturesSheet(
             Spacer(modifier = Modifier.height(18.dp))
 
             // Playback Speed
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Speed, contentDescription = null, tint = Color(0xFFA78BFA), modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.playback_speed),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(Icons.Default.Speed, stringResource(R.string.playback_speed), Color(0xFFA78BFA))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -331,20 +315,8 @@ fun AllFeaturesSheet(
             Spacer(modifier = Modifier.height(18.dp))
 
             // Aspect Ratio / Display Mode
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.AspectRatio, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.screen_fit_aspect_ratio),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(Icons.Default.AspectRatio, stringResource(R.string.screen_fit_aspect_ratio), Color(0xFF38BDF8))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -379,20 +351,8 @@ fun AllFeaturesSheet(
             Spacer(modifier = Modifier.height(18.dp))
 
             // Sort Videos
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Sort, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.sort_feed),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            SectionHeader(Icons.Default.Sort, stringResource(R.string.sort_feed), Color(0xFFF59E0B))
+            Spacer(modifier = Modifier.height(10.dp))
 
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -429,13 +389,7 @@ fun AllFeaturesSheet(
 
             // Current Video Actions (if available)
             if (currentVideo != null) {
-                Text(
-                    text = stringResource(R.string.current_video_actions),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF94A3B8),
-                    letterSpacing = 1.sp
-                )
+                SectionHeader(Icons.Default.PlayCircle, stringResource(R.string.current_video_actions), Ds.Palette.PinkSoft)
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
@@ -471,13 +425,7 @@ fun AllFeaturesSheet(
             }
 
             // Library Utilities
-            Text(
-                text = stringResource(R.string.library_utilities),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF94A3B8),
-                letterSpacing = 1.sp
-            )
+            SectionHeader(Icons.Default.Folder, stringResource(R.string.library_utilities), Ds.Palette.Cyan)
             Spacer(modifier = Modifier.height(10.dp))
 
             // 2 x 2: two cards per row, equal heights, room for a name and a one-line explanation each
@@ -540,6 +488,24 @@ fun AllFeaturesSheet(
 
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+}
+
+/** One header style for every group in the sheet: a tinted icon and a bold title, so the groups read as equals. */
+@Composable
+private fun SectionHeader(icon: ImageVector, title: String, tint: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
     }
 }
 
