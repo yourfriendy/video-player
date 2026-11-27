@@ -36,7 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.ui.components.AppUpdateDialog
 import com.example.ui.components.PermissionRequestScreen
@@ -93,10 +97,10 @@ class MainActivity : ComponentActivity() {
 
         // While the app is on screen, look for a new build every few minutes (the view model skips the network if it
         // checked a moment ago), so a fresh release shows up without having to close and reopen the app.
-        androidx.lifecycle.lifecycleScope.launch {
-            androidx.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
-                    kotlinx.coroutines.delay(UPDATE_POLL_MS)
+                    delay(UPDATE_POLL_MS)
                     updateViewModel.checkOnLaunch()
                 }
             }
