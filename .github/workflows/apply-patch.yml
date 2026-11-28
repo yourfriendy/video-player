@@ -1,0 +1,65 @@
+name: Apply Patch
+
+on:
+  push:
+    branches: ['main']
+    paths: ['patches/**']
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: Only test the patches, change nothing
+        type: boolean
+        default: false
+
+concurrency:
+  group: apply-patch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply patches
+        id: apply
+        env:
+          CHECK_ONLY: ${{ inputs.check_only }}
+        run: |
+          say() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+          shopt -s nullglob globstar
+          files=(patches/**/*.patch patches/**/*.diff)
+          if [ ${#files[@]} -eq 0 ]; then say "No .patch or .diff files in patches/"; exit 0; fi
+          for f in "${files[@]}"; do
+            clean="$RUNNER_TEMP/clean.patch"
+            # Tidy text pasted on a phone: Windows line ends, code fences, trailing blank lines
+            sed -e 's/\r$//' -e '/^```/d' "$f" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$clean"
+            sed -i -e '$a\' "$clean"
+            if git apply --index --recount --whitespace=nowarn "$clean" || git apply --3way --recount --whitespace=nowarn "$clean"; then
+              say "✅ $f applied"
+            else
+              say "❌ $f did not apply. Nothing was pushed."; exit 1
+            fi
+          done
+          if git diff --cached --quiet; then say "The patches changed nothing."; exit 0; fi
+          if ! git diff --cached --quiet -- .github/workflows; then say "❌ Patches cannot change workflow files. Nothing was pushed."; exit 1; fi
+          while IFS= read -r -d '' js; do
+            node --check "$js" || { say "❌ JavaScript syntax error in $js. Nothing was pushed."; exit 1; }
+          done < <(git diff --cached --name-only --diff-filter=d -z -- '*.js')
+          git diff --cached --stat | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$CHECK_ONLY" = "true" ]; then say "Check only: nothing was pushed."; exit 0; fi
+          git rm -q -- "${files[@]}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qm "Apply patch: ${files[*]##*/}"
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          say "🚀 Pushed"
