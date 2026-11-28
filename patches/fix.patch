@@ -1,0 +1,1166 @@
+From f5239d30edcc0fd47f50ade66f15ae1af67f517b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 28 Nov 2026 09:48:15 +0000
+Subject: [PATCH] Screens polish: matching glass chips and vector icons on the
+ video info, one-accent Controls sheet, cleaner Details sheet with real
+ codec/frame-rate/audio data and no invented values
+
+---
+ AI_GUIDE.md                                   |   6 +-
+ STRUCTURE.md                                  |   6 +
+ symbols.idx                                   |  37 +++--
+ .../java/com/example/data/model/LocalVideo.kt |   2 +-
+ .../com/example/data/repository/CodecNames.kt |  78 ++++++++++
+ .../data/repository/MetadataExtractor.kt      | 100 ++++++++-----
+ .../example/ui/components/AllFeaturesSheet.kt |  39 ++---
+ .../ui/components/MetadataBottomSheet.kt      |  84 ++++++-----
+ .../example/ui/components/VideoInfoOverlay.kt | 135 ++++++++----------
+ .../java/com/example/ui/model/SmartTitle.kt   |   5 +-
+ .../com/example/ui/model/VideoDisplayMode.kt  |   4 +-
+ .../java/com/example/ui/model/VideoQuality.kt |  29 ++++
+ .../example/data/repository/CodecNamesTest.kt |  43 ++++++
+ .../java/com/example/ui/VideoQualityTest.kt   |  35 +++++
+ 14 files changed, 425 insertions(+), 178 deletions(-)
+ create mode 100644 video player/app/src/main/java/com/example/data/repository/CodecNames.kt
+ create mode 100644 video player/app/src/main/java/com/example/ui/model/VideoQuality.kt
+ create mode 100644 video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt
+ create mode 100644 video player/app/src/test/java/com/example/ui/VideoQualityTest.kt
+
+diff --git a/AI_GUIDE.md b/AI_GUIDE.md
+index 546770e..57f7752 100644
+--- a/AI_GUIDE.md
++++ b/AI_GUIDE.md
+@@ -73,13 +73,13 @@ You are working on **repo**. File types here: .kt x115, .xml x16, .md x11, .kts
+ 
+ ## 8. Auto-generated map (do not edit)
+ <!-- AUTO:START (rewritten by `python3 brain/brain.py index`; keep this block small) -->
+-_2026-11-27: 196 files, 35,459 lines, 888 symbols. Biggest areas:_
++_2026-11-28: 200 files, 35,706 lines, 907 symbols. Biggest areas:_
+ 
+ | Area | Files | Lines |
+ |---|---:|---:|
+-| `video player` | 165 | 31,626 |
++| `video player` | 169 | 31,848 |
+ | `brain` | 7 | 1,502 |
+-| `(root)` | 7 | 1,440 |
++| `(root)` | 7 | 1,465 |
+ | `.github` | 6 | 520 |
+ | `docs` | 6 | 261 |
+ | `.claude` | 4 | 102 |
+diff --git a/STRUCTURE.md b/STRUCTURE.md
+index c8be116..149c831 100644
+--- a/STRUCTURE.md
++++ b/STRUCTURE.md
+@@ -206,3 +206,9 @@ Rule: add/rename/move/delete a file => update this file in the same change. Do n
+ 
+ ### Added 2026-11-26 (replace every "describe me")
+ - `video player/app/src/main/java/com/example/ui/components/MusicLeaveDialog.kt` — MusicLeaveDialog Pop-up shown when leaving the music tab while a song plays: Stay in music, or Switch to videos (pauses the music).
++
++### Added 2026-11-28 (replace every "describe me")
++- `video player/app/src/main/java/com/example/data/repository/CodecNames.kt` — H.264", "H.265 (HEVC)", "VP9", "AV1"... or "Unknown" when there is no track information.
++- `video player/app/src/main/java/com/example/ui/model/VideoQuality.kt` — 720×1280" for a tile, or "Unknown" when the size is not known.
++- `video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt` — CodecNamesTest Tests for CodecNames.
++- `video player/app/src/test/java/com/example/ui/VideoQualityTest.kt` — VideoQualityTest Tests for the quality badge, resolution and orientation text.
+diff --git a/symbols.idx b/symbols.idx
+index 13379aa..ed48671 100644
+--- a/symbols.idx
++++ b/symbols.idx
+@@ -39,11 +39,14 @@ aTallVideoEndsMovieMode	fn	video player/app/src/test/java/com/example/ui/MovieMo
+ attach	fn	video player/app/src/main/java/com/example/ui/viewmodel/MusicViewModel.kt:42
+ audio	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:14
+ audioPermission	fn	video player/app/src/main/java/com/example/data/music/MusicRepository.kt:75
++audioTrack	fn	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:29
++audioTrackReadsCodecChannelsAndRate	fn	video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt:19
+ AutoHideControlsTest	class	video player/app/src/test/java/com/example/ui/components/AutoHideControlsTest.kt:7
+ Available	class	video player/app/src/main/java/com/example/ui/viewmodel/AppUpdateViewModel.kt:25
+ avatarFallsBackToTheFirstLetter	fn	video player/app/src/test/java/com/example/ui/components/DesignSystemComposeTest.kt:124
+ aVerticalReelIsLabelledBySizeOfItsShortSide	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:83
+ back	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:131
++badgeUsesTheShorterSideSoSidewaysAndUprightAgree	fn	video player/app/src/test/java/com/example/ui/VideoQualityTest.kt:12
+ begin	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:99
+ bestAvailable	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:121
+ betterDetails	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:1155
+@@ -74,6 +77,7 @@ captionOf	fn	video player/app/src/main/java/com/example/data/download/InstagramP
+ Captured	class	video player/app/src/main/java/com/example/data/download/IgPageCapture.kt:38
+ CaptureResult	class	video player/app/src/main/java/com/example/data/download/IgPageCapture.kt:147
+ catchUp	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:331
++channelName	fn	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:49
+ check	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:118
+ Checking	class	video player/app/src/main/java/com/example/ui/viewmodel/AppUpdateViewModel.kt:23
+ checkNow	fn	video player/app/src/main/java/com/example/data/download/StoryAlerts.kt:343
+@@ -110,9 +114,13 @@ closeDetail	fn	video player/app/src/main/java/com/example/ui/viewmodel/MusicView
+ closePeople	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:512
+ closeViewer	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:354
+ codecName	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:156
++CodecNames	class	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:9
++CodecNamesTest	class	video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt:6
+ codecRank	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:147
+ collectReposts	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:266
+ collectsHashtagsLinksAndStickers	fn	video player/app/src/test/java/com/example/data/download/MediaExtrasTest.kt:45
++colorStandard	fn	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:72
++colourStandardNames	fn	video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt:37
+ compactCount	fn	video player/app/src/main/java/com/example/ui/components/ProfileScreen.kt:1241
+ connect	fn	video player/app/src/main/java/com/example/data/music/MusicPlayerManager.kt:67
+ connect	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineClient.kt:118
+@@ -120,7 +128,7 @@ consumeLibraryDirty	fn	video player/app/src/main/java/com/example/service/ShareD
+ consumeToast	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:492
+ Contract	class	video player/app/src/main/java/com/example/IgLoginActivity.kt:236
+ copy	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:617
+-copyToClipboard	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:515
++copyToClipboard	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:526
+ countLabel	fn	video player/app/src/main/java/com/example/ui/model/MusicModels.kt:83
+ countsLine	fn	video player/app/src/main/java/com/example/ui/components/DownloaderScreen.kt:696
+ countsUseTheRightNoun	fn	video player/app/src/test/java/com/example/ui/MusicModelsTest.kt:67
+@@ -220,7 +228,7 @@ ExampleInstrumentedTest	class	video player/app/src/androidTest/java/com/example/
+ ExampleRobolectricTest	class	video player/app/src/test/java/com/example/ExampleRobolectricTest.kt:13
+ ExampleUnitTest	class	video player/app/src/test/java/com/example/ExampleUnitTest.kt:11
+ explain	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:241
+-extractDetails	fn	video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt:14
++extractDetails	fn	video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt:21
+ extractInstagramUrl	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:15
+ extractsFromDoubleEscapedEmbedJson	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:48
+ extractsFromOpenGraphTagInEitherAttributeOrder	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:76
+@@ -272,19 +280,23 @@ FolderInfo	class	video player/app/src/main/java/com/example/ui/components/Folder
+ format	fn	video player/app/src/main/java/com/example/data/Diagnostics.kt:29
+ format	fn	video player/app/src/main/java/com/example/data/universal/engine/EngineInfoParser.kt:48
+ formatBytes	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:373
+-formatBytes	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:501
++formatBytes	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:512
+ formatCount	fn	video player/app/src/main/java/com/example/ui/components/DownloaderSheet.kt:280
+ formatDuration	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:384
+ formatDuration	fn	video player/app/src/main/java/com/example/ui/components/SharePopup.kt:715
+ FormatInfo	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:10
++formatKilohertz	fn	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:59
+ formatMovieTime	fn	video player/app/src/main/java/com/example/ui/model/MovieMode.kt:75
+-formatSeconds	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:511
++formatResolutionShort	fn	video player/app/src/main/java/com/example/ui/model/VideoQuality.kt:20
++formatSeconds	fn	video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt:522
+ formatSongTime	fn	video player/app/src/main/java/com/example/ui/model/MusicModels.kt:80
+-formatTime	fn	video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt:354
++formatTime	fn	video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt:339
+ formattingHelpers	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:194
+ formatToJson	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:172
+ formatTotalDuration	fn	video player/app/src/main/java/com/example/ui/model/MusicModels.kt:74
+ formatVlcTime	fn	video player/app/src/main/java/com/example/ui/components/ReelPlayerItem.kt:686
++frameRate	fn	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:65
++frameRateIsHonest	fn	video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt:28
+ fullCount	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:207
+ garbageIsRejectedWithoutCrashing	fn	video player/app/src/test/java/com/example/data/update/UpdateParserTest.kt:76
+ garbageRowsAreIgnored	fn	video player/app/src/test/java/com/example/data/download/StoryAlertHistoryTest.kt:25
+@@ -334,7 +346,7 @@ horizontalMeansWiderThanTall	fn	video player/app/src/test/java/com/example/ui/Mo
+ HtmlText	class	video player/app/src/main/java/com/example/data/download/HtmlText.kt:8
+ HtmlTextTest	class	video player/app/src/test/java/com/example/data/download/HtmlTextTest.kt:6
+ HttpFailure	class	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:37
+-humanize	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:61
++humanize	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:64
+ humanNamesAreTidiedNotReplaced	fn	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:30
+ identify	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:102
+ Idle	class	video player/app/src/main/java/com/example/ui/model/DownloadStatus.kt:7
+@@ -439,7 +451,7 @@ mergeResolved	fn	video player/app/src/main/java/com/example/data/download/Instag
+ Message	class	video player/app/src/main/java/com/example/ui/components/Feedback.kt:57
+ meta	fn	video player/app/src/test/java/com/example/data/download/HtmlTextTest.kt:8
+ metaContent	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:101
+-MetadataExtractor	class	video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt:12
++MetadataExtractor	class	video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt:19
+ mimeFor	fn	video player/app/src/main/java/com/example/data/universal/UniversalDownloader.kt:181
+ Missing	class	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:49
+ missingFieldsStayEmptyInsteadOfInventedValues	fn	video player/app/src/test/java/com/example/data/download/MediaExtrasTest.kt:54
+@@ -498,6 +510,7 @@ openOffScroll	fn	video player/app/src/main/java/com/example/ShareDownloadActivit
+ openPeople	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:500
+ openPost	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:342
+ openViewerFrom	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:370
++orientationName	fn	video player/app/src/main/java/com/example/ui/model/VideoQuality.kt:24
+ Outdated	class	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:50
+ ownerMatches	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:753
+ Palette	class	video player/app/src/main/java/com/example/ui/theme/DesignSystem.kt:25
+@@ -588,6 +601,7 @@ ProfileViewerState	class	video player/app/src/main/java/com/example/ui/viewmodel
+ ProgressMapper	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:315
+ publish	fn	video player/app/src/main/java/com/example/data/music/MusicPlayerManager.kt:101
+ purgeStale	fn	video player/engine/src/main/java/com/example/engine/EngineCore.kt:123
++qualityBadge	fn	video player/app/src/main/java/com/example/ui/model/VideoQuality.kt:7
+ QualityOption	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:40
+ QualityOptions	class	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:64
+ qualityTag	fn	video player/app/src/main/java/com/example/data/universal/UniversalModels.kt:166
+@@ -658,6 +672,7 @@ requestBatteryExemption	fn	video player/app/src/main/java/com/example/ui/compone
+ requireSession	fn	video player/app/src/main/java/com/example/data/download/InstagramStoryService.kt:577
+ RequiresPermission	class	video player/app/src/main/java/com/example/data/repository/VideoRepository.kt:446
+ reset	fn	video player/app/src/main/java/com/example/ui/viewmodel/UniversalDownloadViewModel.kt:317
++resolutionAndOrientationText	fn	video player/app/src/test/java/com/example/ui/VideoQualityTest.kt:27
+ resolutionText	fn	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:191
+ resolutionTextGivesRatioAndOrientation	fn	video player/app/src/test/java/com/example/ui/components/ProfileViewerHelpersTest.kt:25
+ resolve	fn	video player/app/src/main/java/com/example/data/download/InstagramDownloader.kt:84
+@@ -758,8 +773,9 @@ skippingForwardStopsAtTheEnd	fn	video player/app/src/test/java/com/example/ui/Mo
+ skipsNullVideoUrlAndKeepsLooking	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:64
+ skipTarget	fn	video player/app/src/main/java/com/example/ui/model/MovieMode.kt:69
+ slide	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:1189
++smallOrUnknownPicturesGetNoBadge	fn	video player/app/src/test/java/com/example/ui/VideoQualityTest.kt:21
+ SmartTitle	class	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:11
+-smartTitle	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:22
++smartTitle	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:25
+ SmartTitleTest	class	video player/app/src/test/java/com/example/ui/SmartTitleTest.kt:9
+ song	fn	video player/app/src/main/java/com/example/data/download/InstagramParser.kt:443
+ Song	class	video player/app/src/main/java/com/example/ui/model/MusicModels.kt:6
+@@ -769,7 +785,7 @@ sortSongs	fn	video player/app/src/main/java/com/example/ui/model/MusicModels.kt:
+ speedAndEtaAreShownTogether	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:188
+ speedLabel	fn	video player/app/src/main/java/com/example/ui/components/MovieModeControls.kt:264
+ spotsStoryLinks	fn	video player/app/src/test/java/com/example/data/download/InstagramParserTest.kt:141
+-stampLabel	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:41
++stampLabel	fn	video player/app/src/main/java/com/example/ui/model/SmartTitle.kt:44
+ start	fn	video player/app/src/main/java/com/example/data/download/StoryWatchService.kt:139
+ start	fn	video player/app/src/main/java/com/example/service/DownloadKeepAliveService.kt:54
+ startDownload	fn	video player/app/src/main/java/com/example/service/ShareDownloads.kt:180
+@@ -867,10 +883,13 @@ versionCode	fn	video player/engine/src/main/java/com/example/engine/EngineServic
+ video	fn	video player/app/src/test/java/com/example/data/universal/UniversalModelsTest.kt:11
+ VideoBookmarkDao	class	video player/app/src/main/java/com/example/data/local/dao/VideoBookmarkDao.kt:12
+ VideoBookmarkEntity	class	video player/app/src/main/java/com/example/data/local/entity/VideoBookmarkEntity.kt:7
++videoCodec	fn	video player/app/src/main/java/com/example/data/repository/CodecNames.kt:12
++videoCodecsGetPlainNames	fn	video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt:8
+ VideoFeedUiState	class	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedViewModel.kt:49
+ VideoFeedViewModel	class	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedViewModel.kt:135
+ VideoFeedViewModelFactory	class	video player/app/src/main/java/com/example/ui/viewmodel/VideoFeedViewModel.kt:352
+ VideoMetadataDetails	class	video player/app/src/main/java/com/example/data/model/LocalVideo.kt:80
++VideoQualityTest	class	video player/app/src/test/java/com/example/ui/VideoQualityTest.kt:10
+ VideoRepository	class	video player/app/src/main/java/com/example/data/repository/VideoRepository.kt:30
+ ViewerHost	class	video player/app/src/main/java/com/example/ui/components/ProfileViewer.kt:214
+ viewStories	fn	video player/app/src/main/java/com/example/ui/viewmodel/ProfileController.kt:321
+diff --git a/video player/app/src/main/java/com/example/data/model/LocalVideo.kt b/video player/app/src/main/java/com/example/data/model/LocalVideo.kt
+index a0d4341..7acf64f 100644
+--- a/video player/app/src/main/java/com/example/data/model/LocalVideo.kt	
++++ b/video player/app/src/main/java/com/example/data/model/LocalVideo.kt	
+@@ -84,6 +84,6 @@ data class VideoMetadataDetails(
+     val rotation: String = "0°",
+     val audioCodec: String = "Unknown",
+     val videoCodec: String = "Unknown",
+-    val colorStandard: String = "Standard",
++    val colorStandard: String = "Unknown",
+     val captureFps: String = ""
+ )
+diff --git a/video player/app/src/main/java/com/example/data/repository/CodecNames.kt b/video player/app/src/main/java/com/example/data/repository/CodecNames.kt
+new file mode 100644
+index 0000000..d98ed9c
+--- /dev/null
++++ b/video player/app/src/main/java/com/example/data/repository/CodecNames.kt	
+@@ -0,0 +1,78 @@
++package com.example.data.repository
++
++import java.util.Locale
++
++/**
++ * Plain names for what the phone's media tools report: "video/avc" becomes "H.264", "audio/mp4a-latm" becomes "AAC",
++ * 2 channels become "Stereo". Pure text, so it can be tested without a phone.
++ */
++object CodecNames {
++
++    /** "H.264", "H.265 (HEVC)", "VP9", "AV1"... or "Unknown" when there is no track information. */
++    fun videoCodec(mime: String?): String {
++        if (mime.isNullOrBlank()) return "Unknown"
++        return when (mime.lowercase(Locale.ROOT)) {
++            "video/avc" -> "H.264"
++            "video/hevc" -> "H.265 (HEVC)"
++            "video/x-vnd.on2.vp9" -> "VP9"
++            "video/x-vnd.on2.vp8" -> "VP8"
++            "video/av01" -> "AV1"
++            "video/mp4v-es" -> "MPEG-4"
++            "video/3gpp" -> "H.263"
++            "video/dolby-vision" -> "Dolby Vision"
++            "video/mpeg2" -> "MPEG-2"
++            else -> mime.substringAfter('/').uppercase(Locale.ROOT)
++        }
++    }
++
++    /** "AAC · Stereo · 44.1 kHz". Parts that are not known are left out; no audio at all gives "No audio". */
++    fun audioTrack(mime: String?, channels: Int, sampleRateHz: Int): String {
++        if (mime.isNullOrBlank()) return "No audio"
++        val codec = when (mime.lowercase(Locale.ROOT)) {
++            "audio/mp4a-latm" -> "AAC"
++            "audio/mpeg" -> "MP3"
++            "audio/opus" -> "Opus"
++            "audio/vorbis" -> "Vorbis"
++            "audio/flac" -> "FLAC"
++            "audio/ac3" -> "Dolby Digital"
++            "audio/eac3" -> "Dolby Digital Plus"
++            "audio/3gpp", "audio/amr-wb" -> "AMR"
++            "audio/raw" -> "PCM"
++            else -> mime.substringAfter('/').uppercase(Locale.ROOT)
++        }
++        val parts = mutableListOf(codec)
++        channelName(channels)?.let { parts.add(it) }
++        if (sampleRateHz > 0) parts.add(formatKilohertz(sampleRateHz))
++        return parts.joinToString(" · ")
++    }
++
++    fun channelName(channels: Int): String? = when {
++        channels <= 0 -> null
++        channels == 1 -> "Mono"
++        channels == 2 -> "Stereo"
++        channels == 6 -> "5.1 surround"
++        channels == 8 -> "7.1 surround"
++        else -> "$channels channels"
++    }
++
++    /** 44100 -> "44.1 kHz", 48000 -> "48 kHz". */
++    fun formatKilohertz(hz: Int): String {
++        val khz = hz / 1000.0
++        return if (khz == khz.toInt().toDouble()) "${khz.toInt()} kHz" else String.format(Locale.US, "%.1f kHz", khz)
++    }
++
++    /** 30.0 -> "30 fps", 29.97 -> "29.97 fps". Zero or less is "Unknown". */
++    fun frameRate(fps: Float): String = when {
++        fps <= 0f -> "Unknown"
++        kotlin.math.abs(fps - Math.round(fps)) < 0.01f -> "${Math.round(fps)} fps"
++        else -> String.format(Locale.US, "%.2f fps", fps)
++    }
++
++    /** BT.709, BT.601 or BT.2020 from MediaFormat's colour standard number; "Unknown" for anything else. */
++    fun colorStandard(value: Int): String = when (value) {
++        1 -> "BT.709"
++        2, 4 -> "BT.601"
++        6 -> "BT.2020 (wide colour)"
++        else -> "Unknown"
++    }
++}
+diff --git a/video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt b/video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt
+index cd33732..267d9b0 100644
+--- a/video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt	
++++ b/video player/app/src/main/java/com/example/data/repository/MetadataExtractor.kt	
+@@ -1,6 +1,8 @@
+ package com.example.data.repository
+ 
+ import android.content.Context
++import android.media.MediaExtractor
++import android.media.MediaFormat
+ import android.media.MediaMetadataRetriever
+ import android.os.Build
+ import com.example.data.model.LocalVideo
+@@ -9,67 +11,98 @@ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.withContext
+ import java.util.Locale
+ 
++/**
++ * Reads what is really inside a video file for the Details sheet: the picture and audio codecs, the frame rate, the
++ * colour standard, the bitrate and the rotation. Anything the phone cannot tell us stays "Unknown" (and the sheet
++ * hides it) rather than guessing.
++ */
+ class MetadataExtractor(private val context: Context) {
+ 
+     suspend fun extractDetails(video: LocalVideo): VideoMetadataDetails = withContext(Dispatchers.IO) {
+         var frameRate = "Unknown"
+         var bitrate = "Unknown"
+         var rotation = "0°"
+-        var audioCodec = "AAC / Local"
+-        var videoCodec = video.mimeType.ifEmpty { "MP4 / H.264" }
++        var audioCodec = "Unknown"
++        var videoCodec = "Unknown"
++        var colorStandard = "Unknown"
+ 
++        // The file's overall facts: bitrate and rotation
+         val retriever = MediaMetadataRetriever()
+         try {
+             retriever.setDataSource(context, video.uri)
+ 
+             val extractedBitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+             if (!extractedBitrate.isNullOrEmpty()) {
+-                val bps = extractedBitrate.toLongOrNull() ?: 0L
+-                val kbps = bps / 1000
++                val kbps = (extractedBitrate.toLongOrNull() ?: 0L) / 1000
+                 val mbps = kbps / 1000.0
+-                bitrate = if (mbps >= 1.0) {
+-                    String.format(Locale.getDefault(), "%.2f Mbps", mbps)
+-                } else {
+-                    "$kbps kbps"
+-                }
+-            }
+-
+-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+-                val captureFrameRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+-                if (!captureFrameRate.isNullOrEmpty()) {
+-                    frameRate = "$captureFrameRate fps"
+-                }
++                bitrate = if (mbps >= 1.0) String.format(Locale.getDefault(), "%.2f Mbps", mbps) else "$kbps kbps"
+             }
+ 
+             val extractedRotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+-            if (!extractedRotation.isNullOrEmpty()) {
+-                rotation = "$extractedRotation°"
+-            }
++            if (!extractedRotation.isNullOrEmpty()) rotation = "$extractedRotation°"
+ 
+-            val extractedMime = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
+-            if (!extractedMime.isNullOrEmpty()) {
+-                videoCodec = extractedMime
++            if (frameRate == "Unknown" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
++                val capture = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloatOrNull()
++                if (capture != null) frameRate = CodecNames.frameRate(capture)
+             }
+ 
+             val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO)
+-            audioCodec = if (hasAudio == "yes") "Stereo Audio Track" else "No Audio"
+-
++            if (hasAudio != "yes") audioCodec = "No audio"
+         } catch (e: Exception) {
+-            // Fallback for demo/restricted files
+-            if (bitrate == "Unknown" && video.durationMs > 0 && video.sizeBytes > 0) {
+-                val calculatedKbps = (video.sizeBytes * 8) / video.durationMs
+-                bitrate = "~${calculatedKbps} kbps"
++            com.example.data.Diagnostics.log("ignored", "MetadataExtractor: retriever failed")
++        } finally {
++            try {
++                retriever.release()
++            } catch (e: Exception) {
++                com.example.data.Diagnostics.log("ignored", "MetadataExtractor: retriever release")
+             }
+-            if (frameRate == "Unknown") {
+-                frameRate = "30 fps"
++        }
++
++        // The tracks themselves: real codec names, frame rate, colour standard, audio channels
++        val extractor = MediaExtractor()
++        try {
++            extractor.setDataSource(context, video.uri, null)
++            for (i in 0 until extractor.trackCount) {
++                val format = extractor.getTrackFormat(i)
++                val mime = format.getString(MediaFormat.KEY_MIME) ?: continue
++                if (mime.startsWith("video/") && videoCodec == "Unknown") {
++                    videoCodec = CodecNames.videoCodec(mime)
++                    if (format.containsKey(MediaFormat.KEY_FRAME_RATE)) {
++                        val fps = try {
++                            format.getInteger(MediaFormat.KEY_FRAME_RATE).toFloat()
++                        } catch (e: Exception) {
++                            try {
++                                format.getFloat(MediaFormat.KEY_FRAME_RATE)
++                            } catch (e2: Exception) {
++                                0f
++                            }
++                        }
++                        if (fps > 0f) frameRate = CodecNames.frameRate(fps)
++                    }
++                    if (format.containsKey(MediaFormat.KEY_COLOR_STANDARD)) {
++                        colorStandard = CodecNames.colorStandard(format.getInteger(MediaFormat.KEY_COLOR_STANDARD))
++                    }
++                } else if (mime.startsWith("audio/") && (audioCodec == "Unknown" || audioCodec == "No audio")) {
++                    val channels = if (format.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) format.getInteger(MediaFormat.KEY_CHANNEL_COUNT) else 0
++                    val rate = if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) format.getInteger(MediaFormat.KEY_SAMPLE_RATE) else 0
++                    audioCodec = CodecNames.audioTrack(mime, channels, rate)
++                }
+             }
++        } catch (e: Exception) {
++            com.example.data.Diagnostics.log("ignored", "MetadataExtractor: track read failed")
+         } finally {
+             try {
+-                retriever.release()
++                extractor.release()
+             } catch (e: Exception) {
+-            com.example.data.Diagnostics.log("ignored", "MetadataExtractor.kt:69 Ignore")
++                com.example.data.Diagnostics.log("ignored", "MetadataExtractor: extractor release")
++            }
+         }
++
++        // No bitrate from the file: work it out from size and length (marked with ~)
++        if (bitrate == "Unknown" && video.durationMs > 0 && video.sizeBytes > 0) {
++            bitrate = "~${(video.sizeBytes * 8) / video.durationMs} kbps"
+         }
++        if (audioCodec == "Unknown") audioCodec = "No audio"
+ 
+         VideoMetadataDetails(
+             video = video,
+@@ -77,7 +110,8 @@ class MetadataExtractor(private val context: Context) {
+             bitrate = bitrate,
+             rotation = rotation,
+             audioCodec = audioCodec,
+-            videoCodec = videoCodec
++            videoCodec = videoCodec,
++            colorStandard = colorStandard
+         )
+     }
+ }
+diff --git a/video player/app/src/main/java/com/example/ui/components/AllFeaturesSheet.kt b/video player/app/src/main/java/com/example/ui/components/AllFeaturesSheet.kt
+index 3c7265e..4746cd4 100644
+--- a/video player/app/src/main/java/com/example/ui/components/AllFeaturesSheet.kt	
++++ b/video player/app/src/main/java/com/example/ui/components/AllFeaturesSheet.kt	
+@@ -247,7 +247,7 @@ fun AllFeaturesSheet(
+                     icon = if (isGridView) Icons.Default.ViewStream else Icons.Default.GridView,
+                     title = if (isGridView) "Reels" else "Grid",
+                     isActive = isGridView,
+-                    activeColor = Color(0xFF38BDF8),
++                    activeColor = SheetAccentSoft,
+                     onClick = onToggleGridView,
+                     modifier = Modifier.weight(1f)
+                 )
+@@ -256,7 +256,7 @@ fun AllFeaturesSheet(
+                     icon = if (isMuted) Icons.Default.VolumeMute else Icons.Default.VolumeUp,
+                     title = if (isMuted) "Muted" else "Sound On",
+                     isActive = isMuted,
+-                    activeColor = Color(0xFFF43F5E),
++                    activeColor = SheetAccentSoft,
+                     onClick = onToggleMute,
+                     modifier = Modifier.weight(1f)
+                 )
+@@ -265,7 +265,7 @@ fun AllFeaturesSheet(
+                     icon = Icons.Default.Loop,
+                     title = if (isLoopMode) "Loop On" else "Loop Off",
+                     isActive = isLoopMode,
+-                    activeColor = Color(0xFF10B981),
++                    activeColor = SheetAccentSoft,
+                     onClick = onToggleLoopMode,
+                     modifier = Modifier.weight(1f)
+                 )
+@@ -274,7 +274,7 @@ fun AllFeaturesSheet(
+                     icon = Icons.Default.Shuffle,
+                     title = if (isShuffleMode) "Shuffle" else "In Order",
+                     isActive = isShuffleMode,
+-                    activeColor = Color(0xFFA855F7),
++                    activeColor = SheetAccentSoft,
+                     onClick = onToggleShuffle,
+                     modifier = Modifier.weight(1f)
+                 )
+@@ -287,7 +287,7 @@ fun AllFeaturesSheet(
+                 modifier = Modifier.fillMaxWidth(),
+                 verticalAlignment = Alignment.CenterVertically
+             ) {
+-                Icon(Icons.Default.Speed, contentDescription = null, tint = Color(0xFFA78BFA), modifier = Modifier.size(18.dp))
++                Icon(Icons.Default.Speed, contentDescription = null, tint = SheetAccentSoft, modifier = Modifier.size(18.dp))
+                 Spacer(modifier = Modifier.width(8.dp))
+                 Text(
+                     text = stringResource(R.string.playback_speed),
+@@ -335,7 +335,7 @@ fun AllFeaturesSheet(
+                 modifier = Modifier.fillMaxWidth(),
+                 verticalAlignment = Alignment.CenterVertically
+             ) {
+-                Icon(Icons.Default.AspectRatio, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp))
++                Icon(Icons.Default.AspectRatio, contentDescription = null, tint = SheetAccentSoft, modifier = Modifier.size(18.dp))
+                 Spacer(modifier = Modifier.width(8.dp))
+                 Text(
+                     text = stringResource(R.string.screen_fit_aspect_ratio),
+@@ -356,10 +356,10 @@ fun AllFeaturesSheet(
+                         modifier = Modifier
+                             .weight(1f)
+                             .clip(RoundedCornerShape(12.dp))
+-                            .background(if (isSelected) Color(0xFF0284C7) else GlassBackground)
++                            .background(if (isSelected) Color(0xFF7C3AED) else GlassBackground)
+                             .border(
+                                 1.dp,
+-                                if (isSelected) Color(0xFF7DD3FC) else GlassBorder,
++                                if (isSelected) Color(0xFFC4B5FD) else GlassBorder,
+                                 RoundedCornerShape(12.dp)
+                             )
+                             .clickable { onSelectDisplayMode(mode) }
+@@ -383,7 +383,7 @@ fun AllFeaturesSheet(
+                 modifier = Modifier.fillMaxWidth(),
+                 verticalAlignment = Alignment.CenterVertically
+             ) {
+-                Icon(Icons.Default.Sort, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
++                Icon(Icons.Default.Sort, contentDescription = null, tint = SheetAccentSoft, modifier = Modifier.size(18.dp))
+                 Spacer(modifier = Modifier.width(8.dp))
+                 Text(
+                     text = stringResource(R.string.sort_feed),
+@@ -403,12 +403,12 @@ fun AllFeaturesSheet(
+                     val isSelected = selectedSort == sort && !isShuffleMode
+                     Box(
+                         modifier = Modifier
+-                            .clip(RoundedCornerShape(8.dp))
+-                            .background(if (isSelected) Color(0xFFD97706) else GlassBackground)
++                            .clip(RoundedCornerShape(12.dp))
++                            .background(if (isSelected) Color(0xFF7C3AED) else GlassBackground)
+                             .border(
+                                 1.dp,
+-                                if (isSelected) Color(0xFFFDE68A) else GlassBorder,
+-                                RoundedCornerShape(8.dp)
++                                if (isSelected) Color(0xFFC4B5FD) else GlassBorder,
++                                RoundedCornerShape(12.dp)
+                             )
+                             .clickable { onSelectSort(sort) }
+                             .padding(horizontal = 12.dp, vertical = 7.dp)
+@@ -446,7 +446,7 @@ fun AllFeaturesSheet(
+                         icon = Icons.Default.PlaylistAdd,
+                         title = "Add to playlist",
+                         subtitle = "Keep it with others to watch later",
+-                        tint = Ds.Palette.PinkSoft,
++                        tint = SheetAccentSoft,
+                         onClick = {
+                             onDismiss()
+                             onAddToPlaylist(currentVideo)
+@@ -458,7 +458,7 @@ fun AllFeaturesSheet(
+                         icon = Icons.Default.Info,
+                         title = "Details and info",
+                         subtitle = "Size, length and location",
+-                        tint = Ds.Palette.VioletSoft,
++                        tint = SheetAccentSoft,
+                         onClick = {
+                             onDismiss()
+                             onOpenInfo(currentVideo)
+@@ -490,7 +490,7 @@ fun AllFeaturesSheet(
+                         icon = Icons.Default.Refresh,
+                         title = "Rescan library",
+                         subtitle = "Find new videos on this phone",
+-                        tint = Color(0xFFC084FC),
++                        tint = SheetAccentSoft,
+                         onClick = {
+                             onRefreshLibrary()
+                             onDismiss()
+@@ -517,7 +517,7 @@ fun AllFeaturesSheet(
+                         icon = Icons.Default.Settings,
+                         title = "Settings",
+                         subtitle = "Look, alerts and more",
+-                        tint = Ds.Palette.Cyan,
++                        tint = SheetAccentSoft,
+                         onClick = {
+                             onOpenSettings()
+                             onDismiss()
+@@ -528,7 +528,7 @@ fun AllFeaturesSheet(
+                         icon = Icons.Default.Swipe,
+                         title = "Quick tour",
+                         subtitle = "Learn the gestures",
+-                        tint = Ds.Palette.Orange,
++                        tint = SheetAccentSoft,
+                         onClick = {
+                             onShowTour()
+                             onDismiss()
+@@ -631,3 +631,6 @@ private fun FeatureActionButton(
+         }
+     }
+ }
++
++/** The single accent every selected or switched-on option in this sheet uses. */
++private val SheetAccentSoft = Color(0xFFC4B5FD)
+diff --git a/video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt b/video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt
+index 0866429..b99860c 100644
+--- a/video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt	
++++ b/video player/app/src/main/java/com/example/ui/components/MetadataBottomSheet.kt	
+@@ -80,6 +80,8 @@ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import com.example.data.model.VideoMetadataDetails
+ import com.example.data.model.LocalVideo
++import com.example.ui.model.formatResolutionShort
++import com.example.ui.model.orientationName
+ import com.example.ui.model.smartTitle
+ import coil.compose.AsyncImage
+ import coil.request.ImageRequest
+@@ -146,53 +148,56 @@ fun MetadataBottomSheet(
+             Reveal(2) {
+                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                     StatTile(Icons.Default.Timer, video.formattedDuration, "Duration", Violet, Modifier.weight(1f))
+-                    StatTile(Icons.Default.AspectRatio, video.formattedResolution, "Resolution", Sky, Modifier.weight(1f))
+-                    StatTile(Icons.Default.DataUsage, video.formattedSize, "Size", Teal, Modifier.weight(1f))
++                    StatTile(Icons.Default.AspectRatio, formatResolutionShort(video.width, video.height), "Resolution", Violet, Modifier.weight(1f))
++                    StatTile(Icons.Default.DataUsage, video.formattedSize, "Size", Violet, Modifier.weight(1f))
+                 }
+             }
+ 
+             Reveal(3) { StorageCard(video.sizeBytes) }
+ 
+             Reveal(4) {
+-                SectionCard("Video", Icons.Default.Videocam, Sky) {
+-                    DetailRow("Codec", details.videoCodec)
+-                    RowDivider()
+-                    DetailRow("Format", video.fileExtension)
+-                    RowDivider()
+-                    DetailRow("Frame rate", details.frameRate)
+-                    if (details.captureFps.isNotBlank()) {
+-                        RowDivider()
+-                        DetailRow("Capture FPS", details.captureFps)
+-                    }
+-                    RowDivider()
+-                    DetailRow("Bitrate", details.bitrate)
+-                    RowDivider()
+-                    DetailRow("Rotation", details.rotation)
+-                    RowDivider()
+-                    DetailRow("Color", details.colorStandard)
++                SectionCard("Video", Icons.Default.Videocam, Violet) {
++                    val orientation = orientationName(video.width, video.height) +
++                        if (details.rotation != "0°" && details.rotation.isNotBlank()) " · rotated ${details.rotation}" else ""
++                    DetailRows(
++                        buildList {
++                            if (details.videoCodec != "Unknown") add("Codec" to details.videoCodec)
++                            add("Container" to video.fileExtension.ifBlank { "Unknown" })
++                            if (details.frameRate != "Unknown") add("Frame rate" to details.frameRate)
++                            if (details.captureFps.isNotBlank()) add("Capture FPS" to details.captureFps)
++                            if (details.bitrate != "Unknown") add("Bitrate" to details.bitrate)
++                            add("Orientation" to orientation)
++                            if (details.colorStandard != "Unknown") add("Colour" to details.colorStandard)
++                        }
++                    )
+                 }
+             }
+ 
+             Reveal(5) {
+-                SectionCard("Audio", Icons.Default.MusicNote, Teal) {
++                SectionCard("Audio", Icons.Default.MusicNote, Violet) {
+                     DetailRow("Track", details.audioCodec)
+                 }
+             }
+ 
+             Reveal(6) {
+-                SectionCard("File", Icons.Default.Folder, Amber) {
+-                    DetailRow("Added", video.formattedDateAdded)
+-                    RowDivider()
+-                    DetailRow("Modified", formatSeconds(video.dateModifiedSec))
+-                    RowDivider()
+-                    DetailRow("Type", video.mimeType.ifBlank { "Unknown" })
++                SectionCard("File", Icons.Default.Folder, Violet) {
++                    val folder = video.relativePath.ifEmpty { video.bucketDisplayName }
++                    // The same moment is shown once; "Modified" only appears when it really is a different time
++                    val showModified = kotlin.math.abs(video.dateModifiedSec - video.dateAddedSec) > 60
++                    DetailRows(
++                        buildList {
++                            add("Added" to formatSeconds(video.dateAddedSec))
++                            if (showModified) add("Modified" to formatSeconds(video.dateModifiedSec))
++                        }
++                    )
+                     RowDivider()
+                     DetailRow(
+                         label = "Folder",
+-                        value = video.relativePath.ifEmpty { video.bucketDisplayName },
+-                        onCopy = { copyToClipboard(context, "Folder", video.relativePath.ifEmpty { video.bucketDisplayName }) }
++                        value = folder,
++                        onCopy = { copyToClipboard(context, "Folder", folder) }
+                     )
+-                    if (video.filePath.isNotBlank()) {
++                    // A real file path is useful; the phone's internal content:// address is not
++                    if (video.filePath.isNotBlank() && !video.filePath.startsWith("content:")) {
+                         RowDivider()
+                         DetailRow(
+                             label = "Full path",
+@@ -277,8 +282,8 @@ private fun HeroCard(video: LocalVideo, folder: String, onCopy: () -> Unit) {
+             modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+             horizontalArrangement = Arrangement.spacedBy(8.dp)
+         ) {
+-            Chip(video.fileExtension.uppercase(Locale.getDefault()), Teal)
+-            smart.kind?.let { Chip(it, Violet) }
++            Chip(video.fileExtension.uppercase(Locale.getDefault()), Violet)
++            smart.kindLabel?.let { Chip(it, Violet) }
+         }
+         IconButton(
+             onClick = onCopy,
+@@ -316,7 +321,7 @@ private fun HeroCard(video: LocalVideo, folder: String, onCopy: () -> Unit) {
+             }
+             Spacer(Modifier.height(8.dp))
+             Row(verticalAlignment = Alignment.CenterVertically) {
+-                Icon(Icons.Default.Folder, contentDescription = null, tint = Amber, modifier = Modifier.size(14.dp))
++                Icon(Icons.Default.Folder, contentDescription = null, tint = Violet, modifier = Modifier.size(14.dp))
+                 Spacer(Modifier.width(6.dp))
+                 Text(
+                     text = folder,
+@@ -430,7 +435,13 @@ private fun StorageCard(fileBytes: Long) {
+         }
+         Spacer(Modifier.height(10.dp))
+         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+-            Text(stringResource(R.string.this_video) + formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
++            Row(verticalAlignment = Alignment.CenterVertically) {
++                Box(modifier = Modifier.size(8.dp).background(Rose, CircleShape))
++                Spacer(modifier = Modifier.width(6.dp))
++                Text("This video", color = Color(0xFFCBD5E1), fontSize = 12.sp)
++                Spacer(modifier = Modifier.width(6.dp))
++                Text(formatBytes(fileBytes), color = Rose, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
++            }
+             Text(formatBytes(freeBytes) + " free of " + formatBytes(totalBytes), color = Muted, fontSize = 12.sp)
+         }
+         Spacer(Modifier.height(10.dp))
+@@ -517,3 +528,12 @@ private fun copyToClipboard(context: Context, label: String, text: String) {
+     clipboard?.setPrimaryClip(ClipData.newPlainText(label, text))
+     Feedback.show("Copied $label")
+ }
++
++/** A list of label / value rows with a thin divider between them. */
++@Composable
++private fun DetailRows(rows: List<Pair<String, String>>) {
++    rows.forEachIndexed { index, (label, value) ->
++        if (index > 0) RowDivider()
++        DetailRow(label, value)
++    }
++}
+diff --git a/video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt b/video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt
+index 9b97840..82650c7 100644
+--- a/video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt	
++++ b/video player/app/src/main/java/com/example/ui/components/VideoInfoOverlay.kt	
+@@ -32,6 +32,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.Folder
+ import androidx.compose.material.icons.filled.Hd
++import androidx.compose.material.icons.filled.Timer
++import androidx.compose.material.icons.filled.SdStorage
++import androidx.compose.material.icons.filled.Movie
++import androidx.compose.material.icons.filled.CalendarToday
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Text
+@@ -56,6 +60,7 @@ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import com.example.data.model.LocalVideo
+ import com.example.ui.model.isHorizontal
++import com.example.ui.model.qualityBadge
+ import com.example.ui.model.smartTitle
+ import com.example.ui.theme.Ds
+ import com.example.ui.theme.GlassBackground
+@@ -114,46 +119,31 @@ fun VideoInfoOverlay(
+             )
+             .padding(start = 16.dp, end = 84.dp, bottom = 12.dp, top = 56.dp)
+     ) {
+-        // Where it lives, and whether it is HD
+-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-            Row(
+-                verticalAlignment = Alignment.CenterVertically,
+-                modifier = Modifier
+-                    .weight(1f, fill = false)
+-                    .background(GlassBackground, CircleShape)
+-                    .border(1.dp, GlassBorder, CircleShape)
+-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+-            ) {
+-                Icon(
+-                    imageVector = Icons.Default.Folder,
+-                    contentDescription = null,
+-                    tint = Color(0xFF5EEAD4),
+-                    modifier = Modifier.size(13.dp)
+-                )
+-                Spacer(modifier = Modifier.width(5.dp))
++        // Where it lives, where it came from, and how good the picture is: all the same dark-glass pill
++        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
++            GlassPill(modifier = Modifier.weight(1f, fill = false)) {
++                Icon(Icons.Default.Folder, contentDescription = null, tint = PillIcon, modifier = Modifier.size(14.dp))
++                Spacer(modifier = Modifier.width(6.dp))
+                 Text(
+                     text = video.bucketDisplayName,
+-                    color = Color(0xEEFFFFFF),
+-                    fontSize = 11.sp,
++                    color = Color(0xF2FFFFFF),
++                    fontSize = Ds.Type.Caption,
+                     fontWeight = FontWeight.SemiBold,
+                     maxLines = 1,
+                     overflow = TextOverflow.Ellipsis
+                 )
+             }
+-            smart.kind?.let { KindChip(it) }
+-            if (video.isHorizontal() && !video.isSample) MovieChip(onEnterMovieMode)
+-            if (video.width >= 1080 || video.height >= 1080) {
+-                Icon(
+-                    imageVector = Icons.Default.Hd,
+-                    contentDescription = "HD",
+-                    tint = Color(0xFFC4B5FD),
+-                    modifier = Modifier
+-                        .background(Color(0x33A78BFA), RoundedCornerShape(8.dp))
+-                        .border(1.dp, Color(0x44A78BFA), RoundedCornerShape(8.dp))
+-                        .padding(horizontal = 5.dp, vertical = 2.dp)
+-                        .size(14.dp)
+-                )
++            smart.kindLabel?.let { label ->
++                GlassPill {
++                    Text(label, color = Color(0xF2FFFFFF), fontSize = Ds.Type.Caption, fontWeight = FontWeight.SemiBold, maxLines = 1)
++                }
+             }
++            qualityBadge(video.width, video.height)?.let { badge ->
++                GlassPill {
++                    Text(badge, color = PillIcon, fontSize = Ds.Type.Caption, fontWeight = FontWeight.ExtraBold, maxLines = 1)
++                }
++            }
++            if (video.isHorizontal() && !video.isSample) MovieChip(onEnterMovieMode)
+         }
+ 
+         Spacer(modifier = Modifier.height(10.dp))
+@@ -165,7 +155,7 @@ fun VideoInfoOverlay(
+                     .width(3.dp)
+                     .fillMaxHeight()
+                     .clip(CircleShape)
+-                    .background(Brush.verticalGradient(listOf(Color(0xFF5EEAD4), Color(0xFF8B5CF6))))
++                    .background(Brush.verticalGradient(listOf(Ds.Palette.Orange, Ds.Palette.Pink, Ds.Palette.Violet)))
+             )
+             Spacer(modifier = Modifier.width(10.dp))
+             Text(
+@@ -185,16 +175,16 @@ fun VideoInfoOverlay(
+ 
+         Spacer(modifier = Modifier.height(10.dp))
+ 
+-        // Facts as small tinted chips. The date chip shrinks with an ellipsis rather than pushing past the action rail.
++        // Facts as small glass chips with matching icons. The date chip shrinks with an ellipsis rather than pushing past the action rail.
+         Row(
+             modifier = Modifier.fillMaxWidth(),
+             horizontalArrangement = Arrangement.spacedBy(6.dp),
+             verticalAlignment = Alignment.CenterVertically
+         ) {
+-            InfoChip("💾", video.formattedSize, Color(0xFF5EEAD4))
+-            InfoChip("⏱", video.formattedDuration, Color(0xFFA78BFA))
++            InfoChip(Icons.Default.SdStorage, video.formattedSize)
++            InfoChip(Icons.Default.Timer, video.formattedDuration)
+             if (video.formattedDateShort.isNotBlank()) {
+-                InfoChip("📅", video.formattedDateShort, Color(0xFFFBBF24), Modifier.weight(1f, fill = false))
++                InfoChip(Icons.Default.CalendarToday, video.formattedDateShort, Modifier.weight(1f, fill = false))
+             }
+         }
+ 
+@@ -252,14 +242,14 @@ fun VideoInfoOverlay(
+                     .fillMaxWidth(currentRatio)
+                     .height(trackHeight)
+                     .clip(CircleShape)
+-                    .background(Brush.horizontalGradient(listOf(Color(0xFF5EEAD4), Color(0xFF8B5CF6))))
++                    .background(Brush.horizontalGradient(listOf(Ds.Palette.Orange, Ds.Palette.Pink, Ds.Palette.Violet)))
+             )
+-            // Playhead with a soft cyan glow
++            // Playhead with a soft pink glow
+             Box(modifier = Modifier.fillMaxWidth(currentRatio), contentAlignment = Alignment.CenterEnd) {
+                 Box(
+                     modifier = Modifier
+                         .size(thumbSize)
+-                        .shadow(10.dp, CircleShape, ambientColor = Color(0xFF5EEAD4), spotColor = Color(0xFF5EEAD4))
++                        .shadow(10.dp, CircleShape, ambientColor = Ds.Palette.Pink, spotColor = Ds.Palette.Pink)
+                         .background(Color.White, CircleShape)
+                 )
+             }
+@@ -279,7 +269,7 @@ fun VideoInfoOverlay(
+                         }
+                         .onSizeChanged { bubbleWidthPx = it.width }
+                         .background(Color(0xF2111827), RoundedCornerShape(12.dp))
+-                        .border(1.dp, Color(0x805EEAD4), RoundedCornerShape(12.dp))
++                        .border(1.dp, Color(0x80F472B6), RoundedCornerShape(12.dp))
+                         .padding(horizontal = 12.dp, vertical = 6.dp)
+                 )
+             }
+@@ -294,7 +284,7 @@ fun VideoInfoOverlay(
+             Text(
+                 text = formatTime(displayProgressMs),
+                 style = TimeStyle,
+-                color = if (isScrubbing) Color(0xFF5EEAD4) else Color(0xB3FFFFFF)
++                color = if (isScrubbing) Ds.Palette.PinkSoft else Color(0xB3FFFFFF)
+             )
+             Text(
+                 text = formatTime(safeTotal),
+@@ -312,20 +302,31 @@ private val TimeStyle = TextStyle(
+     fontFeatureSettings = "tnum"
+ )
+ 
++private val PillGlass = Color(0x99000000)
++private val PillRim = Brush.linearGradient(listOf(Color(0x59FFFFFF), Color(0x1FFFFFFF)))
++private val PillIcon = Color(0xFFC4B5FD)
++
++/** The one pill every chip over the video shares: dark glass with a thin light rim. */
+ @Composable
+-private fun InfoChip(icon: String, text: String, tint: Color, modifier: Modifier = Modifier) {
++private fun GlassPill(modifier: Modifier = Modifier, content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit) {
+     Row(
+         verticalAlignment = Alignment.CenterVertically,
+         modifier = modifier
+-            .background(tint.copy(alpha = 0.14f), CircleShape)
+-            .border(1.dp, tint.copy(alpha = 0.30f), CircleShape)
+-            .padding(horizontal = 9.dp, vertical = 4.dp)
+-    ) {
+-        Text(icon, fontSize = Ds.Type.Caption)
+-        Spacer(modifier = Modifier.width(4.dp))
++            .background(PillGlass, CircleShape)
++            .border(1.dp, PillRim, CircleShape)
++            .padding(horizontal = 10.dp, vertical = 5.dp),
++        content = content
++    )
++}
++
++@Composable
++private fun InfoChip(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, modifier: Modifier = Modifier) {
++    GlassPill(modifier = modifier) {
++        Icon(icon, contentDescription = null, tint = PillIcon, modifier = Modifier.size(14.dp))
++        Spacer(modifier = Modifier.width(5.dp))
+         Text(
+             text = text,
+-            color = Color(0xE6FFFFFF),
++            color = Color(0xF2FFFFFF),
+             fontSize = Ds.Type.Caption,
+             fontWeight = FontWeight.SemiBold,
+             maxLines = 1,
+@@ -335,22 +336,6 @@ private fun InfoChip(icon: String, text: String, tint: Color, modifier: Modifier
+     }
+ }
+ 
+-/** Where the file came from (Camera, Screen recording, WhatsApp), shown beside the folder chip. */
+-@Composable
+-private fun KindChip(label: String) {
+-    Text(
+-        text = label,
+-        color = Color(0xFFDDD6FE),
+-        fontSize = Ds.Type.Caption,
+-        fontWeight = FontWeight.SemiBold,
+-        maxLines = 1,
+-        modifier = Modifier
+-            .background(Color(0x338B5CF6), CircleShape)
+-            .border(1.dp, Color(0x558B5CF6), CircleShape)
+-            .padding(horizontal = 10.dp, vertical = 4.dp)
+-    )
+-}
+-
+ private fun formatTime(millis: Long): String {
+     val totalSec = (millis.coerceAtLeast(0L)) / 1000
+     val min = totalSec / 60
+@@ -361,17 +346,9 @@ private fun formatTime(millis: Long): String {
+ /** Starts movie mode for a wide video (the landscape player with skip, speed, fit, audio/subtitles and a lock). */
+ @Composable
+ private fun MovieChip(onClick: () -> Unit) {
+-    Text(
+-        text = "🎬 Movie mode",
+-        color = Color(0xFFFED7AA),
+-        fontSize = Ds.Type.Caption,
+-        fontWeight = FontWeight.SemiBold,
+-        maxLines = 1,
+-        modifier = Modifier
+-            .clip(CircleShape)
+-            .clickable(onClick = onClick)
+-            .background(Color(0x33F97316), CircleShape)
+-            .border(1.dp, Color(0x66F97316), CircleShape)
+-            .padding(horizontal = 10.dp, vertical = 6.dp)
+-    )
++    GlassPill(modifier = Modifier.clip(CircleShape).clickable(onClick = onClick)) {
++        Icon(Icons.Default.Movie, contentDescription = null, tint = Ds.Palette.Orange, modifier = Modifier.size(14.dp))
++        Spacer(modifier = Modifier.width(5.dp))
++        Text("Movie mode", color = Color(0xF2FFFFFF), fontSize = Ds.Type.Caption, fontWeight = FontWeight.SemiBold, maxLines = 1)
++    }
+ }
+diff --git a/video player/app/src/main/java/com/example/ui/model/SmartTitle.kt b/video player/app/src/main/java/com/example/ui/model/SmartTitle.kt
+index fc3a653..07e4f52 100644
+--- a/video player/app/src/main/java/com/example/ui/model/SmartTitle.kt	
++++ b/video player/app/src/main/java/com/example/ui/model/SmartTitle.kt	
+@@ -8,7 +8,10 @@ import java.util.Locale
+  * What to show instead of a raw file name. [kind] is a short label with an emoji ("📹 Camera") when the name is
+  * one the phone generated; null for a name a person chose.
+  */
+-data class SmartTitle(val title: String, val kind: String?)
++data class SmartTitle(val title: String, val kind: String?) {
++    /** The kind without its emoji ("Camera"), for chips that use their own icons. */
++    val kindLabel: String? get() = kind?.let { it.substringAfter(' ', it) }
++}
+ 
+ // A date, optionally followed by a time: 20260121_153012, 2026-01-21-15-30-12, ... Not preceded by another digit.
+ private val STAMP = Regex("""(?<!\d)(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})(?:[-_. T]?(\d{2})[-_.]?(\d{2})[-_.]?(\d{2}))?""")
+diff --git a/video player/app/src/main/java/com/example/ui/model/VideoDisplayMode.kt b/video player/app/src/main/java/com/example/ui/model/VideoDisplayMode.kt
+index 8191d49..2f3c1bc 100644
+--- a/video player/app/src/main/java/com/example/ui/model/VideoDisplayMode.kt	
++++ b/video player/app/src/main/java/com/example/ui/model/VideoDisplayMode.kt	
+@@ -1,7 +1,7 @@
+ package com.example.ui.model
+ 
+ enum class VideoDisplayMode(val label: String, val shortLabel: String) {
+-    CROP("Crop (Fill)", "Crop"),
+-    FIT("Fit (Original)", "Fit"),
++    CROP("Fill", "Fill"),
++    FIT("Fit", "Fit"),
+     STRETCH("Stretch", "Stretch")
+ }
+diff --git a/video player/app/src/main/java/com/example/ui/model/VideoQuality.kt b/video player/app/src/main/java/com/example/ui/model/VideoQuality.kt
+new file mode 100644
+index 0000000..363b66f
+--- /dev/null
++++ b/video player/app/src/main/java/com/example/ui/model/VideoQuality.kt	
+@@ -0,0 +1,29 @@
++package com.example.ui.model
++
++/**
++ * The quality label for a picture, from its shorter side so it reads the same upright or sideways:
++ * 720 and up is "HD", 1080 "FHD", 1440 "2K", 2160 "4K". Smaller pictures get no label.
++ */
++fun qualityBadge(width: Int, height: Int): String? {
++    val shortSide = minOf(width, height)
++    return when {
++        shortSide <= 0 -> null
++        shortSide >= 2160 -> "4K"
++        shortSide >= 1440 -> "2K"
++        shortSide >= 1080 -> "FHD"
++        shortSide >= 720 -> "HD"
++        else -> null
++    }
++}
++
++/** "720×1280" for a tile, or "Unknown" when the size is not known. */
++fun formatResolutionShort(width: Int, height: Int): String =
++    if (width > 0 && height > 0) "$width\u00D7$height" else "Unknown"
++
++/** "Portrait", "Landscape" or "Square". */
++fun orientationName(width: Int, height: Int): String = when {
++    width <= 0 || height <= 0 -> "Unknown"
++    width > height -> "Landscape"
++    width < height -> "Portrait"
++    else -> "Square"
++}
+diff --git a/video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt b/video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt
+new file mode 100644
+index 0000000..6b2fca0
+--- /dev/null
++++ b/video player/app/src/test/java/com/example/data/repository/CodecNamesTest.kt	
+@@ -0,0 +1,43 @@
++package com.example.data.repository
++
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++class CodecNamesTest {
++    @Test
++    fun videoCodecsGetPlainNames() {
++        assertEquals("H.264", CodecNames.videoCodec("video/avc"))
++        assertEquals("H.265 (HEVC)", CodecNames.videoCodec("video/hevc"))
++        assertEquals("VP9", CodecNames.videoCodec("video/x-vnd.on2.vp9"))
++        assertEquals("AV1", CodecNames.videoCodec("video/av01"))
++        assertEquals("FOO", CodecNames.videoCodec("video/foo"))
++        assertEquals("Unknown", CodecNames.videoCodec(null))
++        assertEquals("Unknown", CodecNames.videoCodec(" "))
++    }
++
++    @Test
++    fun audioTrackReadsCodecChannelsAndRate() {
++        assertEquals("AAC · Stereo · 44.1 kHz", CodecNames.audioTrack("audio/mp4a-latm", 2, 44100))
++        assertEquals("AAC · Mono · 48 kHz", CodecNames.audioTrack("audio/mp4a-latm", 1, 48000))
++        assertEquals("Opus · 5.1 surround", CodecNames.audioTrack("audio/opus", 6, 0))
++        assertEquals("MP3", CodecNames.audioTrack("audio/mpeg", 0, 0))
++        assertEquals("No audio", CodecNames.audioTrack(null, 2, 44100))
++    }
++
++    @Test
++    fun frameRateIsHonest() {
++        assertEquals("30 fps", CodecNames.frameRate(30f))
++        assertEquals("29.97 fps", CodecNames.frameRate(29.97f))
++        assertEquals("60 fps", CodecNames.frameRate(60.004f))
++        assertEquals("Unknown", CodecNames.frameRate(0f))
++        assertEquals("Unknown", CodecNames.frameRate(-1f))
++    }
++
++    @Test
++    fun colourStandardNames() {
++        assertEquals("BT.709", CodecNames.colorStandard(1))
++        assertEquals("BT.601", CodecNames.colorStandard(4))
++        assertEquals("BT.2020 (wide colour)", CodecNames.colorStandard(6))
++        assertEquals("Unknown", CodecNames.colorStandard(99))
++    }
++}
+diff --git a/video player/app/src/test/java/com/example/ui/VideoQualityTest.kt b/video player/app/src/test/java/com/example/ui/VideoQualityTest.kt
+new file mode 100644
+index 0000000..8d3fd04
+--- /dev/null
++++ b/video player/app/src/test/java/com/example/ui/VideoQualityTest.kt	
+@@ -0,0 +1,35 @@
++package com.example.ui
++
++import com.example.ui.model.formatResolutionShort
++import com.example.ui.model.orientationName
++import com.example.ui.model.qualityBadge
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.Test
++
++class VideoQualityTest {
++    @Test
++    fun badgeUsesTheShorterSideSoSidewaysAndUprightAgree() {
++        assertEquals("HD", qualityBadge(720, 1280))
++        assertEquals("HD", qualityBadge(1280, 720))
++        assertEquals("FHD", qualityBadge(1080, 1920))
++        assertEquals("2K", qualityBadge(2560, 1440))
++        assertEquals("4K", qualityBadge(3840, 2160))
++    }
++
++    @Test
++    fun smallOrUnknownPicturesGetNoBadge() {
++        assertNull(qualityBadge(640, 360))
++        assertNull(qualityBadge(0, 0))
++    }
++
++    @Test
++    fun resolutionAndOrientationText() {
++        assertEquals("720\u00D71280", formatResolutionShort(720, 1280))
++        assertEquals("Unknown", formatResolutionShort(0, 1280))
++        assertEquals("Portrait", orientationName(720, 1280))
++        assertEquals("Landscape", orientationName(1920, 1080))
++        assertEquals("Square", orientationName(500, 500))
++        assertEquals("Unknown", orientationName(0, 0))
++    }
++}
+-- 
+2.43.0
